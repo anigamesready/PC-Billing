@@ -127,7 +127,7 @@ jobs:
           name: AniGames-PC-V12.1.4-ADMIN-STOP-ALERTS-BLYNK-MAPPING
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.1.3-PAIRING-PRESERVE-DUAL-DB-SAFETY-SOURCE.zip
+            AniGames-PC-V12.1.4-ADMIN-STOP-ALERTS-BLYNK-MAPPING-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
           if-no-files-found: error
           retention-days: 14
