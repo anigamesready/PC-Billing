@@ -1,0 +1,105 @@
+name: Build AniGames PC V12.1.2 Log Optimized + Admin Alerts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+      - 'scripts/patch_pc_log_optimization.py'
+      - 'docs/PC-LOG-OPTIMIZATION-AUDIT.md'
+      - '.github/workflows/build-pc-v12-optimized.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pc:
+    name: Patch, test, and build Windows portable EXE
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Extract source ZIP
+        shell: pwsh
+        run: |
+          $zip = 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+          if (!(Test-Path $zip)) { throw 'PC Billing source ZIP missing.' }
+          Expand-Archive -LiteralPath $zip -DestinationPath 'source-bundle' -Force
+          $project = Get-ChildItem 'source-bundle' -Directory -Recurse | Where-Object { $_.Name -eq 'Ani-Games-Billing-PC-V12.1.0' } | Select-Object -First 1
+          if (!$project) { throw 'Ani-Games-Billing-PC-V12.1.0 folder not found in source ZIP.' }
+          if (!(Test-Path (Join-Path $project.FullName 'renderer.js'))) { throw 'PC renderer.js missing.' }
+          Copy-Item 'scripts/patch_pc_log_optimization.py' (Join-Path $project.FullName 'patch_pc_log_optimization.py')
+          "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Detected PC project: $($project.FullName)"
+
+      - name: Apply log and alert patch
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          python patch_pc_log_optimization.py
+          if ($LASTEXITCODE -ne 0) { throw 'PC source patch failed.' }
+
+      - name: JavaScript and API static regression
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          node --check renderer.js
+          if ($LASTEXITCODE -ne 0) { throw 'renderer.js syntax check failed.' }
+          node --check v11-cloud.js
+          if ($LASTEXITCODE -ne 0) { throw 'v11-cloud.js syntax check failed.' }
+          $renderer = Get-Content 'renderer.js' -Raw
+          $cloud = Get-Content 'v11-cloud.js' -Raw
+          $edge = Get-Content 'supabase/functions/ani-games-api/index.ts' -Raw
+          foreach ($token in @('last.count', 'Backup manual berhasil', 'v11EmitAdminAlert', 'session_expired', 'session_stopped')) {
+            if (!$renderer.Contains($token)) { throw "Renderer regression token missing: $token" }
+          }
+          foreach ($token in @('ALERT_OUTBOX_KEY', 'flushAdminAlerts', '/device/alert')) {
+            if (!$cloud.Contains($token)) { throw "Cloud alert token missing: $token" }
+          }
+          if (!$edge.Contains('path === "device/alert"') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
+          $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
+          if ($package.version -ne '12.1.2') { throw "Unexpected patched version: $($package.version)" }
+          python -m py_compile patch_pc_log_optimization.py
+          if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
+          Write-Host 'PASS: renderer.js, v11-cloud.js, alert route, log optimization and version checks.'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ${{ github.workspace }}/source-bundle/**/package-lock.json
+
+      - name: Install locked dependencies
+        shell: pwsh
+        run: npm ci --no-audit --no-fund
+        working-directory: ${{ env.PC_PROJECT_DIR }}
+
+      - name: Build Windows portable EXE
+        shell: pwsh
+        run: npm run build
+        working-directory: ${{ env.PC_PROJECT_DIR }}
+
+      - name: Verify and package outputs
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
+          if (!$exe) { throw 'No portable EXE produced.' }
+          Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List
+          Compress-Archive -Path $env:PC_PROJECT_DIR -DestinationPath 'AniGames-PC-V12.1.2-LOG-OPTIMIZED-ALERTS-SOURCE.zip' -Force
+          Write-Host "Built EXE: $($exe.FullName)"
+
+      - name: Upload EXE, patched source, and audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-PC-V12.1.2-LOG-OPTIMIZED-ALERTS
+          path: |
+            ${{ env.PC_PROJECT_DIR }}/dist/*.exe
+            AniGames-PC-V12.1.2-LOG-OPTIMIZED-ALERTS-SOURCE.zip
+            docs/PC-LOG-OPTIMIZATION-AUDIT.md
+          if-no-files-found: error
+          retention-days: 14
