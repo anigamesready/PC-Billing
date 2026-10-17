@@ -35,6 +35,7 @@ No rental/session/transaction/device rows were intentionally migrated or deleted
 | `sensitive_auth_and_pairing_rpc_server_only_v1` | Removed direct PUBLIC/anon/authenticated execute access to legacy username resolver, billing login RPC, and device redemption RPC; service-role access remains for Edge Functions. | ACL query confirms anon/authenticated=false and service_role=true for all three.
 
 | `rental_code_status_audit_normalization_trigger_v1` + `rental_code_status_audit_normalization_trigger_v2` | The shipped Admin APK's narrow direct code/status update normalizes changed codes to uppercase/trim, stamps `updated_at`, and inserts an audit row for authenticated changes. Status-only updates do not rewrite legacy codes. | Rollback-wrapped trigger test verified status-only updates preserve code, explicit code changes normalize, each real update adds one audit row, and zero synthetic rows remain. |
+| `admin_update_rental_identity_rpc_v1` | Added `api.admin_update_rental_identity` with owner/org/device scoping, code normalization, allowed-status validation, duplicate-code rejection, and audit-trigger integration. Granted only to `authenticated` and `service_role`, not `anon`. | Rollback-wrapped test verified successful update, normalized code/status, one audit row, duplicate code rejection, and zero leftover test rows. |
 
 ## New Edge Functions / compatible API gateway deployed on DB1
 
