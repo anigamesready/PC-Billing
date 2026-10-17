@@ -36,6 +36,7 @@ No rental/session/transaction/device rows were intentionally migrated or deleted
 
 | `rental_code_status_audit_normalization_trigger_v1` + `rental_code_status_audit_normalization_trigger_v2` | The shipped Admin APK's narrow direct code/status update normalizes changed codes to uppercase/trim, stamps `updated_at`, and inserts an audit row for authenticated changes. Status-only updates do not rewrite legacy codes. | Rollback-wrapped trigger test verified status-only updates preserve code, explicit code changes normalize, each real update adds one audit row, and zero synthetic rows remain. |
 | `admin_update_rental_identity_rpc_v1` | Added `api.admin_update_rental_identity` with owner/org/device scoping, code normalization, allowed-status validation, duplicate-code rejection, and audit-trigger integration. Granted only to `authenticated` and `service_role`, not `anon`. | Rollback-wrapped test verified successful update, normalized code/status, one audit row, duplicate code rejection, and zero leftover test rows. |
+| `owner_access_null_denial_fix_v1` | `private.is_owner_access()` now returns explicit `false` for a caller without owner membership, eliminating a SQL-NULL fail-open condition in SECURITY DEFINER RPC guards that use `IF NOT helper()`. | Rollback-wrapped negative authorization checks rejected 7 legacy operations with `OWNER_ONLY`/`ORG_ACCESS_DENIED`; no business rows were changed. The new RPC also explicitly requires `private.is_owner_access(...) IS DISTINCT FROM TRUE`. |
 
 ## New Edge Functions / compatible API gateway deployed on DB1
 
