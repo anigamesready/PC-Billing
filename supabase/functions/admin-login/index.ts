@@ -61,9 +61,9 @@ Deno.serve(async (req: Request) => {
   } catch (_) {
     return json(400, { ok: false, error: "INVALID_REQUEST" });
   }
-  const username = String(body.username ?? "").trim().toLowerCase();
+  const login = String(body.username ?? body.email ?? body.login ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
-  if (!username || username.length > 80 || !password || password.length > 256) {
+  if (!login || login.length > 120 || !password || password.length > 256) {
     return json(400, { ok: false, error: "INVALID_REQUEST" });
   }
 
@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
       db: { schema: "api" },
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
-    const usernameKey = await sha256Hex(secret + "|admin-login-username|" + username);
+    const usernameKey = await sha256Hex(secret + "|admin-login-identity|" + login);
     const keyHashes = [usernameKey];
 
     // Trust only gateway-supplied client-IP headers; do not use arbitrary X-Forwarded-For.
@@ -91,8 +91,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { data: accounts, error: lookupError } = await admin.rpc("resolve_admin_username", {
-      p_username: username,
+    const { data: accounts, error: lookupError } = await admin.rpc("admin_login_lookup", {
+      p_login: login,
     });
     if (lookupError) {
       console.error("admin-login lookup failed");
