@@ -1,0 +1,12 @@
+-- Applied on DB1 as device_rpc_payload_limits_v1 + device_sync_payload_preflight_v1.
+-- Existing PC sync behavior sends at most 100 source events per batch.
+
+-- These checks are part of CREATE OR REPLACE FUNCTION definitions in migration history:
+-- api.device_sync(text,jsonb): events must be an array, max 100 items, max 512 KiB total.
+-- api.device_heartbeat(text,text,jsonb): metadata must be a JSON object <= 32 KiB; app_version <=120 chars.
+-- api.device_ack(text,uuid,text,jsonb): result <=32 KiB.
+-- api.device_finalize_trial(text,uuid,text,jsonb): result <=32 KiB.
+-- api.device_emit_admin_alert(text,text,text,text,jsonb,timestamptz): payload <=16 KiB.
+--
+-- Oversized payload checks are performed before token lookup where safe, so clients
+-- get a deterministic validation error without causing any business writes.
