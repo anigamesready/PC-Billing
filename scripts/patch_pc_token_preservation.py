@@ -57,16 +57,17 @@ if manual_new not in cloud:
     cloud = cloud.replace(manual_anchor, manual_new, 1)
 
 cloud_path.write_text(cloud, encoding="utf-8")
-for token in (
-    "billing_v11_token_rejected_hold",
-    "DATA LOKAL DIPERTAHANKAN",
-    "localStorage.removeItem(CLOUD_KEY)",
-    "localStorage.removeItem(SYNC_DIRTY_KEY)",
-):
-    if token == "localStorage.removeItem(CLOUD_KEY)" or token == "localStorage.removeItem(SYNC_DIRTY_KEY)":
-        if token in cloud:
-            raise SystemExit("Unsafe token rejection data wipe remains in source.")
-    elif token not in cloud:
+branch_start = cloud.find("includes('INVALID_DEVICE_TOKEN')")
+branch_end = cloud.find("return}", branch_start)
+if branch_start < 0 or branch_end < 0:
+    raise SystemExit("INVALID_DEVICE_TOKEN branch could not be verified")
+rejected_branch = cloud[branch_start:branch_end + len("return}")]
+if "billing_v11_token_rejected_hold" not in rejected_branch or "DATA LOKAL DIPERTAHANKAN" not in rejected_branch:
+    raise SystemExit("Token rejection safety hold is missing from the error branch")
+if "localStorage.removeItem(" in rejected_branch or "SYNC_DIRTY_KEY" in rejected_branch:
+    raise SystemExit("Unsafe token rejection data wipe remains in the error branch")
+for token in ("billing_v11_token_rejected_hold", "DATA LOKAL DIPERTAHANKAN"):
+    if token not in cloud:
         raise SystemExit("Safety regression token missing: " + token)
 
 # Version is applied after the existing log/alert patch runs in the build workflow.
