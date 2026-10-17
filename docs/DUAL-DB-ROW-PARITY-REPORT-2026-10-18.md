@@ -84,3 +84,18 @@ Until all checks pass, keep DB2 read-only for this migration effort and do not m
 - Final read-only verification confirms both route-control rows remain at epoch 1, with `active_target = primary`, `primary_ready = true`, and the three backup gates false. The `db-route-status` functions are active at DB1 version 2 and DB2 version 3.
 
 This remains a readiness/control-plane improvement only. The parity findings above still block DB2 use; no application-row synchronization or traffic cutover has occurred.
+
+
+## Additional ACL hardening
+
+A scan of the public relations found no base tables with RLS disabled and exposed to anon/authenticated. The `usage_daily` view is marked `security_invoker=true`, so it observes the underlying `usage_events` RLS rules.
+
+The audit found DB2 had direct `anon` and `authenticated` table privileges on `billing_control_accounts` and `billing_control_sessions`, even though both tables have RLS enabled but no client policies. Those grants were redundant and inconsistent with DB1. Migration `private_control_tables_revoke_client_access_v1` has now revoked direct `anon`/`authenticated` privileges on these two tables plus `admin_alert_events` and `db_route_control` in both projects.
+
+Post-migration verification:
+- Direct `SELECT` and `INSERT` privileges on these four tables are false for both `anon` and `authenticated`.
+- `service_role` retains `SELECT` and `INSERT` privileges.
+- The required `api.db_route_get/set` and alert RPC execution grants remain unchanged.
+- No application rows were changed.
+
+The Supabase advisor may still report the no-policy tables as informational. That is intentional for service-only tables: direct clients have no table privileges, while authorized SECURITY DEFINER/server paths remain available.
