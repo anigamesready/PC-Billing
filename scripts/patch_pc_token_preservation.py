@@ -73,13 +73,13 @@ for token in ("billing_v11_token_rejected_hold", "DATA LOKAL DIPERTAHANKAN"):
 # Version is applied after the existing log/alert patch runs in the build workflow.
 package = json.loads(package_path.read_text(encoding="utf-8"))
 lock = json.loads(lock_path.read_text(encoding="utf-8"))
-if package.get("version") not in {"12.1.1", "12.1.2", "12.1.3"}:
+if package.get("version") not in {"12.1.1", "12.1.2", "12.1.3", "12.1.4"}:
     raise SystemExit("Unexpected package.json version; refusing to bump blindly")
-package["version"] = "12.1.3"
-lock["version"] = "12.1.3"
+package["version"] = "12.1.4"
+lock["version"] = "12.1.4"
 if isinstance(lock.get("packages"), dict) and isinstance(lock["packages"].get(""), dict):
-    lock["packages"][""]["version"] = "12.1.3"
+    lock["packages"][""]["version"] = "12.1.4"
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-(ROOT / "VERSION.txt").write_text("V12.1.3-PAIRING-PRESERVE-DUAL-DB-SAFETY\n", encoding="utf-8")
-print("Applied token-rejection safety hold; pairing, cursor, dirty set and alert outbox remain intact. PC version 12.1.3.")
+(ROOT / "VERSION.txt").write_text("V12.1.4-ADMIN-STOP-ALERT-PAIRING-SAFETY\n", encoding="utf-8")
+print("Applied token-rejection safety hold; pairing, cursor, dirty set and alert outbox remain intact. PC version 12.1.4.")
