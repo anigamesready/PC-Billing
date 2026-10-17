@@ -90,7 +90,20 @@ jobs:
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List
-          Compress-Archive -Path $env:PC_PROJECT_DIR -DestinationPath 'AniGames-PC-V12.1.2-LOG-OPTIMIZED-ALERTS-SOURCE.zip' -Force
+          @'
+          import os, zipfile
+          from pathlib import Path
+          root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
+          output = Path("AniGames-PC-V12.1.2-LOG-OPTIMIZED-ALERTS-SOURCE.zip")
+          excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__"}
+          with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+              for item in root.rglob("*"):
+                  if not item.is_file() or any(part in excluded for part in item.relative_to(root).parts):
+                      continue
+                  zf.write(item, (Path(root.name) / item.relative_to(root)).as_posix())
+          print(f"Source archive: {output} ({output.stat().st_size} bytes)")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Source archive packaging failed.' }
           Write-Host "Built EXE: $($exe.FullName)"
 
       - name: Upload EXE, patched source, and audit report
