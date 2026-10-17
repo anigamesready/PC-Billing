@@ -51,7 +51,7 @@ Source snapshots are stored at:
 - Duplicate-index warning for `device_heartbeats` disappeared.
 - Unindexed FK warning for `db_route_control.updated_by` disappeared.
 - Remaining `unused_index` findings are INFO-level; no indexes were deleted based solely on the cumulative usage counters.
-- `rls_enabled_no_policy` INFO notices remain on four internal service-only tables. RLS is enabled and direct `anon`/`authenticated` privileges have been revoked from those tables; the no-policy shape is intentional for these service-only tables.
+- `rls_enabled_no_policy` INFO notices remain on five internal service-only tables: `admin_alert_events`, `admin_login_rate_limits`, `billing_control_accounts`, `billing_control_sessions`, and `db_route_control`. RLS is enabled and direct `anon`/`authenticated` privileges have been revoked; the no-policy shape is intentional for these service-only tables.
 - The advisor still warns that `pg_net` is installed in `public` and that Auth leaked-password protection is disabled.
 
 ## Cutover readiness
