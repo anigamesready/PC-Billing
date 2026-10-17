@@ -61,6 +61,36 @@ if "window.v11EmitAdminAlert?.(eventType, message" not in renderer:
     if renderer.count(stop_log) != 1:
         raise SystemExit("pauseSession log anchor mismatch; refusing to patch")
     renderer = renderer.replace(stop_log, stop_replacement, 1)
+
+# Commands issued from Admin Android intentionally suppress cloud echo while applying the
+# command locally. Stop/logout are user-visible rental end events, so emit exactly one
+# explicit alert after the local timer has been stopped.
+remote_stop_anchor = """                if (cmd === 'stop' || cmd === 'logout') {
+                    localStorage.removeItem('billing_remote_paused_code');
+                    if(currentActiveCode) { window.v11SyncApplying=true; try{pauseSession(false);}finally{window.v11SyncApplying=false;} }
+                    else saveDB();
+                    return { ok: true, message: 'Sesi dihentikan/dikeluarkan.' };
+                }"""
+remote_stop_replacement = """                if (cmd === 'stop' || cmd === 'logout') {
+                    localStorage.removeItem('billing_remote_paused_code');
+                    if(currentActiveCode) {
+                        const stoppedCode = currentActiveCode;
+                        window.v11SyncApplying=true; try{pauseSession(false);}finally{window.v11SyncApplying=false;}
+                        if (stoppedCode !== TEST_SESSION_CODE) {
+                            const stoppedUser = dbUsers[stoppedCode];
+                            window.v11EmitAdminAlert?.('session_stopped', 'Rental ' + stoppedCode + ' dihentikan manual dari Admin Android.', {
+                                code: stoppedCode,
+                                remainingSeconds: Math.max(0, Number(stoppedUser?.remainingSeconds) || 0)
+                            });
+                        }
+                    } else saveDB();
+                    return { ok: true, message: 'Sesi dihentikan/dikeluarkan.' };
+                }"""
+if "dihentikan manual dari Admin Android" not in renderer:
+    if renderer.count(remote_stop_anchor) != 1:
+        raise SystemExit("Admin remote stop/logout anchor mismatch; refusing to patch")
+    renderer = renderer.replace(remote_stop_anchor, remote_stop_replacement, 1)
+
 renderer_path.write_text(renderer, encoding="utf-8")
 
 # Durable, bounded, idempotent outbox for only rental-expiry and manual-stop alerts.
