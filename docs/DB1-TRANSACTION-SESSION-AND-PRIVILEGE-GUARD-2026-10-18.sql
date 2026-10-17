@@ -243,29 +243,40 @@ $schedule$;
 
 
 -- E. Keep the shipped Admin APK's column-only code/status update path auditable and normalized.
+-- Status-only changes must not normalize/rewrite a legacy code; normalize only when code changes.
 CREATE OR REPLACE FUNCTION public.audit_normalize_rental_identity_update()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'pg_catalog', 'public'
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
 AS $function$
 DECLARE
   actor uuid := auth.uid();
 BEGIN
-  NEW.code := upper(trim(coalesce(NEW.code, '')));
-  IF NEW.code = '' THEN
-    RAISE EXCEPTION 'RENTAL_CODE_REQUIRED';
+  -- Normalize only when the code itself changes. A status-only update must not
+  -- rewrite an existing legacy code as a side effect.
+  IF NEW.code IS DISTINCT FROM OLD.code THEN
+    NEW.code := upper(trim(coalesce(NEW.code, '')));
+    IF NEW.code = '' THEN
+      RAISE EXCEPTION 'RENTAL_CODE_REQUIRED';
+    END IF;
   END IF;
 
-  IF NEW.code IS DISTINCT FROM OLD.code OR NEW.status IS DISTINCT FROM OLD.status THEN
+  IF NEW.code IS DISTINCT FROM OLD.code
+     OR NEW.status IS DISTINCT FROM OLD.status THEN
     NEW.updated_at := now();
+
     IF actor IS NOT NULL THEN
-      INSERT INTO public.audit_logs(org_id, actor_user_id, action, target_type, target_id, payload)
+      INSERT INTO public.audit_logs(
+        org_id, actor_user_id, action, target_type, target_id, payload
+      )
       VALUES(
         NEW.org_id, actor, 'rental_identity_updated', 'rental_account', NEW.id::text,
         jsonb_build_object(
-          'old_code', OLD.code, 'new_code', NEW.code,
-          'old_status', OLD.status, 'new_status', NEW.status,
+          'old_code', OLD.code,
+          'new_code', NEW.code,
+          'old_status', OLD.status,
+          'new_status', NEW.status,
           'source', 'rental_accounts-code-status-trigger'
         )
       );
@@ -281,5 +292,5 @@ CREATE TRIGGER rental_accounts_audit_identity_update
 BEFORE UPDATE OF code, status ON public.rental_accounts
 FOR EACH ROW EXECUTE FUNCTION public.audit_normalize_rental_identity_update();
 
--- SQL test (rollback-wrapped) verified code normalization, changed status, and one audit row;
--- zero synthetic account/audit rows remained after the test.
+-- Rollback-wrapped tests verified status-only updates preserve legacy code, explicit code changes
+-- normalize to uppercase/trim, exactly one audit row per actual change, and no test rows remain.
