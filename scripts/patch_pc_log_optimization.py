@@ -146,7 +146,7 @@ if "setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)" not in clou
 cloud_path.write_text(cloud, encoding="utf-8")
 
 # Edge Function route passes events through to the SQL RPC, which checks device token and deduplicates IDs.
-if 'path === "device/alert"' not in edge:
+if 'device/alert' not in edge:
     edge_anchor = '    if (path === "device/ack") {'
     if edge.count(edge_anchor) != 1:
         raise SystemExit("Edge Function route anchor mismatch; refusing to patch")
