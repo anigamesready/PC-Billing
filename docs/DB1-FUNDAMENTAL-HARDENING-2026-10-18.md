@@ -46,6 +46,10 @@ No rental/session/transaction/device rows were intentionally migrated or deleted
 - `ani-games-api` v24: importantly, the existing `device/enroll` route used by the current PC Billing source was hardened in place. The URL/response envelope remains the same; it now rate-limits code/client ID and the trusted gateway IP header when available, then calls `redeem_device` through service-role credentials. The REST wrapper only sets `Authorization: Bearer` for a legacy JWT API key, so non-JWT secret keys rely on the gateway's `apikey` mapping. Direct `api.redeem_device` execute is now revoked from clients.
 
 Source snapshots are stored at:
+- `supabase/functions/ani-games-api/index.ts`
+- `supabase/functions/ani-games-api/deno.json`
+- `docs/DB1-ADMIN-RENTAL-IDENTITY-RPC-V1.sql`
+- `docs/DB1-OWNER-ACCESS-NULL-DENIAL-FIX-V1.sql`
 - `supabase/functions/admin-login/index.ts`
 - `supabase/functions/admin-login/deno.json`
 - `supabase/functions/billing-login/index.ts`
@@ -57,7 +61,7 @@ Source snapshots are stored at:
 
 ## Remaining critical blockers — DB1 is hardened but not fully certified yet
 
-1. **One legacy direct-update path remains in the Admin APK.** The inspected Admin APK directly updates only `rental_accounts.code/status`; that narrow column privilege remains so the installed client is not broken. All other table-level authenticated writes are revoked. Replace this call with a dedicated RPC and then revoke the last column-level UPDATE grant. Until then, a BEFORE UPDATE trigger normalizes code and records changes in audit_logs.
+1. **One legacy direct-update path remains only for already-installed Admin APKs.** The replacement RPC is live on DB1, and Admin APK v12.1.9 / versionCode 37 has been built successfully in [GitHub Actions run 39076273368](https://github.com/anigamesready/Admin-Ani-Games/actions/runs/39076273368). I inspected the downloaded APK: it contains exactly one `admin_update_rental_identity` call and no direct `rental_accounts.code/status` update. Keep the narrow column privilege until v12.1.9 is installed and live editing is verified; then revoke the grant.
 2. **Supabase Auth leaked-password protection remains disabled.** This setting cannot be changed through the connected Supabase tools available in this run. Enable it in Dashboard → Authentication → Password Security. [Supabase guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 3. **`pg_net` remains in the `public` schema.** Attempts to revoke its Supabase-owned ACLs did not change the grants because the runtime SQL role is not the extension owner/superuser. `net` is not in the PostgREST exposed schemas (`public,api`) and no application SQL function uses `net.http_*`; this is an advisor warning not yet remediated at owner level.
 4. **Public Edge Function POST testing could not be completed from this runtime** because outbound DNS resolution failed. SQL-level tests passed and deployments report ACTIVE, but run a controlled test login/pairing/heartbeat/ACK from a real test client before declaring DB1 fully ready.
