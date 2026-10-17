@@ -74,3 +74,13 @@ A controlled test temporarily set only `backup_ready = true` inside the verifica
 6. Implement and test a stable API/gateway path before setting `routing_gateway_ready = true`. A route flag alone cannot redirect Supabase Auth, REST, Realtime, and Edge Function calls between projects.
 
 Until all checks pass, keep DB2 read-only for this migration effort and do not mark it ready.
+
+
+## Additional backend safeguards applied after the parity comparison
+
+- Applied `dual_db_cutover_guard_v2` to both DBs. Backup switching now requires `backup_ready = true`, `data_parity_ready = true`, and `routing_gateway_ready = true`; the three flags remain false.
+- A controlled guard test temporarily set only `backup_ready = true` within the verification query and confirmed the RPC rejected the attempted backup switch because the other two gates were false. The temporary flag was restored to false.
+- Applied `dual_db_route_integrity_v1` to both DBs. The epoch CHECK constraints now match as `epoch >= 1`, and both have the validated `updated_by → auth.users(id) ON DELETE SET NULL` foreign key.
+- Final read-only verification confirms both route-control rows remain at epoch 1, with `active_target = primary`, `primary_ready = true`, and the three backup gates false. The `db-route-status` functions are active at DB1 version 2 and DB2 version 3.
+
+This remains a readiness/control-plane improvement only. The parity findings above still block DB2 use; no application-row synchronization or traffic cutover has occurred.
