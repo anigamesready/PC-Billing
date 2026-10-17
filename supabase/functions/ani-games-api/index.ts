@@ -24,8 +24,6 @@ async function user(t:string){if(!t)return null;const r=await fetch(base()+"/aut
 function blynkPowerPin(){const pin=(Deno.env.get("BLYNK_POWER_PIN")||"V0").trim().toUpperCase();if(!/^V[0-9]+$/.test(pin))throw Error("BLYNK_POWER_PIN_INVALID");return pin}
 async function validateIoTTarget(deviceId:string,token:string,context:any){
  if(!deviceId)throw Error("device_id_required");
- const configured=(Deno.env.get("BLYNK_DEVICE_ID")||"").trim();
- if(configured&&configured!==deviceId)throw Error("BLYNK_DEVICE_MAPPING_MISMATCH");
  const u=new URL(base()+"/rest/v1/devices");u.searchParams.set("select","id,org_id,device_name,metadata");u.searchParams.set("limit","1000");
  const r=await fetch(u,{headers:{apikey:key(),authorization:"Bearer "+token,"Accept-Profile":"public"}});
  if(!r.ok)throw Error("DEVICE_MAPPING_LOOKUP_FAILED");
@@ -36,7 +34,6 @@ async function validateIoTTarget(deviceId:string,token:string,context:any){
   return !(m&&Object.prototype.hasOwnProperty.call(m,"pairingDuplicateArchivedAt"));
  });
  if(!accessible.some(x=>String(x.id)===deviceId))throw Error("DEVICE_NOT_ACCESSIBLE");
- if(configured)return;
  const mapped=accessible.filter(x=>String(x?.metadata?.blynkPowerTarget).toLowerCase()==="true");
  if(mapped.length>1)throw Error("BLYNK_DEVICE_MAPPING_CONFLICT");
  if(mapped.length===1){
