@@ -240,3 +240,46 @@ $schedule$;
 --   * service_role keeps required server-side access.
 --   * stale-offline-session-expiry-guard is active every 5 minutes.
 --   * do not enable DB2 routing until row-level parity and backup/restore are proven.
+
+
+-- E. Keep the shipped Admin APK's column-only code/status update path auditable and normalized.
+CREATE OR REPLACE FUNCTION public.audit_normalize_rental_identity_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $function$
+DECLARE
+  actor uuid := auth.uid();
+BEGIN
+  NEW.code := upper(trim(coalesce(NEW.code, '')));
+  IF NEW.code = '' THEN
+    RAISE EXCEPTION 'RENTAL_CODE_REQUIRED';
+  END IF;
+
+  IF NEW.code IS DISTINCT FROM OLD.code OR NEW.status IS DISTINCT FROM OLD.status THEN
+    NEW.updated_at := now();
+    IF actor IS NOT NULL THEN
+      INSERT INTO public.audit_logs(org_id, actor_user_id, action, target_type, target_id, payload)
+      VALUES(
+        NEW.org_id, actor, 'rental_identity_updated', 'rental_account', NEW.id::text,
+        jsonb_build_object(
+          'old_code', OLD.code, 'new_code', NEW.code,
+          'old_status', OLD.status, 'new_status', NEW.status,
+          'source', 'rental_accounts-code-status-trigger'
+        )
+      );
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END
+$function$;
+
+DROP TRIGGER IF EXISTS rental_accounts_audit_identity_update ON public.rental_accounts;
+CREATE TRIGGER rental_accounts_audit_identity_update
+BEFORE UPDATE OF code, status ON public.rental_accounts
+FOR EACH ROW EXECUTE FUNCTION public.audit_normalize_rental_identity_update();
+
+-- SQL test (rollback-wrapped) verified code normalization, changed status, and one audit row;
+-- zero synthetic account/audit rows remained after the test.
