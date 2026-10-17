@@ -10,6 +10,7 @@
 - `dual_db_readiness_guard_v1`: add route-readiness metadata and guard the route RPC.
 - `dual_db_cutover_guard_v2`: require `backup_ready`, `data_parity_ready`, and `routing_gateway_ready` before a backup route can be selected.
 - `dual_db_route_integrity_v1`: align the epoch CHECK constraint and validate the `updated_by → auth.users(id) ON DELETE SET NULL` foreign key on both databases.
+- `private_control_tables_revoke_client_access_v1`: revoke direct `anon`/`authenticated` access to internal alert/billing-control/route tables while preserving server-role access.
 - `db-route-status` now reports these gates consistently; the function is read-only and returns no service credential.
 
 ## Why the gateway is a separate milestone
