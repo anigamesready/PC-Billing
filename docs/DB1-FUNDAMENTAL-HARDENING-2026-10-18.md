@@ -34,6 +34,8 @@ No rental/session/transaction/device rows were intentionally migrated or deleted
 | `device_ack_idempotency_monotonic_state_v1` | Replayed ACKs no longer duplicate command/audit logs, and a stale ACK cannot revert a terminal command status. | Synthetic command test verified only two log/audit rows for two legitimate state transitions; duplicate and stale ACKs added none. Test token/command/logs were cleaned up. |
 | `sensitive_auth_and_pairing_rpc_server_only_v1` | Removed direct PUBLIC/anon/authenticated execute access to legacy username resolver, billing login RPC, and device redemption RPC; service-role access remains for Edge Functions. | ACL query confirms anon/authenticated=false and service_role=true for all three.
 
+| `rental_code_status_audit_normalization_trigger_v1` | The shipped Admin APK's narrow direct code/status update now normalizes code to uppercase/trim, stamps `updated_at`, and inserts an audit row for authenticated changes. | Rollback-wrapped trigger test verified normalized code/status and exactly one audit row; zero synthetic rows remained. |
+
 ## New Edge Functions / compatible API gateway deployed on DB1
 
 - `admin-login` v2: accepts username or email plus password, looks up only active `SUPER_ADMIN` accounts through service-only `api.admin_login_lookup`, verifies through Supabase Auth, returns access/refresh token data, and uses persistent hashed username/IP buckets. The current Admin APK source still signs in directly with email; it has not been switched to this endpoint.
@@ -53,7 +55,7 @@ Source snapshots are stored at:
 
 ## Remaining critical blockers — DB1 is hardened but not fully certified yet
 
-1. **One legacy direct-update path remains in the Admin APK.** The inspected Admin APK directly updates only `rental_accounts.code/status`; that narrow column privilege remains so the installed client is not broken. All other table-level authenticated writes are revoked. Replace this call with an audited RPC and then revoke the last column-level UPDATE grant.
+1. **One legacy direct-update path remains in the Admin APK.** The inspected Admin APK directly updates only `rental_accounts.code/status`; that narrow column privilege remains so the installed client is not broken. All other table-level authenticated writes are revoked. Replace this call with a dedicated RPC and then revoke the last column-level UPDATE grant. Until then, a BEFORE UPDATE trigger normalizes code and records changes in audit_logs.
 2. **Supabase Auth leaked-password protection remains disabled.** This setting cannot be changed through the connected Supabase tools available in this run. Enable it in Dashboard → Authentication → Password Security. [Supabase guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 3. **`pg_net` remains in the `public` schema.** Attempts to revoke its Supabase-owned ACLs did not change the grants because the runtime SQL role is not the extension owner/superuser. `net` is not in the PostgREST exposed schemas (`public,api`) and no application SQL function uses `net.http_*`; this is an advisor warning not yet remediated at owner level.
 4. **Public Edge Function POST testing could not be completed from this runtime** because outbound DNS resolution failed. SQL-level tests passed and deployments report ACTIVE, but run a controlled test login/pairing/heartbeat/ACK from a real test client before declaring DB1 fully ready.
