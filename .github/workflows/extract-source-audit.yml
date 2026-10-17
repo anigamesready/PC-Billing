@@ -1,0 +1,53 @@
+name: Extract PC Billing source for audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+      - '.github/workflows/extract-source-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and inventory source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP='AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+          test -s "$ZIP"
+          mkdir -p pc-source
+          unzip -q "$ZIP" -d pc-source
+          find pc-source -type d \( -name node_modules -o -name .git -o -name dist -o -name build \) -prune -o -type f -print | sort > pc-source-files.txt
+          {
+            echo '# PC Billing source audit inventory'
+            echo
+            echo "Source ZIP: $ZIP"
+            echo "ZIP bytes: $(wc -c < "$ZIP")"
+            echo "Extracted files: $(wc -l < pc-source-files.txt)"
+            echo
+            echo '## Project manifests'
+            find pc-source -type f \( -name package.json -o -name package-lock.json -o -name '*.yml' -o -name '*.yaml' \) -not -path '*/node_modules/*' -print
+            echo
+            echo '## Logging, event, sync, notification, and timer references'
+            grep -RInE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build 'console\.(log|info|warn|error|debug)|logger\.|audit_logs|usage_events|device_events|heartbeat|setInterval|setTimeout|usage_exceeded|notification|notify|show_admin_message|rental.*(end|stop|expire|habis|berakhir)|console\.clear' pc-source || true
+          } > pc-billing-audit.txt
+          zip -qr pc-source-unpacked.zip pc-source pc-source-files.txt
+          echo 'Source extracted and audit inventory generated.'
+      - name: Upload extracted source and audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: PC-Billing-Source-Audit
+          path: |
+            pc-source-unpacked.zip
+            pc-billing-audit.txt
+          if-no-files-found: error
+          retention-days: 7
