@@ -1,0 +1,5 @@
+-- Applied on DB1 as device_ack_idempotency_monotonic_state_v1.
+-- Same-state ACK replay is a no-op and does not append another device_command_logs
+-- or audit_logs row. A terminal state (completed/failed/expired) cannot regress
+-- to acknowledged or switch to a different terminal state on stale replay.
+-- See deployed definition of api.device_ack(text,uuid,text,jsonb) in migration history.
