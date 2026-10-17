@@ -28,12 +28,15 @@ No rental/session/transaction/device rows were intentionally migrated or deleted
 
 - `admin-login`: accepts username/password, restricts to active `SUPER_ADMIN` accounts, verifies the password through Supabase Auth, returns access/refresh token data and a generic credential error, and uses persisted username/IP hash buckets.
 - `billing-login`: wraps the existing billing-auth RPC on the server and applies the same independent, persistent rate limiter. It preserves the existing billing RPC's success payload to make the PC client migration small.
+- `device-enroll`: wraps `api.redeem_device` using server-only credentials; it rate limits pairing attempts by a hashed code, normalized client ID, and trusted gateway IP header when available. The IP bucket allows up to 60 attempts per 15-minute window to support normal multi-PC setup, while the client/code buckets allow 5 attempts each. It returns the same success data envelope used by the current PC API.
 
 Source snapshots are stored at:
 - `supabase/functions/admin-login/index.ts`
 - `supabase/functions/admin-login/deno.json`
 - `supabase/functions/billing-login/index.ts`
 - `supabase/functions/billing-login/deno.json`
+- `supabase/functions/device-enroll/index.ts`
+- `supabase/functions/device-enroll/deno.json`
 
 **Deployment is not the same as adoption.** Current clients have not been switched to these endpoints in this DB1-only stage. The old routes must stay available until the Admin APK and PC Billing clients are updated and tested. Do not revoke the old RPC grants before that migration; doing so would break current sign-in.
 
