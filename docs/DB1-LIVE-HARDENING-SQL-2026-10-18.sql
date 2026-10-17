@@ -114,7 +114,7 @@ BEGIN
 
   IF v.locked_until IS NOT NULL AND v.locked_until > now() THEN
     RETURN jsonb_build_object('allowed', false,
-      'retry_after_seconds', greatest(1, ceil(extract(epoch FROM (v.locked_until - now())))::integer);
+      'retry_after_seconds', greatest(1, ceil(extract(epoch FROM (v.locked_until - now())))::integer));
   END IF;
 
   IF v.window_started_at <= now() - interval '15 minutes'
