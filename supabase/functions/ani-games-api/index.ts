@@ -11,7 +11,7 @@ function serviceKey(){
 async function hashBucket(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return Array.from(new Uint8Array(d),x=>x.toString(16).padStart(2,"0")).join("");}
 async function serverRpc(n:string,b:Record<string,unknown>){
  const u=base(),k=serviceKey();if(!u||!k)throw Error("PAIRING_SERVICE_UNAVAILABLE");
- const r=await fetch(u+"/rest/v1/rpc/"+n,{method:"POST",headers:{apikey:k,authorization:"Bearer "+k,"content-type":"application/json","Content-Profile":"api","Accept-Profile":"api"},body:JSON.stringify(b)});
+ const h:Record<string,string>={apikey:k,"content-type":"application/json","Content-Profile":"api","Accept-Profile":"api"};if(/^eyJ[A-Za-z0-9_-]+\\./.test(k))h.authorization="Bearer "+k;const r=await fetch(u+"/rest/v1/rpc/"+n,{method:"POST",headers:h,body:JSON.stringify(b)});
  const t=await r.text();let d:any;try{d=JSON.parse(t)}catch{d={message:t}}
  if(!r.ok){
   const m=String(d?.message||d?.hint||"");
@@ -26,13 +26,25 @@ async function validateIoTTarget(deviceId:string,token:string,context:any){
  if(!deviceId)throw Error("device_id_required");
  const configured=(Deno.env.get("BLYNK_DEVICE_ID")||"").trim();
  if(configured&&configured!==deviceId)throw Error("BLYNK_DEVICE_MAPPING_MISMATCH");
- const u=new URL(base()+"/rest/v1/devices");u.searchParams.set("select","id,org_id,device_name");u.searchParams.set("limit","1000");
+ const u=new URL(base()+"/rest/v1/devices");u.searchParams.set("select","id,org_id,device_name,metadata");u.searchParams.set("limit","1000");
  const r=await fetch(u,{headers:{apikey:key(),authorization:"Bearer "+token,"Accept-Profile":"public"}});
  if(!r.ok)throw Error("DEVICE_MAPPING_LOOKUP_FAILED");
- const rows:any[]=await r.json(), orgs=new Set((Array.isArray(context?.orgs)?context.orgs:[]).map((o:any)=>String(o.id)));
- const accessible=(Array.isArray(rows)?rows:[]).filter(x=>orgs.has(String(x.org_id)));
+ const rows:any[]=await r.json(),orgs=new Set((Array.isArray(context?.orgs)?context.orgs:[]).map((o:any)=>String(o.id)));
+ const accessible=(Array.isArray(rows)?rows:[]).filter(x=>{
+  if(!orgs.has(String(x.org_id)))return false;
+  const m=x?.metadata;
+  return !(m&&Object.prototype.hasOwnProperty.call(m,"pairingDuplicateArchivedAt"));
+ });
  if(!accessible.some(x=>String(x.id)===deviceId))throw Error("DEVICE_NOT_ACCESSIBLE");
- if(!configured&&accessible.length!==1)throw Error("BLYNK_DEVICE_MAPPING_REQUIRED");
+ if(configured)return;
+ const mapped=accessible.filter(x=>String(x?.metadata?.blynkPowerTarget).toLowerCase()==="true");
+ if(mapped.length>1)throw Error("BLYNK_DEVICE_MAPPING_CONFLICT");
+ if(mapped.length===1){
+  if(String(mapped[0].id)!==deviceId)throw Error("BLYNK_DEVICE_MAPPING_MISMATCH");
+  return;
+ }
+ if(accessible.length===1)return;
+ throw Error("BLYNK_DEVICE_MAPPING_REQUIRED");
 }
 async function blynkWrite(token:string,pin:string,value:"0"|"1"){
  const u=new URL("https://blynk.cloud/external/api/update");u.searchParams.set("token",token);u.searchParams.set(pin,value);
@@ -114,5 +126,5 @@ if(p==="device/sync")return out(200,{ok:true,...await rpc("device_sync",{p_token
 if(p==="device/pull")return out(200,{ok:true,...await rpc("device_pull_sync",{p_token:String(b.token||""),p_cursor:b.cursor?String(b.cursor):null})});
 if(p==="device/rentals")return out(200,await rpc("device_rentals_snapshot",{p_token:String(b.token||"")}));
 return out(404,{ok:false,error:"not_found",path:p})
-}catch(e){const m=e instanceof Error?e.message:"request_failed";const s=/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|invalid_or_expired_token/.test(m)?401:/owner_only|ADMIN_ROLE_REQUIRED/.test(m)?403:/BLYNK_DEVICE_MAPPING_REQUIRED|BLYNK_DEVICE_MAPPING_MISMATCH|DEVICE_NOT_ACCESSIBLE/.test(m)?409:/BLYNK_AUTH_TOKEN_NOT_CONFIGURED_IN_SUPABASE|BLYNK_DEVICE_OFFLINE|blynk_device_offline|DEVICE_MAPPING_LOOKUP_FAILED/.test(m)?503:400;return out(s,{ok:false,error:m})}}
+}catch(e){const m=e instanceof Error?e.message:"request_failed";const s=/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|invalid_or_expired_token/.test(m)?401:/owner_only|ADMIN_ROLE_REQUIRED/.test(m)?403:/BLYNK_DEVICE_MAPPING_REQUIRED|BLYNK_DEVICE_MAPPING_MISMATCH|BLYNK_DEVICE_MAPPING_CONFLICT|DEVICE_NOT_ACCESSIBLE/.test(m)?409:/BLYNK_AUTH_TOKEN_NOT_CONFIGURED_IN_SUPABASE|BLYNK_DEVICE_OFFLINE|blynk_device_offline|DEVICE_MAPPING_LOOKUP_FAILED/.test(m)?503:400;return out(s,{ok:false,error:m})}}
 Deno.serve(handler);
