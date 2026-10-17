@@ -36,3 +36,11 @@ Do not deploy a gateway that simply forwards arbitrary SQL/RPC or accepts a clie
 
 ## Status naming
 `sync_ready` is retained for compatibility with the existing route contract. Use `data_parity_ready` for cross-database row parity and `routing_gateway_ready` for actual client traffic routing. They are intentionally independent flags.
+
+
+## DB1 hardening checkpoint — 2026-10-18
+- Revoked direct `EXECUTE` on `public.audit_normalize_rental_identity_update()` from `PUBLIC`, `anon`, and `authenticated`. Verification: `anon_exec=false`, `authenticated_exec=false`; the function remains attached to its database trigger and `service_role` still has execute permission. This removes the exposed RPC path without removing the trigger.
+- Re-ran the Supabase security advisor. The public-executable `SECURITY DEFINER` finding is gone. Remaining findings: `pg_net` installed in `public` (do not move until dependent jobs/functions are mapped), leaked-password protection disabled (Auth project setting), and six internal tables with RLS but no policies. Those six tables are intentionally locked down by revoking direct `anon`/`authenticated` privileges; they must remain inaccessible directly and be accessed only through approved server/RPC paths.
+- Route control re-verified: `active_target=primary`, `epoch=1`, `primary_ready=true`, `backup_ready=false`, `data_parity_ready=false`, `routing_gateway_ready=false`. No cutover or business-row mutation was performed.
+- Pairing rate-limit code is present in the deployed `ani-games-api` `device/enroll` branch, but a successful enrollment-path smoke test has not been run after that deployment because there was no safe, valid unused enrollment code. Do not call this fully verified until a controlled test code can be created and consumed, then confirm the rate-limit rows are cleared and a paired device can heartbeat.
+- Follow-up: correct/verify service-key Authorization handling in the `serverRpc` helper before relying on the new pairing gate in production. Test through the deployed function with a controlled enrollment code; keep the legacy PC client request/response contract unchanged.
