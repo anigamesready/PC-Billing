@@ -11,7 +11,7 @@ function serviceKey(){
 async function hashBucket(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return Array.from(new Uint8Array(d),x=>x.toString(16).padStart(2,"0")).join("");}
 async function serverRpc(n:string,b:Record<string,unknown>){
  const u=base(),k=serviceKey();if(!u||!k)throw Error("PAIRING_SERVICE_UNAVAILABLE");
- const h:Record<string,string>={apikey:k,"content-type":"application/json","Content-Profile":"api","Accept-Profile":"api"};if(/^eyJ[A-Za-z0-9_-]+\\./.test(k))h.authorization="Bearer "+k;const r=await fetch(u+"/rest/v1/rpc/"+n,{method:"POST",headers:h,body:JSON.stringify(b)});
+ const h:Record<string,string>={apikey:k,"content-type":"application/json","Content-Profile":"api","Accept-Profile":"api"};if(k.startsWith("eyJ"))h.authorization="Bearer "+k;const r=await fetch(u+"/rest/v1/rpc/"+n,{method:"POST",headers:h,body:JSON.stringify(b)});
  const t=await r.text();let d:any;try{d=JSON.parse(t)}catch{d={message:t}}
  if(!r.ok){
   const m=String(d?.message||d?.hint||"");
