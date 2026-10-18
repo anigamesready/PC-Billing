@@ -1,12 +1,14 @@
-name: Extract PC Billing source for audit
+name: Build guarded PC Billing dual-DB routing source
 
 on:
   push:
     branches:
       - main
+      - feature/dual-db-runtime-routing-v1
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - '.github/workflows/extract-source-audit.yml'
+      - 'scripts/patch_pc_dual_db_routing.py'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,13 @@ jobs:
           test -s "$ZIP"
           mkdir -p pc-source
           unzip -q "$ZIP" -d pc-source
+          python3 scripts/patch_pc_dual_db_routing.py pc-source
+          CLOUD_JS="$(find pc-source -type f -name v11-cloud.js -print -quit)"
+          test -n "$CLOUD_JS"
+          node --check "$CLOUD_JS"
+          grep -q 'data_parity_ready' "$CLOUD_JS"
+          grep -q 'TOKEN TIDAK DITEMUKAN PADA DB AKTIF' "$CLOUD_JS"
+          (cd pc-source && zip -qr "$GITHUB_WORKSPACE/AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip" .)
           find pc-source -type d \( -name node_modules -o -name .git -o -name dist -o -name build \) -prune -o -type f -print | sort > pc-source-files.txt
           {
             echo '# PC Billing source audit inventory'
@@ -45,9 +54,10 @@ jobs:
       - name: Upload extracted source and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: PC-Billing-Source-Audit
+          name: AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE
           path: |
             pc-source-unpacked.zip
             pc-billing-audit.txt
+            AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip
           if-no-files-found: error
           retention-days: 7
