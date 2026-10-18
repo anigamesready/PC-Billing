@@ -93,6 +93,24 @@ if "dihentikan manual dari Admin Android" not in renderer:
 
 renderer_path.write_text(renderer, encoding="utf-8")
 
+# IMPORTANT: Electron actually executes index.html; renderer.js is not loaded.
+# Apply the same bounded/coalesced log policy to the live runtime too.
+live_html_path = ROOT / "index.html"
+live_html = live_html_path.read_text(encoding="utf-8")
+if "last.count = (Number(last.count) || 1) + 1" not in live_html:
+    live_html, n = old_log.subn(new_log, live_html, count=1)
+    if n != 1:
+        raise SystemExit("Live index.html writeSystemLog anchor mismatch; refusing to build without runtime log optimization")
+
+if auto_backup_line in live_html:
+    live_html = live_html.replace(auto_backup_line, "                    if (manual) writeSystemLog('Backup manual berhasil.');", 1)
+elif "if (manual) writeSystemLog('Backup manual berhasil.');" not in live_html:
+    raise SystemExit("Live index.html auto-backup log anchor mismatch; refusing to patch")
+
+if "last.count = (Number(last.count) || 1) + 1" not in live_html or "if (manual) writeSystemLog('Backup manual berhasil.');" not in live_html:
+    raise SystemExit("Live runtime log optimization check failed")
+live_html_path.write_text(live_html, encoding="utf-8")
+
 # Durable, bounded, idempotent outbox for only rental-expiry and manual-stop alerts.
 if "function flushAdminAlerts()" not in cloud:
     cloud_anchor = "  const fp=u=>JSON.stringify("
@@ -138,11 +156,20 @@ if "if(alertQueue().length)flushAdminAlerts();" not in cloud:
         raise SystemExit("heartbeat alert retry anchor mismatch; refusing to patch")
     cloud = cloud.replace(heartbeat_anchor, "async function heartbeat(){if(resumeCloudAuthoritative)return;const c=read();if(!c.token)return;if(alertQueue().length)flushAdminAlerts();try{", 1)
 
-retry_anchor = "setInterval(()=>{syncNow();pullNow()},30000)"
-if "setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)" not in cloud:
-    if cloud.count(retry_anchor) != 1:
+# heartbeat() already calls pullNow() on every successful 15-second heartbeat.
+# Avoid a second overlapping pull on the separate 30-second maintenance timer.
+interval_old = "setInterval(()=>{syncNow();pullNow()},30000)"
+interval_with_alerts = "setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)"
+interval_optimized = "setInterval(()=>{syncNow();flushAdminAlerts()},30000)"
+if interval_optimized not in cloud:
+    if interval_with_alerts in cloud:
+        cloud = cloud.replace(interval_with_alerts, interval_optimized, 1)
+    elif interval_old in cloud:
+        cloud = cloud.replace(interval_old, interval_optimized, 1)
+    else:
         raise SystemExit("cloud retry timer anchor mismatch; refusing to patch")
-    cloud = cloud.replace(retry_anchor, "setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)", 1)
+if "setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)" in cloud:
+    raise SystemExit("Redundant 30-second pull timer remains")
 cloud_path.write_text(cloud, encoding="utf-8")
 
 # Edge Function route passes events through to the SQL RPC, which checks device token and deduplicates IDs.
