@@ -102,10 +102,12 @@ if renderer.count(old_renderer_version) != 1:
 renderer_path.write_text(renderer.replace(old_renderer_version, "const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", 1), encoding='utf-8')
 index_path = cloud_path.parent / 'index.html'
 index_html = index_path.read_text(encoding='utf-8')
-old_runtime_version = "const APP_VERSION = 'V12.1.7-LOW-NOISE-LOG-FIX';"
-if index_html.count(old_runtime_version) != 1:
-    raise SystemExit(f'PC runtime version anchor mismatch: {index_html.count(old_runtime_version)}')
-index_html = index_html.replace(old_runtime_version, "const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", 1)
+runtime_version_lines = [line for line in index_html.splitlines() if "const APP_VERSION =" in line]
+if len(runtime_version_lines) != 1:
+    raise SystemExit(f'Expected one live APP_VERSION in index.html, found {len(runtime_version_lines)}')
+old_runtime_version = runtime_version_lines[0]
+indent = old_runtime_version[:old_runtime_version.index("const APP_VERSION =")]
+index_html = index_html.replace(old_runtime_version, indent + "const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", 1)
 old_footer_version = '<span id="app-version-code">V11.1.0-CLOUD-OFFLINE-FIRST</span>'
 if index_html.count(old_footer_version) != 1:
     raise SystemExit(f'PC footer version anchor mismatch: {index_html.count(old_footer_version)}')
