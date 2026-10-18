@@ -22,7 +22,7 @@ if len(version_lines) != 1:
     raise SystemExit(f"Expected one APP_VERSION constant in live index.html, found {len(version_lines)}")
 old_version_line = version_lines[0]
 indent = old_version_line[:old_version_line.index("const APP_VERSION =")]
-new_version_line = indent + "const APP_VERSION = 'V12.1.6-ALERT-DELIVERY-RELIABILITY-FIX';"
+new_version_line = indent + "const APP_VERSION = 'V12.1.7-LOW-NOISE-LOG-FIX';"
 html = html.replace(old_version_line, new_version_line, 1)
 
 # Timer expiry and the local end-session button both pass through pauseSession().
@@ -138,10 +138,15 @@ if "window.v11GetAdminAlertStatus" not in cloud:
     cloud = cloud[:start] + cloud_alert + cloud[end:]
 
 # Mark the cloud heartbeat so the deployed alert-fix build can be verified in devices.app_version.
-if "APP='V11.29.4-ALERT-DELIVERY-RELIABILITY'" not in cloud:
-    if "APP='V11.29.3-SUPABASE-PAIR-RESUME'" not in cloud:
+# Bump the heartbeat build identity as well so DB metadata identifies this log-optimized runtime.
+new_cloud_app = "APP='V11.29.5-LOW-NOISE-LOG-FIX'"
+if new_cloud_app not in cloud:
+    if "APP='V11.29.4-ALERT-DELIVERY-RELIABILITY'" in cloud:
+        cloud = cloud.replace("APP='V11.29.4-ALERT-DELIVERY-RELIABILITY'", new_cloud_app, 1)
+    elif "APP='V11.29.3-SUPABASE-PAIR-RESUME'" in cloud:
+        cloud = cloud.replace("APP='V11.29.3-SUPABASE-PAIR-RESUME'", new_cloud_app, 1)
+    else:
         raise SystemExit("Unexpected cloud APP marker; refusing to patch build identity.")
-    cloud = cloud.replace("APP='V11.29.3-SUPABASE-PAIR-RESUME'", "APP='V11.29.4-ALERT-DELIVERY-RELIABILITY'", 1)
 
 # Durable fallback for session-end events if the cloud sender is unavailable at emit time.
 helper_anchor = "        function pauseSession(showNotif = false) {"
@@ -177,7 +182,7 @@ html=html.replace("window.v11EmitAdminAlert?.('session_stopped', 'Rental ' + sto
 # Guard against a green build that only patched the unused renderer.js again.
 for required in (
     "function pauseSession(",
-    "const APP_VERSION = 'V12.1.6-ALERT-DELIVERY-RELIABILITY-FIX';",
+    "const APP_VERSION = 'V12.1.7-LOW-NOISE-LOG-FIX';",
     "emitRentalAdminAlert(eventType, message",
     "dihentikan manual dari Admin Android.",
     "session_expired",
@@ -197,14 +202,14 @@ if package.get("version") != "12.1.4":
     raise SystemExit("Expected PC baseline 12.1.4 after existing patches; refusing to bump blindly")
 if lock.get("version") != "12.1.4":
     raise SystemExit("Unexpected package-lock version; refusing to bump blindly")
-package["version"] = "12.1.6"
-lock["version"] = "12.1.6"
+package["version"] = "12.1.7"
+lock["version"] = "12.1.7"
 if isinstance(lock.get("packages"), dict) and isinstance(lock["packages"].get(""), dict):
-    lock["packages"][""]["version"] = "12.1.6"
+    lock["packages"][""]["version"] = "12.1.7"
 
 cloud_path.write_text(cloud, encoding="utf-8")
 html_path.write_text(html, encoding="utf-8")
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-version_path.write_text("V12.1.6-ALERT-DELIVERY-RELIABILITY-FIX\n", encoding="utf-8")
-print("PASS: patched the actual Electron index.html runtime for timer expiry, local stop, and Admin stop/logout alerts; PC version 12.1.6.")
+version_path.write_text("V12.1.7-LOW-NOISE-LOG-FIX\n", encoding="utf-8")
+print("PASS: patched the actual Electron index.html runtime for timer expiry, local stop, and Admin stop/logout alerts; PC version 12.1.7.")
