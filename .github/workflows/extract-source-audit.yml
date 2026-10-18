@@ -69,7 +69,8 @@ jobs:
           sudo apt-get install -y wine wine32:i386
           export WINEARCH=win64
           export WINEDEBUG=-all
-          export WINEPREFIX="$HOME/.wine"
+          export WINEPREFIX="$HOME/.wine64"
+          rm -rf "$WINEPREFIX"
           wineboot --init
           npm ci
           npm run build
