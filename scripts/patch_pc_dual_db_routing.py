@@ -31,7 +31,7 @@ route_code = r'''  // Both keys are public anon JWTs. Runtime chooses a target o
   function dbRouteBackupReady(r){
     const parityAt=Date.parse(r?.last_parity_check_at||'');
     const schemasMatch=!!r?.schema_version&&!!r?.primary_schema_version&&!!r?.backup_schema_version&&r.primary_schema_version===r.backup_schema_version&&r.schema_version===r.primary_schema_version;
-    return !!r&&r.active_target==='backup'&&r.backup_ready===true&&r.data_parity_ready===true&&r.routing_gateway_ready===true&&r.can_switch_to_backup===true&&Number.isFinite(Number(r.epoch))&&Number(r.epoch)>0&&typeof r.switch_id==='string'&&r.switch_id.length>0&&schemasMatch&&Number.isFinite(parityAt)&&Date.now()-parityAt<=30*60*1000&&parityAt<=Date.now()+60000;
+    return !!r&&r.active_target==='backup'&&r.backup_ready===true&&r.auth_parity_ready===true&&r.data_parity_ready===true&&r.routing_gateway_ready===true&&r.can_switch_to_backup===true&&Number.isFinite(Number(r.epoch))&&Number(r.epoch)>0&&typeof r.switch_id==='string'&&r.switch_id.length>0&&schemasMatch&&Number.isFinite(parityAt)&&Date.now()-parityAt<=30*60*1000&&parityAt<=Date.now()+60000;
   }
   async function readDbRoute(target){
     const cfg=DB_ENDPOINTS[target],ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),4500);
