@@ -171,7 +171,7 @@ html=html.replace("window.v11EmitAdminAlert?.('session_stopped', 'Rental ' + sto
 # Guard against a green build that only patched the unused renderer.js again.
 for required in (
     "function pauseSession(",
-    "const APP_VERSION = 'V12.1.5-LIVE-ALERT-RUNTIME-FIX';",
+    "const APP_VERSION = 'V12.1.6-ALERT-DELIVERY-RELIABILITY-FIX';",
     "emitRentalAdminAlert(eventType, message",
     "dihentikan manual dari Admin Android.",
     "session_expired",
@@ -200,5 +200,5 @@ cloud_path.write_text(cloud, encoding="utf-8")
 html_path.write_text(html, encoding="utf-8")
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-version_path.write_text("V12.1.5-LIVE-ALERT-RUNTIME-FIX\n", encoding="utf-8")
+version_path.write_text("V12.1.6-ALERT-DELIVERY-RELIABILITY-FIX\n", encoding="utf-8")
 print("PASS: patched the actual Electron index.html runtime for timer expiry, local stop, and Admin stop/logout alerts; PC version 12.1.6.")

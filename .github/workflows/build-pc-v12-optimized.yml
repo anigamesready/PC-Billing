@@ -98,7 +98,7 @@ jobs:
           if ($package.version -ne '12.1.6') { throw "Unexpected patched version: $($package.version)" }
           python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          Write-Host 'PASS: live index.html alert emitters + syntax, v11-cloud outbox, API route, and PC v12.1.5.'
+          Write-Host 'PASS: live index.html alert emitters + syntax, v11-cloud outbox, API route, and PC v12.1.6.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -142,10 +142,10 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.1.5-LIVE-ALERT-RUNTIME-FIX
+          name: AniGames-PC-V12.1.6-ALERT-DELIVERY-RELIABILITY-FIX
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.1.5-LIVE-ALERT-RUNTIME-FIX-SOURCE.zip
+            AniGames-PC-V12.1.6-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
           if-no-files-found: error
           retention-days: 14
