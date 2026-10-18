@@ -85,7 +85,20 @@ if package.get('version') not in ('12.1.1', '12.1.0', '12.2.0'):
     raise SystemExit(f"Unexpected PC package baseline: {package.get('version')}")
 package['version'] = '12.2.0'
 package['description'] = 'AniGames Billing V12.2.0: guarded dual Supabase routing; failover only after current DB2 readiness, schema and data parity checks'
+package['build']['productName'] = 'AniGames Billing V12.2.0'
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+renderer_path = cloud_path.parent / 'renderer.js'
+renderer = renderer_path.read_text(encoding='utf-8')
+old_renderer_version = "const APP_VERSION = 'V11.0.0-CLOUD-OFFLINE-FIRST';"
+if renderer.count(old_renderer_version) != 1:
+    raise SystemExit(f'Renderer version label anchor mismatch: {renderer.count(old_renderer_version)}')
+renderer_path.write_text(renderer.replace(old_renderer_version, "const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", 1), encoding='utf-8')
+index_path = cloud_path.parent / 'index.html'
+index_html = index_path.read_text(encoding='utf-8')
+old_footer_version = '<span id="app-version-code">V11.1.0-CLOUD-OFFLINE-FIRST</span>'
+if index_html.count(old_footer_version) != 1:
+    raise SystemExit(f'PC footer version anchor mismatch: {index_html.count(old_footer_version)}')
+index_path.write_text(index_html.replace(old_footer_version, '<span id="app-version-code">V12.2.0-DUAL-DB-ROUTE</span>', 1), encoding='utf-8')
 lock_path = cloud_path.parent / 'package-lock.json'
 if lock_path.exists():
     lock = json.loads(lock_path.read_text(encoding='utf-8'))
