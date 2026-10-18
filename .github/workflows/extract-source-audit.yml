@@ -31,6 +31,8 @@ jobs:
           python3 scripts/patch_pc_dual_db_routing.py pc-source
           CLOUD_JS="$(find pc-source -type f -name v11-cloud.js -print -quit)"
           test -n "$CLOUD_JS"
+          PROJECT_DIR="$(dirname "$CLOUD_JS")"
+          echo "PC_PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           node --check "$CLOUD_JS"
           grep -q 'data_parity_ready' "$CLOUD_JS"
           grep -q 'TOKEN TIDAK DITEMUKAN PADA DB AKTIF' "$CLOUD_JS"
@@ -51,6 +53,21 @@ jobs:
           } > pc-billing-audit.txt
           zip -qr pc-source-unpacked.zip pc-source pc-source-files.txt
           echo 'Source extracted and audit inventory generated.'
+      - name: Set up Node.js for Electron
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ${{ env.PC_PROJECT_DIR }}/package-lock.json
+      - name: Build Windows portable PC Billing executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PC_PROJECT_DIR"
+          npm ci
+          npm run build
+          test -n "$(find dist -maxdepth 2 -type f -name '*.exe' -print -quit)"
+          ls -lh dist/*.exe
       - name: Upload extracted source and audit report
         uses: actions/upload-artifact@v4
         with:
@@ -59,5 +76,6 @@ jobs:
             pc-source-unpacked.zip
             pc-billing-audit.txt
             AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip
+            ${{ env.PC_PROJECT_DIR }}/dist/*.exe
           if-no-files-found: error
           retention-days: 7
