@@ -86,6 +86,13 @@ if package.get('version') not in ('12.1.1', '12.1.0', '12.2.0'):
 package['version'] = '12.2.0'
 package['description'] = 'AniGames Billing V12.2.0: guarded dual Supabase routing; failover only after current DB2 readiness, schema and data parity checks'
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+lock_path = cloud_path.parent / 'package-lock.json'
+if lock_path.exists():
+    lock = json.loads(lock_path.read_text(encoding='utf-8'))
+    lock['version'] = '12.2.0'
+    if isinstance(lock.get('packages'), dict) and isinstance(lock['packages'].get(''), dict):
+        lock['packages']['']['version'] = '12.2.0'
+    lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 (cloud_path.parent / 'VERSION.txt').write_text('AniGames Billing PC V12.2.0 - guarded dual-DB runtime routing\n', encoding='utf-8')
 
 for required in ['resolveDbRoute', 'db-route-status', 'data_parity_ready', 'routing_gateway_ready', 'last_parity_check_at', 'INVALID_DEVICE_TOKEN']:
