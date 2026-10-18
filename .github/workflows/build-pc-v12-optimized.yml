@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.1.7 Alert Delivery Reliability Fix + Blynk Mapping
+name: Build AniGames PC V12.2.0 Dual DB Routing + Alert Reliability
 
 on:
   push:
@@ -110,7 +110,7 @@ jobs:
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
           if ($package.version -ne '12.2.0') { throw "Unexpected patched version: $($package.version)" }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
           Write-Host 'PASS: live index.html alert emitters + syntax, v11-cloud outbox, API route, and PC v12.2.0.'
 
@@ -156,7 +156,7 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX
+          name: AniGames-PC-V12.2.0-DUAL-DB-ROUTING
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
             AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip
