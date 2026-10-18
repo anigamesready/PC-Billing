@@ -14,7 +14,7 @@ if 'const DB_ENDPOINTS=' in src or 'function resolveDbRoute(' in src:
 
 # Earlier build patches may have already advanced the APP marker. Match the declaration shape,
 # not an obsolete version literal, while stripping the single-DB API target declaration.
-decl_pattern = re.compile(r"SYNC_SCHEMA='[^']+',API_BASE='https://wzkjpycjizexxcxrfdvr\\.supabase\\.co/functions/v1/ani-games-api',API_KEY='[^']+',CLIENT_KEY='billing_v11_client_id',APP='[^']+';")
+decl_pattern = re.compile(r"SYNC_SCHEMA='[^']+',API_BASE='https://wzkjpycjizexxcxrfdvr\.supabase\.co/functions/v1/ani-games-api',API_KEY='[^']+',CLIENT_KEY='billing_v11_client_id',APP='[^']+';")
 src, decl_count = decl_pattern.subn("SYNC_SCHEMA='v11.29.3',CLIENT_KEY='billing_v11_client_id',APP='V12.2.0-DUAL-DB-ROUTE';", src, count=1)
 if decl_count != 1:
     raise SystemExit(f'Cloud config declaration anchor mismatch after prior build patches: {decl_count}')
