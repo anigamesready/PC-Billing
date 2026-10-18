@@ -180,7 +180,7 @@ for required in (
 ):
     if required not in html:
         raise SystemExit("Live index.html regression token missing: " + required)
-if html.count("emitRentalAdminAlert(eventType, message") != 1:
+if html.count("emitRentalAdminAlert(eventType, message, {") != 1:
     raise SystemExit("Expected exactly one event-driven pauseSession alert call in live index.html")
 if html.count("dihentikan manual dari Admin Android.") != 1:
     raise SystemExit("Expected exactly one explicit Admin stop/logout alert in live index.html")
