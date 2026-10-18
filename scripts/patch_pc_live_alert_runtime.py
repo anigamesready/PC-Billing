@@ -137,6 +137,12 @@ if "window.v11GetAdminAlertStatus" not in cloud:
 '''
     cloud = cloud[:start] + cloud_alert + cloud[end:]
 
+# Mark the cloud heartbeat so the deployed alert-fix build can be verified in devices.app_version.
+if "APP='V11.29.4-ALERT-DELIVERY-RELIABILITY'" not in cloud:
+    if "APP='V11.29.3-SUPABASE-PAIR-RESUME'" not in cloud:
+        raise SystemExit("Unexpected cloud APP marker; refusing to patch build identity.")
+    cloud = cloud.replace("APP='V11.29.3-SUPABASE-PAIR-RESUME'", "APP='V11.29.4-ALERT-DELIVERY-RELIABILITY'", 1)
+
 # Durable fallback for session-end events if the cloud sender is unavailable at emit time.
 helper_anchor = "        function pauseSession(showNotif = false) {"
 helper = r'''        function emitRentalAdminAlert(eventType, message, payload = {}) {
