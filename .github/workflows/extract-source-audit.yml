@@ -59,23 +59,6 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: ${{ env.PC_PROJECT_DIR }}/package-lock.json
-      - name: Build Windows portable PC Billing executable
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PC_PROJECT_DIR"
-          sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y wine wine32:i386
-          export WINEARCH=win64
-          export WINEDEBUG=-all
-          export WINEPREFIX="$HOME/.wine64"
-          rm -rf "$WINEPREFIX"
-          wineboot --init
-          npm ci
-          npm run build
-          test -n "$(find dist -maxdepth 2 -type f -name '*.exe' -print -quit)"
-          ls -lh dist/*.exe
       - name: Upload extracted source and audit report
         uses: actions/upload-artifact@v4
         with:
@@ -84,6 +67,59 @@ jobs:
             pc-source-unpacked.zip
             pc-billing-audit.txt
             AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip
-            ${{ env.PC_PROJECT_DIR }}/dist/*.exe
           if-no-files-found: error
           retention-days: 7
+  build-windows:
+    needs: extract-audit
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js for native Windows build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Download patched source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE
+          path: downloaded
+      - name: Extract patched PC source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive -LiteralPath (Join-Path $PWD 'downloaded/pc-source-unpacked.zip') -DestinationPath (Join-Path $PWD 'build-src') -Force
+          $cloud = Get-ChildItem -Path (Join-Path $PWD 'build-src/pc-source') -Recurse -File -Filter 'v11-cloud.js' | Select-Object -First 1
+          if (-not $cloud) { throw 'Patched v11-cloud.js was not found' }
+          $projectDir = $cloud.Directory.FullName
+          if (-not (Test-Path (Join-Path $projectDir 'package.json'))) { throw 'PC package.json not found' }
+          if (-not (Test-Path (Join-Path $projectDir 'package-lock.json'))) { throw 'PC package-lock.json not found' }
+          "PC_PROJECT_DIR=$projectDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          node --check $cloud.FullName
+          if (-not (Select-String -Path $cloud.FullName -Pattern 'data_parity_ready' -Quiet)) { throw 'DB parity route guard missing' }
+      - name: Install dependencies and build Windows portable executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location $env:PC_PROJECT_DIR
+          try {
+            npm ci
+            if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw 'npm run build failed' }
+            $exe = Get-ChildItem -Path (Join-Path $env:PC_PROJECT_DIR 'dist') -Recurse -File -Filter '*.exe' | Select-Object -First 1
+            if (-not $exe) { throw 'No Windows executable was produced' }
+            Copy-Item $exe.FullName (Join-Path $env:GITHUB_WORKSPACE 'AniGames-PC-V12.2.0-DUAL-DB-ROUTING.exe') -Force
+          } finally {
+            Pop-Location
+          }
+      - name: Upload Windows portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-PC-V12.2.0-DUAL-DB-ROUTING-WINDOWS-PORTABLE
+          path: |
+            AniGames-PC-V12.2.0-DUAL-DB-ROUTING.exe
+            downloaded/AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip
+            downloaded/pc-billing-audit.txt
+          if-no-files-found: error
+          retention-days: 14
