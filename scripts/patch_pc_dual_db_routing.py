@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import re
 import sys
 
 root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('.')
@@ -11,11 +12,12 @@ src = cloud_path.read_text(encoding='utf-8')
 if 'const DB_ENDPOINTS=' in src or 'function resolveDbRoute(' in src:
     raise SystemExit('Dual-DB routing already applied; refusing to patch twice')
 
-old_decl = "SYNC_SCHEMA='v11.29.3',API_BASE='https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/ani-games-api',API_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6a2pweWNqaXpleHhjeHJmZHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc0OTUsImV4cCI6MjEwNjYxMzQ5NX0.lxjSt7CqWDJhKItPi1ckVRIcc-kM7etMzxTu3txANaI',CLIENT_KEY='billing_v11_client_id',APP='V11.29.3-SUPABASE-PAIR-RESUME';"
-new_decl = "SYNC_SCHEMA='v11.29.3',CLIENT_KEY='billing_v11_client_id',APP='V12.2.0-DUAL-DB-ROUTE';"
-if src.count(old_decl) != 1:
-    raise SystemExit(f'Cloud config declaration anchor mismatch: {src.count(old_decl)}')
-src = src.replace(old_decl, new_decl, 1)
+# Earlier build patches may have already advanced the APP marker. Match the declaration shape,
+# not an obsolete version literal, while stripping the single-DB API target declaration.
+decl_pattern = re.compile(r"SYNC_SCHEMA='[^']+',API_BASE='https://wzkjpycjizexxcxrfdvr\\.supabase\\.co/functions/v1/ani-games-api',API_KEY='[^']+',CLIENT_KEY='billing_v11_client_id',APP='[^']+';")
+src, decl_count = decl_pattern.subn("SYNC_SCHEMA='v11.29.3',CLIENT_KEY='billing_v11_client_id',APP='V12.2.0-DUAL-DB-ROUTE';", src, count=1)
+if decl_count != 1:
+    raise SystemExit(f'Cloud config declaration anchor mismatch after prior build patches: {decl_count}')
 
 insert_anchor = "  let heartbeatTimer=null,syncBusy=false,pullBusy=false,suppressQueue=false,lastFingerprints={},resumeCloudAuthoritative=false;"
 route_code = r'''  // Both keys are public anon JWTs. Runtime chooses a target only from read-only, project-verified route status.
