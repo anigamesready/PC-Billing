@@ -14,6 +14,15 @@ html = html_path.read_text(encoding="utf-8")
 if "renderer.js is not loaded by Electron." not in html:
     raise SystemExit("Expected live renderer marker is missing from index.html; refusing to patch the wrong runtime.")
 
+# Make the visible in-app footer identify this actual build, not the stale V11.21 label.
+version_lines = [line for line in html.splitlines() if "const APP_VERSION =" in line]
+if len(version_lines) != 1:
+    raise SystemExit(f"Expected one APP_VERSION constant in live index.html, found {len(version_lines)}")
+old_version_line = version_lines[0]
+indent = old_version_line[:old_version_line.index("const APP_VERSION =")]
+new_version_line = indent + "const APP_VERSION = 'V12.1.5-LIVE-ALERT-RUNTIME-FIX';"
+html = html.replace(old_version_line, new_version_line, 1)
+
 # Timer expiry and the local end-session button both pass through pauseSession().
 if "window.v11EmitAdminAlert?.(eventType, message" not in html:
     old_lines = [line for line in html.splitlines() if "if (endedCode) writeSystemLog(" in line]
@@ -70,6 +79,7 @@ if "dihentikan manual dari Admin Android." not in html:
 # Guard against a green build that only patched the unused renderer.js again.
 for required in (
     "function pauseSession(",
+    "const APP_VERSION = 'V12.1.5-LIVE-ALERT-RUNTIME-FIX';",
     "window.v11EmitAdminAlert?.(eventType, message",
     "dihentikan manual dari Admin Android.",
     "session_expired",
