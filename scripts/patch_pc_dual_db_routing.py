@@ -42,20 +42,21 @@ route_code = r'''  // Both keys are public anon JWTs. Runtime chooses a target o
     if(dbRoutePromise)return dbRoutePromise;
     dbRoutePromise=(async()=>{
       let primary=null;try{primary=await readDbRoute('primary')}catch(_){}
-      if(primary){
-        const route=primary.route;
-        if(route.active_target==='primary'&&route.primary_ready===true)return saveDbRoute('primary',route);
-        if(route.active_target!=='backup')throw new Error('DB_ROUTE_INVALID_TARGET');
-        if(!dbRouteBackupReady(route))throw new Error('DB_ROUTE_CUTOVER_BLOCKED: DB2 readiness/parity/schema/gateway guard is not current');
-        let backup;try{backup=await readDbRoute('backup')}catch(_){throw new Error('DB_ROUTE_CUTOVER_INCOMPLETE: DB2 route status unavailable')}
-        const b=backup.route;
-        // Each project currently generates its own switch_id. Target+epoch plus readiness are the cross-project fence.
-        if(!dbRouteBackupReady(b)||b.active_target!=='backup'||Number(b.epoch)!==Number(route.epoch)||!route.switch_id||!b.switch_id)throw new Error('DB_ROUTE_CUTOVER_INCOMPLETE: DB1 and DB2 target/epoch controls do not agree');
-        return saveDbRoute('backup',b);
+      if(!primary)throw new Error('DB_ROUTE_STATUS_UNAVAILABLE: DB1 route authority cannot be verified; automatic failover is disabled');
+      const route=primary.route;
+      if(!['primary','backup'].includes(route.active_target))throw new Error('DB_ROUTE_INVALID_TARGET');
+      if(route.active_target==='primary'&&route.primary_ready!==true)throw new Error('DB_ROUTE_PRIMARY_NOT_READY');
+      if(route.active_target==='backup'&&!dbRouteBackupReady(route))throw new Error('DB_ROUTE_CUTOVER_BLOCKED: DB2 readiness/parity/schema/gateway guard is not current');
+      // Both projects must confirm the same global route before a runtime request is sent.
+      let backup;try{backup=await readDbRoute('backup')}catch(_){throw new Error('DB_ROUTE_CUTOVER_INCOMPLETE: DB2 route status unavailable; refusing split-brain writes')}
+      const b=backup.route;
+      if(b.active_target!==route.active_target||Number(b.epoch)!==Number(route.epoch)||String(b.switch_id||'')!==String(route.switch_id||''))throw new Error('DB_ROUTE_CUTOVER_INCOMPLETE: DB1 and DB2 target, epoch, or switch ID differ');
+      if(route.active_target==='primary'){
+        if(b.primary_ready!==true)throw new Error('DB_ROUTE_PRIMARY_NOT_READY_ON_BOTH_PROJECTS');
+        return saveDbRoute('primary',route);
       }
-      let backup=null;try{backup=await readDbRoute('backup')}catch(_){}
-      if(backup&&dbRouteBackupReady(backup.route))return saveDbRoute('backup',backup.route);
-      throw new Error('DB_ROUTE_STATUS_UNAVAILABLE: active database cannot be verified safely');
+      if(!dbRouteBackupReady(b))throw new Error('DB_ROUTE_CUTOVER_BLOCKED: DB2 readiness/parity/schema/gateway guard is not current on both projects');
+      return saveDbRoute('backup',b);
     })();
     try{return await dbRoutePromise}finally{dbRoutePromise=null}
   }
@@ -74,14 +75,18 @@ src = '\n'.join(lines) + '\n'
 
 old_token_handling = "if(String(e?.message||'').includes('INVALID_DEVICE_TOKEN')){localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(SYNC_CURSOR_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);if(heartbeatTimer)clearInterval(heartbeatTimer);heartbeatTimer=null;status('☁️ PAIRING TERPUTUS • Harus pairing ulang');setPcState('pending','STATUS PC: BELUM TERHUBUNG');return}"
 new_token_handling = "if(String(e?.message||'').includes('INVALID_DEVICE_TOKEN')){if(heartbeatTimer)clearInterval(heartbeatTimer);heartbeatTimer=null;status('☁️ TOKEN TIDAK DITEMUKAN PADA DB AKTIF • Pairing lokal, antrean, dan data lokal dipertahankan; verifikasi parity/route sebelum pairing ulang');setPcState('offline','STATUS PC: PERLU VERIFIKASI DB/TOKEN');return}"
-if src.count(old_token_handling) != 1:
-    raise SystemExit(f'Invalid-token preservation anchor mismatch: {src.count(old_token_handling)}')
-src = src.replace(old_token_handling, new_token_handling, 1)
+if src.count(old_token_handling) == 1:
+    src = src.replace(old_token_handling, new_token_handling, 1)
+elif "localStorage.setItem('billing_v11_token_rejected_hold','1')" in src and "pairing, cursor, data lokal, dan antrean dipertahankan" in src:
+    # The earlier token-preservation patch already installed the safer hold/outbox behavior.
+    pass
+elif "localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(SYNC_CURSOR_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);" in src:
+    raise SystemExit('Unsafe invalid-token cleanup remains; refusing dual-DB build')
 cloud_path.write_text(src, encoding='utf-8')
 
 package_path = cloud_path.parent / 'package.json'
 package = json.loads(package_path.read_text(encoding='utf-8'))
-if package.get('version') not in ('12.1.1', '12.1.0', '12.2.0'):
+if package.get('version') not in ('12.1.0', '12.1.1', '12.1.7', '12.2.0'):
     raise SystemExit(f"Unexpected PC package baseline: {package.get('version')}")
 package['version'] = '12.2.0'
 package['description'] = 'AniGames Billing V12.2.0: guarded dual Supabase routing; failover only after current DB2 readiness, schema and data parity checks'
@@ -95,6 +100,10 @@ if renderer.count(old_renderer_version) != 1:
 renderer_path.write_text(renderer.replace(old_renderer_version, "const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", 1), encoding='utf-8')
 index_path = cloud_path.parent / 'index.html'
 index_html = index_path.read_text(encoding='utf-8')
+old_runtime_version = "const APP_VERSION = 'V12.1.7-LOW-NOISE-LOG-FIX';"
+if index_html.count(old_runtime_version) != 1:
+    raise SystemExit(f'PC runtime version anchor mismatch: {index_html.count(old_runtime_version)}')
+index_html = index_html.replace(old_runtime_version, "const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", 1)
 old_footer_version = '<span id="app-version-code">V11.1.0-CLOUD-OFFLINE-FIRST</span>'
 if index_html.count(old_footer_version) != 1:
     raise SystemExit(f'PC footer version anchor mismatch: {index_html.count(old_footer_version)}')
@@ -108,7 +117,7 @@ if lock_path.exists():
     lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 (cloud_path.parent / 'VERSION.txt').write_text('AniGames Billing PC V12.2.0 - guarded dual-DB runtime routing\n', encoding='utf-8')
 
-for required in ['resolveDbRoute', 'db-route-status', 'data_parity_ready', 'routing_gateway_ready', 'last_parity_check_at', 'INVALID_DEVICE_TOKEN']:
+for required in ['resolveDbRoute', 'db-route-status', 'data_parity_ready', 'routing_gateway_ready', 'last_parity_check_at', "String(b.switch_id||'')!==String(route.switch_id||'')", 'automatic failover is disabled', 'INVALID_DEVICE_TOKEN']:
     if required not in src:
         raise SystemExit('Required route guard missing: ' + required)
 if "localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(SYNC_CURSOR_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);" in src:
