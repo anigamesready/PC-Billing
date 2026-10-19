@@ -166,6 +166,8 @@ if _pc_maintenance_anchor in _pc_cloud:
     _pc_cloud = _pc_cloud.replace(_pc_maintenance_anchor, _pc_maintenance_new, 1)
 elif 'SYNC_WRITE_QUIESCE_ACTIVE' not in _pc_cloud:
     raise SystemExit('V12.2.1 maintenance anchor unavailable; unknown heartbeat catch left unmodified')
+if 'V12.2.1-DUAL-DB-ROUTE' not in _pc_cloud:
+    _pc_cloud = '// BUILD_ID: V12.2.1-DUAL-DB-ROUTE\n' + _pc_cloud
 _pc_cloud_path.write_text(_pc_cloud, encoding='utf-8')
 _pc_package_path = _pc_cloud_path.parent / 'package.json'
 _pc_package = json.loads(_pc_package_path.read_text(encoding='utf-8'))
