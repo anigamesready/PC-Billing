@@ -127,3 +127,81 @@ for required in ['resolveDbRoute', 'db-route-status', 'data_parity_ready', 'rout
 if "localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(SYNC_CURSOR_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);" in src:
     raise SystemExit('Unsafe auto-clearing of local pairing/sync state remains')
 print('PASS: guarded dual-DB route patch applied; token/outbox preservation enabled; package version 12.2.0')
+
+
+# V12.2.1 final addon: continuity for an exactly finalized active backup route.
+# This does not authorize a new route switch with stale parity; switch readiness remains strict.
+_pc_root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('.')
+_pc_clouds = list(_pc_root.rglob('v11-cloud.js'))
+if len(_pc_clouds) != 1:
+    raise SystemExit(f'V12.2.1: expected one v11-cloud.js, found {len(_pc_clouds)}')
+_pc_cloud_path = _pc_clouds[0]
+_pc_cloud = _pc_cloud_path.read_text(encoding='utf-8')
+_pc_old_route = """  function dbRouteBackupReady(r){
+    const parityAt=Date.parse(r?.last_parity_check_at||'');
+    const schemasMatch=!!r?.schema_version&&!!r?.primary_schema_version&&!!r?.backup_schema_version&&r.primary_schema_version===r.backup_schema_version&&r.schema_version===r.primary_schema_version;
+    return !!r&&r.active_target==='backup'&&r.backup_ready===true&&r.auth_parity_ready===true&&r.data_parity_ready===true&&r.routing_gateway_ready===true&&r.can_switch_to_backup===true&&Number.isFinite(Number(r.epoch))&&Number(r.epoch)>0&&typeof r.switch_id==='string'&&r.switch_id.length>0&&schemasMatch&&Number.isFinite(parityAt)&&Date.now()-parityAt<=30*60*1000&&parityAt<=Date.now()+60000;
+  }"""
+_pc_new_route = """  function dbRouteFinalizedActive(r){
+    if(!r||r.active_target!=='backup'||!Number.isFinite(Number(r.epoch))||Number(r.epoch)<1||!r.switch_id)return false;
+    const expected='Coordinated global route finalized: backup epoch '+Number(r.epoch)+' switch '+String(r.switch_id);
+    return !!r.last_cutover_test_at&&String(r.cutover_test_note||'')===expected;
+  }
+  function dbRouteBackupReady(r){
+    // Continuity for an already-finalized active backup; never grants a new cutover with stale parity.
+    if(dbRouteFinalizedActive(r))return true;
+    const parityAt=Date.parse(r?.last_parity_check_at||'');
+    const schemasMatch=!!r?.schema_version&&!!r?.primary_schema_version&&!!r?.backup_schema_version&&r.primary_schema_version===r.backup_schema_version&&r.schema_version===r.primary_schema_version;
+    return !!r&&r.active_target==='backup'&&r.backup_ready===true&&r.auth_parity_ready===true&&r.data_parity_ready===true&&r.routing_gateway_ready===true&&r.can_switch_to_backup===true&&Number.isFinite(Number(r.epoch))&&Number(r.epoch)>0&&typeof r.switch_id==='string'&&r.switch_id.length>0&&schemasMatch&&Number.isFinite(parityAt)&&Date.now()-parityAt<=30*60*1000&&parityAt<=Date.now()+60000;
+  }"""
+if 'function dbRouteFinalizedActive(r)' not in _pc_cloud:
+    if _pc_cloud.count(_pc_old_route) != 1:
+        raise SystemExit(f'V12.2.1 route anchor mismatch: {_pc_cloud.count(_pc_old_route)}')
+    _pc_cloud = _pc_cloud.replace(_pc_old_route, _pc_new_route, 1)
+elif 'Coordinated global route finalized: backup epoch' not in _pc_cloud:
+    raise SystemExit('V12.2.1 existing route helper is incomplete')
+_pc_maintenance_anchor = "status('☁️ OFFLINE • Menunggu koneksi cloud');setPcState('offline','STATUS PC: OFF / TIDAK TERHUBUNG')"
+_pc_maintenance_new = "if(String(e?.message||'').includes('SYNC_WRITE_QUIESCE_ACTIVE')){status('☁️ DB SYNC • Penulisan cloud dijeda; antrean lokal dipertahankan');setPcState('pending','STATUS PC: MAINTENANCE DB SYNC');return}status('☁️ OFFLINE • Menunggu koneksi cloud');setPcState('offline','STATUS PC: OFF / TIDAK TERHUBUNG')"
+if _pc_maintenance_anchor in _pc_cloud:
+    _pc_cloud = _pc_cloud.replace(_pc_maintenance_anchor, _pc_maintenance_new, 1)
+elif 'SYNC_WRITE_QUIESCE_ACTIVE' not in _pc_cloud:
+    raise SystemExit('V12.2.1 maintenance anchor unavailable; unknown heartbeat catch left unmodified')
+_pc_cloud_path.write_text(_pc_cloud, encoding='utf-8')
+_pc_package_path = _pc_cloud_path.parent / 'package.json'
+_pc_package = json.loads(_pc_package_path.read_text(encoding='utf-8'))
+if _pc_package.get('version') == '12.2.0':
+    _pc_package['version'] = '12.2.1'
+elif _pc_package.get('version') != '12.2.1':
+    raise SystemExit(f'V12.2.1 unexpected package version: {_pc_package.get("version")}')
+_pc_package['description'] = 'AniGames Billing V12.2.1: guarded dual Supabase routing, finalized-route continuity, and safe maintenance handling'
+_pc_package.setdefault('build', {})['productName'] = 'AniGames Billing V12.2.1'
+_pc_package_path.write_text(json.dumps(_pc_package, indent=2, ensure_ascii=False) + '\\n', encoding='utf-8')
+_pc_lock_path = _pc_cloud_path.parent / 'package-lock.json'
+if _pc_lock_path.exists():
+    _pc_lock = json.loads(_pc_lock_path.read_text(encoding='utf-8'))
+    if _pc_lock.get('version') not in ('12.2.0', '12.2.1'):
+        raise SystemExit(f'V12.2.1 unexpected lock version: {_pc_lock.get("version")}')
+    _pc_lock['version'] = '12.2.1'
+    if isinstance(_pc_lock.get('packages'), dict) and isinstance(_pc_lock['packages'].get(''), dict):
+        _pc_lock['packages']['']['version'] = '12.2.1'
+    _pc_lock_path.write_text(json.dumps(_pc_lock, indent=2, ensure_ascii=False) + '\\n', encoding='utf-8')
+_pc_renderer_path = _pc_cloud_path.parent / 'renderer.js'
+_pc_renderer = _pc_renderer_path.read_text(encoding='utf-8').replace("const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", "const APP_VERSION = 'V12.2.1-DUAL-DB-ROUTE';")
+if "const APP_VERSION = 'V12.2.1-DUAL-DB-ROUTE';" not in _pc_renderer:
+    raise SystemExit('V12.2.1 renderer version marker missing')
+_pc_renderer_path.write_text(_pc_renderer, encoding='utf-8')
+_pc_index_path = _pc_cloud_path.parent / 'index.html'
+_pc_index = _pc_index_path.read_text(encoding='utf-8')
+if "const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';" in _pc_index:
+    _pc_index = _pc_index.replace("const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", "const APP_VERSION = 'V12.2.1-DUAL-DB-ROUTE';", 1)
+if "const APP_VERSION = 'V12.2.1-DUAL-DB-ROUTE';" not in _pc_index:
+    raise SystemExit('V12.2.1 live index version marker missing')
+_pc_index = _pc_index.replace('V12.2.0-DUAL-DB-ROUTE', 'V12.2.1-DUAL-DB-ROUTE')
+_pc_index_path.write_text(_pc_index, encoding='utf-8')
+(_pc_cloud_path.parent / 'VERSION.txt').write_text('AniGames Billing PC V12.2.1 — dual DB route continuity + safe sync maintenance\\n', encoding='utf-8')
+for _pc_token in ['dbRouteFinalizedActive(r)', 'cutover_test_note', 'data_parity_ready', 'routing_gateway_ready', "String(b.switch_id||'')!==String(route.switch_id||'')", 'automatic failover is disabled']:
+    if _pc_token not in _pc_cloud:
+        raise SystemExit('V12.2.1 required route guard missing: ' + _pc_token)
+if "localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(SYNC_CURSOR_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);" in _pc_cloud:
+    raise SystemExit('V12.2.1 unsafe PC local-state clearing detected')
+print('PASS: PC V12.2.1 exact finalized-route continuity + maintenance state + preserved local pairing state')
