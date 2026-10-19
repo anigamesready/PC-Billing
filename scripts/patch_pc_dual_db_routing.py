@@ -175,7 +175,7 @@ elif _pc_package.get('version') != '12.2.1':
     raise SystemExit(f'V12.2.1 unexpected package version: {_pc_package.get("version")}')
 _pc_package['description'] = 'AniGames Billing V12.2.1: guarded dual Supabase routing, finalized-route continuity, and safe maintenance handling'
 _pc_package.setdefault('build', {})['productName'] = 'AniGames Billing V12.2.1'
-_pc_package_path.write_text(json.dumps(_pc_package, indent=2, ensure_ascii=False) + '\\n', encoding='utf-8')
+_pc_package_path.write_text(json.dumps(_pc_package, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 _pc_lock_path = _pc_cloud_path.parent / 'package-lock.json'
 if _pc_lock_path.exists():
     _pc_lock = json.loads(_pc_lock_path.read_text(encoding='utf-8'))
@@ -184,7 +184,7 @@ if _pc_lock_path.exists():
     _pc_lock['version'] = '12.2.1'
     if isinstance(_pc_lock.get('packages'), dict) and isinstance(_pc_lock['packages'].get(''), dict):
         _pc_lock['packages']['']['version'] = '12.2.1'
-    _pc_lock_path.write_text(json.dumps(_pc_lock, indent=2, ensure_ascii=False) + '\\n', encoding='utf-8')
+    _pc_lock_path.write_text(json.dumps(_pc_lock, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 _pc_renderer_path = _pc_cloud_path.parent / 'renderer.js'
 _pc_renderer = _pc_renderer_path.read_text(encoding='utf-8').replace("const APP_VERSION = 'V12.2.0-DUAL-DB-ROUTE';", "const APP_VERSION = 'V12.2.1-DUAL-DB-ROUTE';")
 if "const APP_VERSION = 'V12.2.1-DUAL-DB-ROUTE';" not in _pc_renderer:
@@ -198,7 +198,7 @@ if "const APP_VERSION = 'V12.2.1-DUAL-DB-ROUTE';" not in _pc_index:
     raise SystemExit('V12.2.1 live index version marker missing')
 _pc_index = _pc_index.replace('V12.2.0-DUAL-DB-ROUTE', 'V12.2.1-DUAL-DB-ROUTE')
 _pc_index_path.write_text(_pc_index, encoding='utf-8')
-(_pc_cloud_path.parent / 'VERSION.txt').write_text('AniGames Billing PC V12.2.1 — dual DB route continuity + safe sync maintenance\\n', encoding='utf-8')
+(_pc_cloud_path.parent / 'VERSION.txt').write_text('AniGames Billing PC V12.2.1 — dual DB route continuity + safe sync maintenance\n', encoding='utf-8')
 for _pc_token in ['dbRouteFinalizedActive(r)', 'cutover_test_note', 'data_parity_ready', 'routing_gateway_ready', "String(b.switch_id||'')!==String(route.switch_id||'')", 'automatic failover is disabled']:
     if _pc_token not in _pc_cloud:
         raise SystemExit('V12.2.1 required route guard missing: ' + _pc_token)
