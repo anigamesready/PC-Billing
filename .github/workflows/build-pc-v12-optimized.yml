@@ -94,7 +94,7 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $PWD 'index-runtime-check.js'), $runtimeMatch.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
           node --check index-runtime-check.js
           if ($LASTEXITCODE -ne 0) { throw 'Live index.html JavaScript syntax check failed.' }
-          foreach ($token in @('resolveDbRoute', 'db-route-status', 'data_parity_ready', 'routing_gateway_ready', 'last_parity_check_at', "String(b.switch_id||'')!==String(route.switch_id||'')", 'automatic failover is disabled')) {
+          foreach ($token in @('dbRouteFinalizedActive', 'cutover_test_note', 'resolveDbRoute', 'db-route-status', 'data_parity_ready', 'routing_gateway_ready', 'last_parity_check_at', "String(b.switch_id||'')!==String(route.switch_id||'')", 'automatic failover is disabled')) {
             if (!$cloud.Contains($token)) { throw "Dual DB route regression token missing: $token" }
           }
           foreach ($token in @('emitRentalAdminAlert(eventType, message', 'dihentikan manual dari Admin Android.', 'emitRentalAdminAlert(eventType, message, {', 'renderer.js is not loaded by Electron.', 'last.count = (Number(last.count) || 1) + 1', "if (manual) writeSystemLog('Backup manual berhasil.');")) {
@@ -159,7 +159,7 @@ jobs:
           name: AniGames-PC-V12.2.1-DUAL-DB-ROUTING
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip
+            AniGames-PC-V12.2.1-DUAL-DB-ROUTING-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
           if-no-files-found: error
           retention-days: 14
