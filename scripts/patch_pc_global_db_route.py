@@ -13,102 +13,125 @@ package = json.loads(PACKAGE.read_text(encoding="utf-8"))
 lock = json.loads(LOCK.read_text(encoding="utf-8"))
 
 route_helpers = r"""
-  const DB1_ROUTE_URL='https://wzkjpycjizexxcxrfdvr.supabase.co',DB2_ROUTE_URL='https://xcdbipgsvohesxhxydep.supabase.co';
+(function installAniGamesGlobalDbRouteRefresh(){
+  if(window.__aniGamesGlobalDbRouteRefresh)return;
+  window.__aniGamesGlobalDbRouteRefresh=true;
+  const nativeFetch=window.fetch.bind(window);
+  const DB1_ROUTE_URL='https://wzkjpycjizexxcxrfdvr.supabase.co';
+  const DB2_ROUTE_URL='https://xcdbipgsvohesxhxydep.supabase.co';
   const DB1_ROUTE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6a2pweWNqaXpleHhjeHJmZHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc0OTUsImV4cCI6MjEwNjYxMzQ5NX0.lxjSt7CqWDJhKItPi1ckVRIcc-kM7etMzxTu3txANaI';
   const DB2_ROUTE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZGJpcGdzdm9oZXN4aHh5ZGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNjI5ODUsImV4cCI6MjEwNzYzODk4NX0.kHymS-T8a_PcKk-oQBYMGhHy3SSW1kAKStOBJVzMoSI';
-  const DB1_API_KEY='sb_publishable_DobdCrOd43-vluON5gV7hg_6Js2Ea5V',DB2_API_KEY='sb_publishable_FjhnRZeXPnomlGRw75YLxw_d46R2Lag';
-  const DB1_API_BASE=DB1_ROUTE_URL+'/functions/v1/ani-games-api',DB2_API_BASE=DB2_ROUTE_URL+'/functions/v1/ani-games-api';
-  let dbRouteSnapshot=null,dbRouteCheckedAt=0,dbRoutePromise=null,dbRoutePrimed=false,dbRouteReloadScheduled=false;
-  async function readGlobalDbRoute(url,key,ref){
+  const DB1_API_KEY='sb_publishable_DobdCrOd43-vluON5gV7hg_6Js2Ea5V';
+  const DB2_API_KEY='sb_publishable_FjhnRZeXPnomlGRw75YLxw_d46R2Lag';
+  const DB1_API_BASE=DB1_ROUTE_URL+'/functions/v1/ani-games-api';
+  const DB2_API_BASE=DB2_ROUTE_URL+'/functions/v1/ani-games-api';
+  const ROUTE_STATE_KEY='billing_v11_db_route_state';
+  const ROUTE_NOTICE_KEY='billing_v11_db_route_notice';
+  const ROUTE_CACHE_MS=15000;
+  let routeState=null,routeCheckedAt=0,routePromise=null,monitorStarted=false,reloadScheduled=false;
+  function readStoredRoute(){try{return JSON.parse(localStorage.getItem(ROUTE_STATE_KEY)||'null')}catch(_){return null}}
+  function sameRoute(a,b){return !!a&&!!b&&String(a.target)===String(b.target)&&Number(a.epoch)===Number(b.epoch)&&String(a.switchId||'')===String(b.switchId||'')}
+  async function readRoute(url,key,ref){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
     try{
-      const response=await fetch(url+'/functions/v1/db-route-status',{method:'GET',headers:{apikey:key},cache:'no-store',signal:controller.signal});
+      const response=await nativeFetch(url+'/functions/v1/db-route-status',{method:'GET',headers:{apikey:key},cache:'no-store',signal:controller.signal});
       const data=await response.json().catch(()=>({}));
       if(!response.ok||data?.ok!==true||data?.projectRef!==ref||!data?.route)throw new Error('DB_ROUTE_STATUS_UNAVAILABLE:'+ref);
       return data.route;
     }finally{clearTimeout(timer)}
   }
-  function globalRouteFresh(r){
-    const at=Date.parse(r?.last_parity_check_at||'');
-    return Number.isFinite(at)&&at<=Date.now()+60000&&Date.now()-at<=30*60*1000;
+  function freshParity(r){
+    const t=Date.parse(r?.last_parity_check_at||'');
+    return Number.isFinite(t)&&t<=Date.now()+60000&&Date.now()-t<=30*60*1000;
   }
-  function globalRouteSchemaMatches(r){
+  function schemaMatches(r){
     return !!r?.schema_version&&r.schema_version===r.primary_schema_version&&r.schema_version===r.backup_schema_version;
   }
-  async function resolveGlobalDbRoute(force=false){
-    if(!force&&dbRouteSnapshot&&Date.now()-dbRouteCheckedAt<5000)return dbRouteSnapshot;
-    if(dbRoutePromise)return dbRoutePromise;
-    dbRoutePromise=(async()=>{
-      const [a,b]=await Promise.all([
-        readGlobalDbRoute(DB1_ROUTE_URL,DB1_ROUTE_KEY,'wzkjpycjizexxcxrfdvr'),
-        readGlobalDbRoute(DB2_ROUTE_URL,DB2_ROUTE_KEY,'xcdbipgsvohesxhxydep')
+  function finalizedBackup(r){
+    if(!r||r.active_target!=='backup'||!r.switch_id)return false;
+    const note='Coordinated global route finalized: backup epoch '+Number(r.epoch)+' switch '+String(r.switch_id);
+    return !!r.last_cutover_test_at&&String(r.cutover_test_note||'')===note;
+  }
+  function scheduleRouteReload(next){
+    if(reloadScheduled)return;
+    reloadScheduled=true;
+    try{localStorage.setItem(ROUTE_NOTICE_KEY,'Target DB global berubah ke '+(next.target==='backup'?'DB2':'DB1')+' • epoch '+next.epoch+'. Refresh otomatis berjalan; pairing dan data lokal PC tetap dipertahankan.')}catch(_){}
+    setTimeout(()=>{try{window.location.reload()}catch(_){}},700);
+  }
+  async function resolveGlobalDbRoute(force){
+    force=!!force;
+    if(!force&&routeState&&Date.now()-routeCheckedAt<ROUTE_CACHE_MS)return routeState;
+    if(routePromise)return routePromise;
+    routePromise=(async()=>{
+      const pair=await Promise.all([
+        readRoute(DB1_ROUTE_URL,DB1_ROUTE_KEY,'wzkjpycjizexxcxrfdvr'),
+        readRoute(DB2_ROUTE_URL,DB2_ROUTE_KEY,'xcdbipgsvohesxhxydep')
       ]);
-      const switchA=String(a.switch_id||''),switchB=String(b.switch_id||'');
-      if(a.active_target!==b.active_target||Number(a.epoch)!==Number(b.epoch)||switchA!==switchB)
+      const a=pair[0],b=pair[1],sidA=String(a.switch_id||''),sidB=String(b.switch_id||'');
+      if(a.active_target!==b.active_target||Number(a.epoch)!==Number(b.epoch)||sidA!==sidB)
         throw new Error('DB_ROUTE_CUTOVER_INCOMPLETE: DB1 and DB2 target/epoch/switch ID do not match');
-      if(!['primary','backup'].includes(String(a.active_target)))throw new Error('DB_ROUTE_INVALID_TARGET');
       if(a.sync_in_progress===true||b.sync_in_progress===true)throw new Error('DB_ROUTE_SYNC_IN_PROGRESS');
       if(a.active_target==='primary'){
         if(a.primary_ready!==true||b.primary_ready!==true)throw new Error('DB_ROUTE_PRIMARY_NOT_READY');
-      }else{
-        if(a.data_parity_ready!==true||b.data_parity_ready!==true||
-           a.can_switch_to_backup!==true||b.can_switch_to_backup!==true||
-           !globalRouteFresh(a)||!globalRouteFresh(b)||
-           !globalRouteSchemaMatches(a)||!globalRouteSchemaMatches(b)||
-           a.schema_version!==b.schema_version)
-          throw new Error('DB_ROUTE_CUTOVER_BLOCKED: parity/schema freshness is not verified on both databases');
+      }else if(a.active_target==='backup'){
+        const alreadyFinalized=finalizedBackup(a)&&finalizedBackup(b);
+        if(!alreadyFinalized&&(
+          a.data_parity_ready!==true||b.data_parity_ready!==true||
+          a.can_switch_to_backup!==true||b.can_switch_to_backup!==true||
+          !freshParity(a)||!freshParity(b)||!schemaMatches(a)||!schemaMatches(b)||
+          a.schema_version!==b.schema_version
+        ))throw new Error('DB_ROUTE_CUTOVER_BLOCKED: parity/schema freshness is not verified');
+      }else throw new Error('DB_ROUTE_INVALID_TARGET');
+      const next={
+        target:String(a.active_target),epoch:Number(a.epoch)||0,switchId:sidA,
+        apiBase:a.active_target==='backup'?DB2_API_BASE:DB1_API_BASE,
+        apiKey:a.active_target==='backup'?DB2_API_KEY:DB1_API_KEY
+      };
+      const stored=readStoredRoute();
+      if(stored&&!sameRoute(stored,next)){
+        try{localStorage.setItem(ROUTE_STATE_KEY,JSON.stringify({target:next.target,epoch:next.epoch,switchId:next.switchId,checkedAt:new Date().toISOString()}))}catch(_){}
+        scheduleRouteReload(next);
+        throw new Error('DB_ROUTE_CHANGED_RELOAD: refresh is restarting on the confirmed global DB target');
       }
-      const next={target:String(a.active_target),epoch:Number(a.epoch)||0,switchId:switchA,apiBase:a.active_target==='backup'?DB2_API_BASE:DB1_API_BASE,apiKey:a.active_target==='backup'?DB2_API_KEY:DB1_API_KEY};
-      const previous=dbRouteSnapshot;
-      if(dbRoutePrimed&&previous&&(previous.target!==next.target||previous.epoch!==next.epoch||previous.switchId!==next.switchId)&&!dbRouteReloadScheduled){
-        dbRouteReloadScheduled=true;
-        try{localStorage.setItem('billing_v11_db_route_notice','Route global berubah ke '+(next.target==='backup'?'DB2':'DB1')+' • epoch '+next.epoch+'. Data lokal dan pairing dipertahankan.')}catch(_){}
-        setTimeout(()=>{try{window.location.reload()}catch(_){}},2500);
-      }
-      dbRouteSnapshot=next;dbRouteCheckedAt=Date.now();dbRoutePrimed=true;
-      try{localStorage.setItem('billing_v11_db_route_state',JSON.stringify({target:next.target,epoch:next.epoch,switchId:next.switchId,checkedAt:new Date().toISOString()}))}catch(_){}
+      routeState=next;routeCheckedAt=Date.now();
+      try{localStorage.setItem(ROUTE_STATE_KEY,JSON.stringify({target:next.target,epoch:next.epoch,switchId:next.switchId,checkedAt:new Date().toISOString()}))}catch(_){}
       window.v11DbRouteStatus={target:next.target,epoch:next.epoch,switchId:next.switchId};
       return next;
     })();
-    try{return await dbRoutePromise}finally{dbRoutePromise=null}
+    try{return await routePromise}finally{routePromise=null}
   }
+  function routeUrl(url,targetUrl){
+    return String(url).replace(/^https:\/\/(?:wzkjpycjizexxcxrfdvr|xcdbipgsvohesxhxydep)\.supabase\.co/i,targetUrl.replace(/\/$/,''));
+  }
+  window.resolveGlobalDbRoute=resolveGlobalDbRoute;
+  window.fetch=async function(input,init){
+    const raw=input instanceof Request?input.url:(input instanceof URL?input.href:String(input||''));
+    const isDbUrl=/^https:\/\/(?:wzkjpycjizexxcxrfdvr|xcdbipgsvohesxhxydep)\.supabase\.co(?:\/|$)/i.test(raw);
+    if(!isDbUrl||raw.includes('/functions/v1/db-route-status'))return nativeFetch(input,init);
+    const route=await resolveGlobalDbRoute(false);
+    const url=routeUrl(raw,route.apiBase.replace('/functions/v1/ani-games-api',''));
+    if(input instanceof Request){
+      const request=new Request(url,input);
+      const headers=new Headers(request.headers);
+      if(init?.headers)new Headers(init.headers).forEach((v,k)=>headers.set(k,v));
+      headers.set('apikey',route.apiKey);
+      return nativeFetch(new Request(request,{...(init||{}),headers,cache:'no-store'}));
+    }
+    const headers=new Headers(init?.headers||{});
+    headers.set('apikey',route.apiKey);
+    return nativeFetch(url,{...(init||{}),headers,cache:'no-store'});
+  };
+  window.addEventListener('load',()=>{
+    void resolveGlobalDbRoute(true).catch(e=>console.warn('[AniGames DB route]',String(e?.message||e)));
+    if(!monitorStarted){monitorStarted=true;setInterval(()=>{void resolveGlobalDbRoute(true).catch(e=>console.warn('[AniGames DB route]',String(e?.message||e)))},15000)}
+  });
+})(); 
 """
 if "async function resolveGlobalDbRoute(" not in cloud:
-    anchor = "  const save=v=>localStorage.setItem(CLOUD_KEY,JSON.stringify(v||{}));"
-    if cloud.count(anchor) != 1: raise SystemExit("v11-cloud.js config anchor mismatch; refusing to patch")
-    cloud = cloud.replace(anchor, anchor + "\n" + route_helpers, 1)
+    cloud = route_helpers + "\n" + cloud
+elif "window.__aniGamesGlobalDbRouteRefresh" not in cloud:
+    raise SystemExit("Global DB route patch partially exists in cloud; refusing to duplicate it")
 
-tick = chr(96)
-dollar = chr(36)
-old_request = "  async function request(path,body){const r=await fetch(API_BASE+path,{method:'POST',headers:{'content-type':'application/json','apikey':API_KEY},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||d.message||" + tick + "HTTP " + dollar + "{r.status}" + tick + ");return d}"
-new_request = """  async function request(path,body){
-    const route=await resolveGlobalDbRoute();
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
-    try{
-      const r=await fetch(route.apiBase+path,{method:'POST',headers:{'content-type':'application/json','apikey':route.apiKey},body:JSON.stringify(body),cache:'no-store',signal:controller.signal});
-      const d=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(d.error||d.message||('HTTP '+r.status));
-      return d;
-    }catch(e){
-      if(e?.name==='AbortError')throw new Error('DB_ROUTE_REQUEST_TIMEOUT: local queue retained');
-      throw e;
-    }finally{clearTimeout(timer)}
-  }"""
-if old_request in cloud:
-    cloud = cloud.replace(old_request, new_request, 1)
-elif new_request not in cloud:
-    raise SystemExit("v11-cloud.js request() anchor mismatch; refusing to patch")
-
-load_anchor = "window.addEventListener('load',()=>{const c=read();if(c.token)"
-if load_anchor in cloud and "setInterval(()=>{resolveGlobalDbRoute(true).catch(()=>{})},10000)" not in cloud:
-    cloud = cloud.replace(load_anchor, "window.addEventListener('load',()=>{void resolveGlobalDbRoute(true).catch(()=>{});setInterval(()=>{resolveGlobalDbRoute(true).catch(()=>{})},10000);const c=read();if(c.token)", 1)
-elif "setInterval(()=>{resolveGlobalDbRoute(true).catch(()=>{})},10000)" not in cloud:
-    raise SystemExit("v11-cloud.js load-start anchor mismatch; refusing to patch")
-
-if "'V11.29.5-LOW-NOISE-LOG-FIX'" in cloud:
-    cloud = cloud.replace("'V11.29.5-LOW-NOISE-LOG-FIX'", "'V11.29.6-GLOBAL-DB-ROUTE-REFRESH'", 1)
-elif "'V11.29.6-GLOBAL-DB-ROUTE-REFRESH'" not in cloud:
-    raise SystemExit("Unexpected PC cloud APP marker; refusing to bump blindly")
 
 old_ver = "const APP_VERSION = 'V12.1.7-LOW-NOISE-LOG-FIX';"
 new_ver = "const APP_VERSION = 'V12.1.8-GLOBAL-DB-ROUTE-REFRESH';"
