@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - main
+      - feature/global-db-refresh-v1
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - 'scripts/patch_pc_log_optimization.py'
       - 'scripts/patch_pc_token_preservation.py'
       - 'scripts/patch_pc_live_alert_runtime.py'
+      - 'scripts/patch_pc_global_db_route.py'
       - 'supabase/functions/ani-games-api/index.ts'
       - 'supabase/functions/ani-games-api/deno.json'
       - 'docs/PC-LOG-OPTIMIZATION-AUDIT.md'
@@ -43,6 +45,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_log_optimization.py' (Join-Path $project.FullName 'patch_pc_log_optimization.py')
           Copy-Item 'scripts/patch_pc_token_preservation.py' (Join-Path $project.FullName 'patch_pc_token_preservation.py')
           Copy-Item 'scripts/patch_pc_live_alert_runtime.py' (Join-Path $project.FullName 'patch_pc_live_alert_runtime.py')
+          Copy-Item 'scripts/patch_pc_global_db_route.py' (Join-Path $project.FullName 'patch_pc_global_db_route.py')
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Detected PC project: $($project.FullName)"
 
@@ -66,6 +69,13 @@ jobs:
           Set-Location $env:PC_PROJECT_DIR
           python patch_pc_live_alert_runtime.py
           if ($LASTEXITCODE -ne 0) { throw 'Live index.html alert patch failed.' }
+
+      - name: Apply global DB route refresh patch
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          python patch_pc_global_db_route.py
+          if ($LASTEXITCODE -ne 0) { throw 'Global DB route patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -96,10 +106,10 @@ jobs:
           if (!$edge.Contains('device/alert') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.1.7') { throw "Unexpected patched version: $($package.version)" }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py
+          if ($package.version -ne '12.1.8') { throw "Unexpected patched version: $($package.version)" }
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_global_db_route.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          Write-Host 'PASS: live index.html alert emitters + syntax, v11-cloud outbox, API route, and PC v12.1.7.'
+          Write-Host 'PASS: global route target/epoch/switch guard, preserved pairing/outbox, JS syntax, and PC v12.1.8.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -128,7 +138,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip")
+          output = Path("AniGames-PC-V12.1.8-GLOBAL-DB-ROUTE-REFRESH-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -143,7 +153,7 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX
+          name: AniGames-PC-V12.1.8-GLOBAL-DB-ROUTE-REFRESH
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
             AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip
