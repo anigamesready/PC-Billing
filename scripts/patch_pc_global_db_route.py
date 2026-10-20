@@ -15,7 +15,7 @@ lock = json.loads(LOCK.read_text(encoding="utf-8"))
 route_helpers = r"""
   const DB1_ROUTE_URL='https://wzkjpycjizexxcxrfdvr.supabase.co',DB2_ROUTE_URL='https://xcdbipgsvohesxhxydep.supabase.co';
   const DB1_ROUTE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6a2pweWNqaXpleHhjeHJmZHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc0OTUsImV4cCI6MjEwNjYxMzQ5NX0.lxjSt7CqWDJhKItPi1ckVRIcc-kM7etMzxTu3txANaI';
-  const DB2_ROUTE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZGJpcGdzdm9oZXN4aHh5ZGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNjI5ODUsImV4cCI6MjEwNzYzODk4NX0.kHymS-T8a_PcKk-oQWGMGHy3SSW1kAKStOBJVzMoSI';
+  const DB2_ROUTE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZGJpcGdzdm9oZXN4aHh5ZGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNjI5ODUsImV4cCI6MjEwNzYzODk4NX0.kHymS-T8a_PcKk-oQBYMGhHy3SSW1kAKStOBJVzMoSI';
   const DB1_API_KEY='sb_publishable_DobdCrOd43-vluON5gV7hg_6Js2Ea5V',DB2_API_KEY='sb_publishable_FjhnRZeXPnomlGRw75YLxw_d46R2Lag';
   const DB1_API_BASE=DB1_ROUTE_URL+'/functions/v1/ani-games-api',DB2_API_BASE=DB2_ROUTE_URL+'/functions/v1/ani-games-api';
   let dbRouteSnapshot=null,dbRouteCheckedAt=0,dbRoutePromise=null,dbRoutePrimed=false,dbRouteReloadScheduled=false;
