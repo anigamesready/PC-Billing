@@ -121,10 +121,8 @@ route_helpers = r"""
     headers.set('apikey',route.apiKey);
     return nativeFetch(url,{...(init||{}),headers,cache:'no-store'});
   };
-  window.addEventListener('load',()=>{
-    void resolveGlobalDbRoute(true).catch(e=>console.warn('[AniGames DB route]',String(e?.message||e)));
-    if(!monitorStarted){monitorStarted=true;setInterval(()=>{void resolveGlobalDbRoute(true).catch(e=>console.warn('[AniGames DB route]',String(e?.message||e)))},15000)}
-  });
+  void resolveGlobalDbRoute(true).catch(e=>console.warn('[AniGames DB route]',String(e?.message||e)));
+  if(!monitorStarted){monitorStarted=true;setInterval(()=>{void resolveGlobalDbRoute(true).catch(e=>console.warn('[AniGames DB route]',String(e?.message||e)))},15000)}
 })(); 
 """
 if "async function resolveGlobalDbRoute(" not in cloud:
