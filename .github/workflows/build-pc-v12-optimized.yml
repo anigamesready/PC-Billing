@@ -11,6 +11,7 @@ on:
       - 'scripts/patch_pc_token_preservation.py'
       - 'scripts/patch_pc_live_alert_runtime.py'
       - 'scripts/patch_pc_dual_db_routing.py'
+      - 'scripts/patch_pc_shared_gateway.py'
       - 'supabase/functions/ani-games-api/index.ts'
       - 'supabase/functions/ani-games-api/deno.json'
       - 'docs/PC-LOG-OPTIMIZATION-AUDIT.md'
@@ -46,6 +47,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_token_preservation.py' (Join-Path $project.FullName 'patch_pc_token_preservation.py')
           Copy-Item 'scripts/patch_pc_live_alert_runtime.py' (Join-Path $project.FullName 'patch_pc_live_alert_runtime.py')
           Copy-Item 'scripts/patch_pc_dual_db_routing.py' (Join-Path $project.FullName 'patch_pc_dual_db_routing.py')
+          Copy-Item 'scripts/patch_pc_shared_gateway.py' (Join-Path $project.FullName 'patch_pc_shared_gateway.py')
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Detected PC project: $($project.FullName)"
 
@@ -76,6 +78,8 @@ jobs:
           Set-Location $env:PC_PROJECT_DIR
           python patch_pc_dual_db_routing.py
           if ($LASTEXITCODE -ne 0) { throw 'PC dual-DB routing patch failed.' }
+          python patch_pc_shared_gateway.py
+          if ($LASTEXITCODE -ne 0) { throw 'PC shared gateway patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -109,7 +113,7 @@ jobs:
           if (!$edge.Contains('device/alert') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.2.1') { throw "Unexpected V12.2.1 patched version: $($package.version)" }
+          if ($package.version -ne '12.2.2') { throw "Unexpected V12.2.1 patched version: $($package.version)" }
           python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
           Write-Host 'PASS: live index.html alert emitters + syntax, v11-cloud outbox, strict route continuity, API route, and PC v12.2.1.'
@@ -141,7 +145,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.2.1-DUAL-DB-ROUTING-SOURCE.zip")
+          output = Path("AniGames-PC-V12.2.2-SHARED-DB-GATEWAY-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -156,10 +160,10 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.2.1-DUAL-DB-ROUTING
+          name: AniGames-PC-V12.2.2-SHARED-DB-GATEWAY
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.2.1-DUAL-DB-ROUTING-SOURCE.zip
+            AniGames-PC-V12.2.2-SHARED-DB-GATEWAY-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
           if-no-files-found: error
           retention-days: 14
