@@ -12,6 +12,7 @@ on:
       - 'scripts/patch_pc_live_alert_runtime.py'
       - 'scripts/patch_pc_dual_db_routing.py'
       - 'scripts/patch_pc_shared_gateway.py'
+      - 'scripts/patch_pc_shared_gateway.py'
       - 'supabase/functions/ani-games-api/index.ts'
       - 'supabase/functions/ani-games-api/deno.json'
       - 'docs/PC-LOG-OPTIMIZATION-AUDIT.md'
@@ -48,6 +49,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_live_alert_runtime.py' (Join-Path $project.FullName 'patch_pc_live_alert_runtime.py')
           Copy-Item 'scripts/patch_pc_dual_db_routing.py' (Join-Path $project.FullName 'patch_pc_dual_db_routing.py')
           Copy-Item 'scripts/patch_pc_shared_gateway.py' (Join-Path $project.FullName 'patch_pc_shared_gateway.py')
+          Copy-Item 'scripts/patch_pc_shared_gateway.py' (Join-Path $project.FullName 'patch_pc_shared_gateway.py')
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Detected PC project: $($project.FullName)"
 
@@ -78,6 +80,8 @@ jobs:
           Set-Location $env:PC_PROJECT_DIR
           python patch_pc_dual_db_routing.py
           if ($LASTEXITCODE -ne 0) { throw 'PC dual-DB routing patch failed.' }
+          python patch_pc_shared_gateway.py
+          if ($LASTEXITCODE -ne 0) { throw 'PC shared gateway patch failed.' }
           python patch_pc_shared_gateway.py
           if ($LASTEXITCODE -ne 0) { throw 'PC shared gateway patch failed.' }
 
