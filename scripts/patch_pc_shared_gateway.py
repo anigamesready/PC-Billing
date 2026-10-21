@@ -15,15 +15,12 @@ if package_path.exists():
     if current_package.get("version") == "12.2.2" and "shared-db-gateway/v1/" in src:
         print("PASS: shared gateway routing is already applied; no duplicate patch needed.")
         raise SystemExit(0)
-lines = src.splitlines()
-indices = [i for i, line in enumerate(lines) if line.lstrip().startswith("async function request(path,body,opts={}){")]
-if len(indices) != 1:
-    raise SystemExit(f"Expected one request() runtime, found {len(indices)}")
-
 gateway_request = """  async function request(path,body,opts={}){const retries=Math.max(0,Number(opts.retries??0));let last;for(let attempt=0;attempt<=retries;attempt++){const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),Number(opts.timeoutMs||8000));try{const route=await resolveDbRoute(attempt>0),cfg=DB_ENDPOINTS[route.target],clean=String(path||'').replace(/^\\/+/,''),viaGateway=/^device\\/(?:alert|disconnect|enroll|heartbeat|ack|sync|pull|rentals)$/.test(clean),targetUrl=viaGateway?'https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/shared-db-gateway/v1/'+clean:cfg.baseUrl+'/functions/v1/ani-games-api/'+clean,headers={'content-type':'application/json','apikey':viaGateway?DB_ENDPOINTS.primary.apiKey:cfg.apiKey};if(viaGateway)headers['x-db-target-key']=cfg.apiKey;const r=await fetch(targetUrl,{method:'POST',headers,body:JSON.stringify(body),signal:ctl.signal});const d=await r.json().catch(()=>({}));if(!r.ok){const detail=d.error||d.message||('HTTP '+r.status);if(r.status===401&&/invalid api key|UNAUTHORIZED_INVALID_API_KEY/i.test(String(detail)))throw new Error('API key Supabase ditolak oleh gateway. Periksa versi key aplikasi.');throw new Error(detail)}return d}catch(e){last=e;if(attempt<retries){dbRouteCheckedAt=0;await new Promise(res=>setTimeout(res,350*(attempt+1)));}}finally{clearTimeout(timer)}}throw last||new Error('NETWORK_ERROR')}"""
-lines[indices[0]] = gateway_request
-src = "\n".join(lines) + "\n"
-src, build_id_count = re.subn(r"^// BUILD_ID: [^\\n]+", "// BUILD_ID: V12.2.2-SHARED-DB-GATEWAY", src, count=1, flags=re.M)
+request_pattern = re.compile(r"async function request\(path,body,opts=\{\}\)\{[^\r\n]*?throw last\|\|new Error\('NETWORK_ERROR'\)\}")
+src, request_count = request_pattern.subn(lambda _: gateway_request.strip(), src, count=1)
+if request_count != 1:
+    raise SystemExit(f"Expected one request() body to replace, found {request_count}")
+src, build_id_count = re.subn(r"^// BUILD_ID: [^\n]+", "// BUILD_ID: V12.2.2-SHARED-DB-GATEWAY", src, count=1, flags=re.M)
 if build_id_count != 1:
     raise SystemExit("Expected one PC BUILD_ID marker to update")
 if "shared-db-gateway/v1/" not in src or "x-db-target-key" not in src:
