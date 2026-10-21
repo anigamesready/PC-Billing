@@ -9,6 +9,12 @@ if len(clouds) != 1:
     raise SystemExit(f"Expected exactly one v11-cloud.js, found {len(clouds)}")
 cloud_path = clouds[0]
 src = cloud_path.read_text(encoding="utf-8")
+package_path = cloud_path.parent / "package.json"
+if package_path.exists():
+    current_package = json.loads(package_path.read_text(encoding="utf-8"))
+    if current_package.get("version") == "12.2.2" and "shared-db-gateway/v1/" in src:
+        print("PASS: shared gateway routing is already applied; no duplicate patch needed.")
+        raise SystemExit(0)
 lines = src.splitlines()
 indices = [i for i, line in enumerate(lines) if line.lstrip().startswith("async function request(path,body,opts={}){")]
 if len(indices) != 1:
