@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.1.7 Alert Delivery Reliability Fix + Blynk Mapping
+name: Build AniGames PC V12.1.8 Shutdown Timer + Blynk Mapping
 
 on:
   push:
@@ -108,7 +108,7 @@ jobs:
           if ($package.version -ne '12.1.8') { throw "Unexpected patched version: $($package.version)" }
           python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_shutdown_timer.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          Write-Host 'PASS: live index.html alert emitters + syntax, v11-cloud outbox, API route, and PC v12.1.7.'
+          Write-Host 'PASS: PC shutdown timer/rental guards + live alerts, cloud metadata, API route, and PC v12.1.8.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
