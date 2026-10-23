@@ -155,7 +155,7 @@ jobs:
           name: AniGames-PC-V12.1.8-SHUTDOWN-TIMER
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip
+            AniGames-PC-V12.1.8-SHUTDOWN-TIMER-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
           if-no-files-found: error
           retention-days: 14
