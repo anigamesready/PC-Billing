@@ -169,10 +169,10 @@ html = html.replace(bridge_anchor, helpers + "\n" + bridge_anchor, 1)
 command_anchor = "            const cmd = String(command || '').trim();"
 if html.count(command_anchor) != 1:
     raise SystemExit("Live command normalization anchor mismatch; refusing to patch.")
-command_interceptor = r"""            if (cmd === 'shutdown' && payload.cancelScheduled === true) {
+command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
                 return await v12CancelScheduledShutdown(payload);
             }
-            if (cmd === 'shutdown' && payload.scheduled === true) {
+            if (cmd === 'schedule_shutdown') {
                 return await v12ShutdownScheduleFromAdmin(payload);
             }
             if (cmd === 'shutdown') {
@@ -266,8 +266,8 @@ for token in (
     "function v12CancelScheduledShutdown(",
     "function v12ShutdownRentalBlocker(",
     "window.v11GetShutdownTimerStatus = v12ShutdownStateForHeartbeat;",
-    "if (cmd === 'shutdown' && payload.scheduled === true)",
-    "if (cmd === 'shutdown' && payload.cancelScheduled === true)",
+    "if (cmd === 'schedule_shutdown')",
+    "if (cmd === 'cancel_shutdown_timer')",
     "billing_remote_paused_code",
 ):
     if token not in html:
