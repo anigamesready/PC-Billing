@@ -6,6 +6,7 @@ html_path = root / 'index.html'
 cloud_path = root / 'v11-cloud.js'
 package_path = root / 'package.json'
 lock_path = root / 'package-lock.json'
+version_path = root / 'VERSION.txt'
 html = html_path.read_text(encoding='utf-8')
 cloud = cloud_path.read_text(encoding='utf-8')
 
