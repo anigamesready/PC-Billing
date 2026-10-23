@@ -73,7 +73,7 @@ helpers = r"""
             const deadlineMs = Date.parse(String(payload.deadlineAt || ''));
             const now = Date.now();
             if (!scheduleId || scheduleId.length > 120) return { ok:false, message:'ID timer shutdown tidak valid.' };
-            if (!Number.isFinite(deadlineMs) || deadlineMs < now + 60000 || deadlineMs > now + 24 * 60 * 60000 + 60000) {
+            if (!Number.isFinite(deadlineMs) || deadlineMs < now + 5000 || deadlineMs > now + 24 * 60 * 60000 + 60000) {
                 return { ok:false, message:'Waktu timer shutdown tidak valid atau sudah kedaluwarsa.' };
             }
             const current = v12ReadShutdownTimer();
