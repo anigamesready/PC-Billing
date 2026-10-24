@@ -187,7 +187,7 @@ command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
                 const shutdownBlocker = v12ShutdownRentalBlocker();
                 if (shutdownBlocker) return {ok:false, message:shutdownBlocker};
 
-                // Stop any pending countdown before an immediate Admin-triggered shutdown.
+                // Stop the scheduled countdown first. Continue only when its state is persisted.
                 const priorTimer = v12ReadShutdownTimer();
                 const stopped = await v12CancelScheduledShutdown({
                     scheduleId: priorTimer?.scheduleId || null,
@@ -196,13 +196,14 @@ command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
                 if (stopped?.ok !== true) {
                     return {ok:false, message:'Shutdown dibatalkan karena timer shutdown gagal dihentikan.'};
                 }
+                const requestedAt = new Date().toISOString();
                 const expectedShutdown = {
                     state:'admin_shutdown_requested',
                     scheduleId:null,
                     previousScheduleId:priorTimer?.scheduleId || null,
                     deadlineAt:null,
                     targetDeviceName:priorTimer?.targetDeviceName || null,
-                    updatedAt:new Date().toISOString(),
+                    updatedAt:requestedAt,
                     shutdownInitiator:'admin_apk_direct',
                     shutdownReason:'direct_shutdown_from_admin_apk',
                     plannedShutdown:true,
@@ -216,7 +217,32 @@ command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
                 try {
                     writeSystemLog('Shutdown langsung diminta Admin APK; timer dihentikan sebelum shutdown.');
                 } catch (_) {}
-                // Do not return here: continue into the existing Windows shutdown handler below.
+                if (typeof window.electronAPI?.powerAction !== 'function') {
+                    const failed = {...expectedShutdown, state:'shutdown_failed', updatedAt:new Date().toISOString(),
+                        plannedShutdown:false, expectedDisconnect:false, message:'Bridge aksi Windows tidak tersedia.'};
+                    v12SaveShutdownTimer(failed);
+                    return {ok:false, message:failed.message, shutdownInitiator:'admin_apk_direct', plannedShutdown:false};
+                }
+                try {
+                    const actionResult = await window.electronAPI.powerAction('shutdown');
+                    if (actionResult?.ok === false) {
+                        const failed = {...expectedShutdown, state:'shutdown_failed', updatedAt:new Date().toISOString(),
+                            plannedShutdown:false, expectedDisconnect:false,
+                            message:String(actionResult.message || 'Windows menolak shutdown.').slice(0, 180)};
+                        v12SaveShutdownTimer(failed);
+                        return {ok:false, message:failed.message, shutdownInitiator:'admin_apk_direct', plannedShutdown:false};
+                    }
+                    // Returned fields are included in the existing device command acknowledgement.
+                    return {ok:true, message:'Timer dihentikan, lalu shutdown langsung diminta oleh Admin APK.',
+                        shutdownInitiator:'admin_apk_direct', shutdownReason:'direct_shutdown_from_admin_apk',
+                        plannedShutdown:true, expectedDisconnect:true, timerStopped:true, requestedAt:requestedAt};
+                } catch (e) {
+                    const failed = {...expectedShutdown, state:'shutdown_failed', updatedAt:new Date().toISOString(),
+                        plannedShutdown:false, expectedDisconnect:false,
+                        message:String(e?.message || e || 'Shutdown gagal.').slice(0, 180)};
+                    v12SaveShutdownTimer(failed);
+                    return {ok:false, message:failed.message, shutdownInitiator:'admin_apk_direct', plannedShutdown:false};
+                }
             }
 """
 html = html.replace(command_anchor, command_anchor + "\n" + command_interceptor, 1)
