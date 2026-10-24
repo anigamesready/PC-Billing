@@ -64,7 +64,12 @@ helpers = r"""
                 scheduleId: current.scheduleId || null,
                 deadlineAt: current.deadlineAt || null,
                 updatedAt: current.updatedAt || current.createdAt || null,
-                message: String(current.message || '').slice(0, 180)
+                message: String(current.message || '').slice(0, 180),
+                shutdownInitiator: String(current.shutdownInitiator || '').slice(0, 64) || null,
+                shutdownReason: String(current.shutdownReason || '').slice(0, 96) || null,
+                plannedShutdown: current.plannedShutdown === true,
+                expectedDisconnect: current.expectedDisconnect === true,
+                timerStopped: current.timerStopped === true
             };
         }
         window.v11GetShutdownTimerStatus = v12ShutdownStateForHeartbeat;
@@ -133,7 +138,10 @@ helpers = r"""
                     return;
                 }
                 const requested = {...current, state:'shutdown_requested', updatedAt:new Date().toISOString(),
-                    message:'Countdown selesai; permintaan shutdown diteruskan ke Windows.'};
+                    shutdownInitiator:'admin_apk_scheduled_timer',
+                    shutdownReason:'scheduled_timer_elapsed',
+                    plannedShutdown:true, expectedDisconnect:true, timerStopped:true,
+                    message:'Countdown timer Admin selesai; shutdown terencana diteruskan ke Windows.'};
                 v12SaveShutdownTimer(requested);
                 try { writeSystemLog('Countdown timer shutdown selesai; memanggil aksi Windows.'); } catch (_) {}
                 if (typeof window.electronAPI?.powerAction !== 'function') {
@@ -178,6 +186,37 @@ command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
             if (cmd === 'shutdown') {
                 const shutdownBlocker = v12ShutdownRentalBlocker();
                 if (shutdownBlocker) return {ok:false, message:shutdownBlocker};
+
+                // Stop any pending countdown before an immediate Admin-triggered shutdown.
+                const priorTimer = v12ReadShutdownTimer();
+                const stopped = await v12CancelScheduledShutdown({
+                    scheduleId: priorTimer?.scheduleId || null,
+                    source: 'admin-apk-direct-shutdown'
+                });
+                if (stopped?.ok !== true) {
+                    return {ok:false, message:'Shutdown dibatalkan karena timer shutdown gagal dihentikan.'};
+                }
+                const expectedShutdown = {
+                    state:'admin_shutdown_requested',
+                    scheduleId:null,
+                    previousScheduleId:priorTimer?.scheduleId || null,
+                    deadlineAt:null,
+                    targetDeviceName:priorTimer?.targetDeviceName || null,
+                    updatedAt:new Date().toISOString(),
+                    shutdownInitiator:'admin_apk_direct',
+                    shutdownReason:'direct_shutdown_from_admin_apk',
+                    plannedShutdown:true,
+                    expectedDisconnect:true,
+                    timerStopped:true,
+                    message:'Shutdown langsung diminta melalui Admin APK; putus koneksi setelah perintah ini adalah shutdown terencana.'
+                };
+                if (!v12SaveShutdownTimer(expectedShutdown)) {
+                    return {ok:false, message:'Shutdown dibatalkan karena status shutdown terencana gagal disimpan.'};
+                }
+                try {
+                    writeSystemLog('Shutdown langsung diminta Admin APK; timer dihentikan sebelum shutdown.');
+                } catch (_) {}
+                // Do not return here: continue into the existing Windows shutdown handler below.
             }
 """
 html = html.replace(command_anchor, command_anchor + "\n" + command_interceptor, 1)
