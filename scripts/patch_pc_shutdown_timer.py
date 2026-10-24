@@ -69,10 +69,26 @@ helpers = r"""
                 shutdownReason: String(current.shutdownReason || '').slice(0, 96) || null,
                 plannedShutdown: current.plannedShutdown === true,
                 expectedDisconnect: current.expectedDisconnect === true,
-                timerStopped: current.timerStopped === true
+                timerStopped: current.timerStopped === true,
+                lastShutdownInitiator: String(current.lastShutdownInitiator || '').slice(0, 64) || null,
+                lastShutdownAt: current.lastShutdownAt || null
             };
         }
         window.v11GetShutdownTimerStatus = v12ShutdownStateForHeartbeat;
+        // Consume a prior planned-shutdown marker when the PC starts again so a later
+        // unrelated power loss is not misclassified as an Admin-initiated shutdown.
+        (function v12ReconcilePreviousAdminShutdownOnBoot() {
+            const previous = v12ReadShutdownTimer();
+            if (!previous || previous.expectedDisconnect !== true ||
+                !['admin_shutdown_requested','shutdown_requested'].includes(previous.state)) return;
+            const now = new Date().toISOString();
+            v12SaveShutdownTimer({...previous, state:'previous_admin_shutdown',
+                lastShutdownInitiator: previous.shutdownInitiator || null,
+                lastShutdownAt: previous.updatedAt || previous.requestedAt || now,
+                plannedShutdown:false, expectedDisconnect:false, timerStopped:true,
+                updatedAt:now,
+                message:'PC kembali menyala setelah shutdown terencana; penanda putus koneksi sebelumnya ditutup.'});
+        })();
         async function v12ShutdownScheduleFromAdmin(payload = {}) {
             const scheduleId = String(payload.scheduleId || '').trim();
             const deadlineMs = Date.parse(String(payload.deadlineAt || ''));
