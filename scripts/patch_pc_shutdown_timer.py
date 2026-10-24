@@ -64,10 +64,31 @@ helpers = r"""
                 scheduleId: current.scheduleId || null,
                 deadlineAt: current.deadlineAt || null,
                 updatedAt: current.updatedAt || current.createdAt || null,
-                message: String(current.message || '').slice(0, 180)
+                message: String(current.message || '').slice(0, 180),
+                shutdownInitiator: String(current.shutdownInitiator || '').slice(0, 64) || null,
+                shutdownReason: String(current.shutdownReason || '').slice(0, 96) || null,
+                plannedShutdown: current.plannedShutdown === true,
+                expectedDisconnect: current.expectedDisconnect === true,
+                timerStopped: current.timerStopped === true,
+                lastShutdownInitiator: String(current.lastShutdownInitiator || '').slice(0, 64) || null,
+                lastShutdownAt: current.lastShutdownAt || null
             };
         }
         window.v11GetShutdownTimerStatus = v12ShutdownStateForHeartbeat;
+        // Consume a prior planned-shutdown marker when the PC starts again so a later
+        // unrelated power loss is not misclassified as an Admin-initiated shutdown.
+        (function v12ReconcilePreviousAdminShutdownOnBoot() {
+            const previous = v12ReadShutdownTimer();
+            if (!previous || previous.expectedDisconnect !== true ||
+                !['admin_shutdown_requested','shutdown_requested'].includes(previous.state)) return;
+            const now = new Date().toISOString();
+            v12SaveShutdownTimer({...previous, state:'previous_admin_shutdown',
+                lastShutdownInitiator: previous.shutdownInitiator || null,
+                lastShutdownAt: previous.updatedAt || previous.requestedAt || now,
+                plannedShutdown:false, expectedDisconnect:false, timerStopped:true,
+                updatedAt:now,
+                message:'PC kembali menyala setelah shutdown terencana; penanda putus koneksi sebelumnya ditutup.'});
+        })();
         async function v12ShutdownScheduleFromAdmin(payload = {}) {
             const scheduleId = String(payload.scheduleId || '').trim();
             const deadlineMs = Date.parse(String(payload.deadlineAt || ''));
@@ -133,7 +154,10 @@ helpers = r"""
                     return;
                 }
                 const requested = {...current, state:'shutdown_requested', updatedAt:new Date().toISOString(),
-                    message:'Countdown selesai; permintaan shutdown diteruskan ke Windows.'};
+                    shutdownInitiator:'admin_apk_scheduled_timer',
+                    shutdownReason:'scheduled_timer_elapsed',
+                    plannedShutdown:true, expectedDisconnect:true, timerStopped:true,
+                    message:'Countdown timer Admin selesai; shutdown terencana diteruskan ke Windows.'};
                 v12SaveShutdownTimer(requested);
                 try { writeSystemLog('Countdown timer shutdown selesai; memanggil aksi Windows.'); } catch (_) {}
                 if (typeof window.electronAPI?.powerAction !== 'function') {
@@ -177,7 +201,78 @@ command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
             }
             if (cmd === 'shutdown') {
                 const shutdownBlocker = v12ShutdownRentalBlocker();
-                if (shutdownBlocker) return {ok:false, message:shutdownBlocker};
+                if (shutdownBlocker) {
+                    const rejected = {
+                        state:'shutdown_failed',
+                        updatedAt:new Date().toISOString(),
+                        shutdownInitiator:'admin_apk_direct',
+                        shutdownReason:'direct_shutdown_from_admin_apk',
+                        plannedShutdown:false,
+                        expectedDisconnect:false,
+                        timerStopped:true,
+                        message:String(shutdownBlocker).slice(0,180)
+                    };
+                    v12SaveShutdownTimer(rejected);
+                    return {ok:false, message:shutdownBlocker, shutdownInitiator:'admin_apk_direct',
+                        plannedShutdown:false, expectedDisconnect:false, timerStopped:true};
+                }
+
+                // Stop the scheduled countdown first. Continue only when its state is persisted.
+                const priorTimer = v12ReadShutdownTimer();
+                const stopped = await v12CancelScheduledShutdown({
+                    scheduleId: priorTimer?.scheduleId || null,
+                    source: 'admin-apk-direct-shutdown'
+                });
+                if (stopped?.ok !== true) {
+                    return {ok:false, message:'Shutdown dibatalkan karena timer shutdown gagal dihentikan.'};
+                }
+                const requestedAt = new Date().toISOString();
+                const expectedShutdown = {
+                    state:'admin_shutdown_requested',
+                    scheduleId:null,
+                    previousScheduleId:priorTimer?.scheduleId || null,
+                    deadlineAt:null,
+                    targetDeviceName:priorTimer?.targetDeviceName || null,
+                    updatedAt:requestedAt,
+                    shutdownInitiator:'admin_apk_direct',
+                    shutdownReason:'direct_shutdown_from_admin_apk',
+                    plannedShutdown:true,
+                    expectedDisconnect:true,
+                    timerStopped:true,
+                    message:'Shutdown langsung diminta melalui Admin APK; putus koneksi setelah perintah ini adalah shutdown terencana.'
+                };
+                if (!v12SaveShutdownTimer(expectedShutdown)) {
+                    return {ok:false, message:'Shutdown dibatalkan karena status shutdown terencana gagal disimpan.'};
+                }
+                try {
+                    writeSystemLog('Shutdown langsung diminta Admin APK; timer dihentikan sebelum shutdown.');
+                } catch (_) {}
+                if (typeof window.electronAPI?.powerAction !== 'function') {
+                    const failed = {...expectedShutdown, state:'shutdown_failed', updatedAt:new Date().toISOString(),
+                        plannedShutdown:false, expectedDisconnect:false, message:'Bridge aksi Windows tidak tersedia.'};
+                    v12SaveShutdownTimer(failed);
+                    return {ok:false, message:failed.message, shutdownInitiator:'admin_apk_direct', plannedShutdown:false};
+                }
+                try {
+                    const actionResult = await window.electronAPI.powerAction('shutdown');
+                    if (actionResult?.ok === false) {
+                        const failed = {...expectedShutdown, state:'shutdown_failed', updatedAt:new Date().toISOString(),
+                            plannedShutdown:false, expectedDisconnect:false,
+                            message:String(actionResult.message || 'Windows menolak shutdown.').slice(0, 180)};
+                        v12SaveShutdownTimer(failed);
+                        return {ok:false, message:failed.message, shutdownInitiator:'admin_apk_direct', plannedShutdown:false};
+                    }
+                    // Returned fields are included in the existing device command acknowledgement.
+                    return {ok:true, message:'Timer dihentikan, lalu shutdown langsung diminta oleh Admin APK.',
+                        shutdownInitiator:'admin_apk_direct', shutdownReason:'direct_shutdown_from_admin_apk',
+                        plannedShutdown:true, expectedDisconnect:true, timerStopped:true, requestedAt:requestedAt};
+                } catch (e) {
+                    const failed = {...expectedShutdown, state:'shutdown_failed', updatedAt:new Date().toISOString(),
+                        plannedShutdown:false, expectedDisconnect:false,
+                        message:String(e?.message || e || 'Shutdown gagal.').slice(0, 180)};
+                    v12SaveShutdownTimer(failed);
+                    return {ok:false, message:failed.message, shutdownInitiator:'admin_apk_direct', plannedShutdown:false};
+                }
             }
 """
 html = html.replace(command_anchor, command_anchor + "\n" + command_interceptor, 1)

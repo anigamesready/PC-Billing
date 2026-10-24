@@ -125,6 +125,52 @@ BEGIN
     IF p_command = 'stop' AND s.status NOT IN ('active','paused') THEN RAISE EXCEPTION 'SESSION_NOT_OPEN'; END IF;
   END IF;
 
+  -- Record only a direct Admin APK shutdown request. This lets the dashboard
+  -- distinguish the intentional disconnect from an ordinary unexpected offline state.
+  -- Active rental sessions still block shutdown before the marker or command is written.
+  IF p_command = 'shutdown' THEN
+    PERFORM 1
+    FROM public.rental_sessions
+    WHERE org_id = p_org_id
+      AND device_id = p_device_id
+      AND status IN ('active','paused');
+    IF FOUND THEN
+      RAISE EXCEPTION 'ACTIVE_RENTAL_BLOCKS_SHUTDOWN';
+    END IF;
+
+    UPDATE public.devices AS target
+    SET metadata = jsonb_set(
+      coalesce(target.metadata, '{}'::jsonb),
+      '{shutdownTimer}',
+      coalesce(target.metadata->'shutdownTimer', '{}'::jsonb) ||
+        jsonb_build_object(
+          'state','admin_shutdown_requested',
+          'scheduleId',NULL,
+          'deadlineAt',NULL,
+          'shutdownInitiator','admin_apk_direct',
+          'shutdownReason','direct_shutdown_from_admin_apk',
+          'plannedShutdown',true,
+          'expectedDisconnect',true,
+          'timerStopped',true,
+          'updatedAt',clock_timestamp(),
+          'message','Shutdown diminta langsung oleh Admin APK; timer shutdown harus dihentikan terlebih dahulu.'
+        ),
+      true
+    )
+    WHERE target.id = p_device_id AND target.org_id = p_org_id;
+
+    p_payload := coalesce(p_payload, '{}'::jsonb) ||
+      jsonb_build_object(
+        'source','admin_apk_direct',
+        'shutdownInitiator','admin_apk_direct',
+        'shutdownReason','direct_shutdown_from_admin_apk',
+        'plannedShutdown',true,
+        'expectedDisconnect',true,
+        'stopShutdownTimerFirst',true,
+        'shutdownRequestedAt',clock_timestamp()
+      );
+  END IF;
+
   INSERT INTO public.device_commands(org_id, device_id, command, payload, status, created_by)
   VALUES (p_org_id, p_device_id, p_command, coalesce(p_payload,'{}'::jsonb), 'queued', auth.uid())
   RETURNING id INTO cid;
