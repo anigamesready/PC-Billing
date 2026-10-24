@@ -201,7 +201,21 @@ command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
             }
             if (cmd === 'shutdown') {
                 const shutdownBlocker = v12ShutdownRentalBlocker();
-                if (shutdownBlocker) return {ok:false, message:shutdownBlocker};
+                if (shutdownBlocker) {
+                    const rejected = {
+                        state:'shutdown_failed',
+                        updatedAt:new Date().toISOString(),
+                        shutdownInitiator:'admin_apk_direct',
+                        shutdownReason:'direct_shutdown_from_admin_apk',
+                        plannedShutdown:false,
+                        expectedDisconnect:false,
+                        timerStopped:true,
+                        message:String(shutdownBlocker).slice(0,180)
+                    };
+                    v12SaveShutdownTimer(rejected);
+                    return {ok:false, message:shutdownBlocker, shutdownInitiator:'admin_apk_direct',
+                        plannedShutdown:false, expectedDisconnect:false, timerStopped:true};
+                }
 
                 // Stop the scheduled countdown first. Continue only when its state is persisted.
                 const priorTimer = v12ReadShutdownTimer();
