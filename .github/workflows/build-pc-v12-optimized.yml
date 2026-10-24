@@ -15,6 +15,7 @@ on:
       - 'supabase/functions/ani-games-api/index.ts'
       - 'supabase/functions/ani-games-api/deno.json'
       - 'docs/PC-LOG-OPTIMIZATION-AUDIT.md'
+      - 'docs/ADMIN-PC-SHUTDOWN-TIMER-COMMANDS-MIGRATION.sql'
       - '.github/workflows/build-pc-v12-optimized.yml'
   workflow_dispatch:
 
@@ -90,6 +91,7 @@ jobs:
           $index = Get-Content 'index.html' -Raw
           $cloud = Get-Content 'v11-cloud.js' -Raw
           $edge = Get-Content 'supabase/functions/ani-games-api/index.ts' -Raw
+          $shutdownMigration = Get-Content (Join-Path $env:GITHUB_WORKSPACE 'docs/ADMIN-PC-SHUTDOWN-TIMER-COMMANDS-MIGRATION.sql') -Raw
           $runtimeMatch = [regex]::Match($index, '(?s)<script>(.*?)</script>')
           if (!$runtimeMatch.Success -or !$runtimeMatch.Groups[1].Value.Contains('function pauseSession')) { throw 'Live index.html script was not found.' }
           [System.IO.File]::WriteAllText((Join-Path $PWD 'index-runtime-check.js'), $runtimeMatch.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
@@ -103,6 +105,9 @@ jobs:
           }
           foreach ($token in @('ALERT_OUTBOX_KEY', 'flushAdminAlerts', '/device/alert', 'billing_v11_token_rejected_hold', 'DATA LOKAL DIPERTAHANKAN', 'window.v11GetAdminAlertStatus', 'alertNextRetryAt', 'reply?.accepted!==true', 'V11.29.6-SCHEDULED-SHUTDOWN-TIMER', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null', 'setInterval(()=>{syncNow();flushAdminAlerts()},30000')) {
             if (!$cloud.Contains($token)) { throw "Cloud alert token missing: $token" }
+          }
+          foreach ($token in @('ACTIVE_RENTAL_BLOCKS_SHUTDOWN', "'state','admin_shutdown_requested'", "'stopShutdownTimerFirst',true", "'shutdownInitiator','admin_apk_direct'")) {
+            if (!$shutdownMigration.Contains($token)) { throw "Shutdown migration token missing: $token" }
           }
           if (!$edge.Contains('device/alert') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
