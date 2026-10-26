@@ -1,14 +1,17 @@
-name: Build AniGames PC V12.1.7 Alert Delivery Reliability Fix + Blynk Mapping
+name: Build AniGames PC V12.1.8 Free-Test Gate + Shutdown Timer
 
 on:
   push:
     branches:
       - main
+      - feature/pc-v12.1.8-free-test-gate-shutdown
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - 'scripts/patch_pc_log_optimization.py'
       - 'scripts/patch_pc_token_preservation.py'
       - 'scripts/patch_pc_live_alert_runtime.py'
+      - 'scripts/patch_pc_v12_1_8_test_gate_shutdown.py'
+      - 'supabase/migrations/20261026120000_free_test_policy.sql'
       - 'supabase/functions/ani-games-api/index.ts'
       - 'supabase/functions/ani-games-api/deno.json'
       - 'docs/PC-LOG-OPTIMIZATION-AUDIT.md'
@@ -43,6 +46,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_log_optimization.py' (Join-Path $project.FullName 'patch_pc_log_optimization.py')
           Copy-Item 'scripts/patch_pc_token_preservation.py' (Join-Path $project.FullName 'patch_pc_token_preservation.py')
           Copy-Item 'scripts/patch_pc_live_alert_runtime.py' (Join-Path $project.FullName 'patch_pc_live_alert_runtime.py')
+          Copy-Item 'scripts/patch_pc_v12_1_8_test_gate_shutdown.py' (Join-Path $project.FullName 'patch_pc_v12_1_8_test_gate_shutdown.py')
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Detected PC project: $($project.FullName)"
 
@@ -66,6 +70,8 @@ jobs:
           Set-Location $env:PC_PROJECT_DIR
           python patch_pc_live_alert_runtime.py
           if ($LASTEXITCODE -ne 0) { throw 'Live index.html alert patch failed.' }
+          python patch_pc_v12_1_8_test_gate_shutdown.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.1.8 trial gate/shutdown timer patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -95,8 +101,12 @@ jobs:
           }
           if (!$edge.Contains('device/alert') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
+          foreach ($token in @('V12.1.8-FREE-TEST-GATE-SHUTDOWN-TIMER', 'V12.1.8-TEST-POLICY-PREFLIGHT', 'device/test-policy', 'device_free_test_policy', 'SHUTDOWN_TARGET_ID_MISMATCH', 'cancel_shutdown_timer', '082298316902')) { if (!$index.Contains($token) -and !$cloud.Contains($token) -and !$edge.Contains($token)) { throw "V12.1.8 feature static check missing: $token" } }
+          if (!$index.Contains('window.v11ApplyRemoteCommand = wrapped')) { throw 'Remote-command wrapper was not installed in actual Electron runtime.' }
+          if (!(Get-Content 'preload.js' -Raw).Contains('powerAction:')) { throw 'Safe Windows powerAction IPC is missing from preload.js.' }
+          if (!(Get-Content 'main.js' -Raw).Contains("shutdown: ['/s', '/t', '0']")) { throw 'Validated Windows shutdown IPC is missing from main.js.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.1.7') { throw "Unexpected patched version: $($package.version)" }
+          if ($package.version -ne '12.1.8') { throw "Unexpected patched version: $($package.version)" }
           python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
           Write-Host 'PASS: live index.html alert emitters + syntax, v11-cloud outbox, API route, and PC v12.1.7.'
@@ -128,7 +138,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip")
+          output = Path("AniGames-PC-V12.1.8-FREE-TEST-GATE-SHUTDOWN-TIMER-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -143,10 +153,10 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX
+          name: AniGames-PC-V12.1.8-FREE-TEST-GATE-SHUTDOWN-TIMER
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.1.7-ALERT-DELIVERY-RELIABILITY-FIX-SOURCE.zip
+            AniGames-PC-V12.1.8-FREE-TEST-GATE-SHUTDOWN-TIMER-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
           if-no-files-found: error
           retention-days: 14
