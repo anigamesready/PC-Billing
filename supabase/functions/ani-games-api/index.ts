@@ -117,6 +117,7 @@ if(p==="device/enroll"){
  try{await serverRpc("device_pairing_rate_limit_clear",{p_key_hashes:keys.filter(k=>k.clear).map(k=>k.key)});}catch(_){}
  return out(200,{ok:true,...data});
 }
+if(p==="device/test-policy")return out(200,await rpc("device_free_test_policy",{p_token:String(b.token||"")}));
 if(p==="device/heartbeat")return out(200,{ok:true,...await rpc("device_heartbeat",{p_token:String(b.token||""),p_app_version:String(b.appVersion||""),p_metadata:b.metadata||{}})});
 if(p==="device/ack"){const t=String(b.token||""),id=String(b.commandId||""),s=String(b.status||"acknowledged"),v=b.result||{};const a=await rpc("device_ack",{p_token:t,p_command_id:id,p_status:s,p_result:v});let trial:unknown=null;if(["completed","failed","expired"].includes(s))trial=await rpc("device_finalize_trial",{p_token:t,p_command_id:id,p_status:s,p_result:v});return out(200,{ok:true,...a,...(trial?{trial}:{})})}
 if(p==="device/sync")return out(200,{ok:true,...await rpc("device_sync",{p_token:String(b.token||""),p_events:Array.isArray(b.events)?b.events:[]})});
