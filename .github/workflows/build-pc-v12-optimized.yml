@@ -164,13 +164,18 @@ jobs:
         run: |
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.3.0.exe'
+          if ($exe.FullName -ne $canonicalExePath) {
+            Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
+            $exe = Get-Item -LiteralPath $canonicalExePath
+          }
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List
           @'
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
           output = Path("AniGames-PC-V12.3.0-FREE-TEST-GATE-SHUTDOWN-TIMER-SOURCE.zip")
-          excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__"}
+          excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__", "index-runtime-check.js"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
                   if not item.is_file() or any(part in excluded for part in item.relative_to(root).parts):
