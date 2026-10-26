@@ -33,6 +33,38 @@ $$;
 revoke all on function private.is_free_test_10m_enabled() from public, anon, authenticated;
 grant execute on function private.is_free_test_10m_enabled() to service_role;
 
+-- Server-side defense in depth: a legacy/tampered PC cannot create a new open
+-- __TEST10__ rental session while the global setting is disabled. Existing open
+-- test sessions can still heartbeat/update while the admin turns new tests off.
+create or replace function private.guard_free_test_10m_session()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, private, pg_catalog
+as $
+begin
+  if NEW.code = '__TEST10__' and NEW.status in ('active', 'paused') then
+    if TG_OP = 'INSERT' then
+      if not private.is_free_test_10m_enabled() then
+        raise exception 'FREE_TEST_DISABLED: Silahkan hubungi admin untuk melakukan tes 082298316902';
+      end if;
+    elsif OLD.code is distinct from '__TEST10__'
+       or OLD.status not in ('active', 'paused') then
+      if not private.is_free_test_10m_enabled() then
+        raise exception 'FREE_TEST_DISABLED: Silahkan hubungi admin untuk melakukan tes 082298316902';
+      end if;
+    end if;
+  end if;
+  return NEW;
+end;
+$;
+
+revoke all on function private.guard_free_test_10m_session() from public, anon, authenticated, service_role;
+drop trigger if exists guard_free_test_10m_session on public.rental_sessions;
+create trigger guard_free_test_10m_session
+before insert or update of code, status on public.rental_sessions
+for each row execute function private.guard_free_test_10m_session();
+
 create or replace function api.admin_get_free_test_policy()
 returns jsonb
 language plpgsql
