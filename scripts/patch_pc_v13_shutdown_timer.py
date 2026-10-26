@@ -20,7 +20,7 @@ if package.get("version") != "12.2.3" or lock.get("version") != "12.2.3":
     raise SystemExit("Unexpected PC source baseline; expected package.json and package-lock.json version 12.2.3.")
 
 identity_anchor = "  const fp=u=>JSON.stringify(";
-identity_helper = "  window.v11GetDeviceIdentity=function(){const c=read()||{};return {deviceId:String(c.deviceId||''),clientId:String(c.clientId||''),orgId:String(c.orgId||'')}};\\n";
+identity_helper = "  window.v11GetDeviceIdentity=function(){const c=read()||{};return {deviceId:String(c.deviceId||''),clientId:String(c.clientId||''),orgId:String(c.orgId||'')}};\n";
 if cloud.count(identity_anchor) != 1:
     raise SystemExit("Device identity helper anchor mismatch; refusing to patch the wrong cloud file.")
 if "window.v11GetDeviceIdentity=function()" not in cloud:
