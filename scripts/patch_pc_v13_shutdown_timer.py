@@ -152,6 +152,14 @@ helpers = r"""
             if (v12ShutdownTickBusy) return;
             const current = v12ReadShutdownTimer();
             if (!current || current.state !== 'scheduled') return;
+            const identity = window.v11GetDeviceIdentity?.() || {};
+            if (!identity.deviceId || String(current.targetDeviceId || '') !== String(identity.deviceId)) {
+                const mismatch = {...current, state:'target_mismatch', updatedAt:new Date().toISOString(),
+                    message:'Timer dibatalkan karena identitas/pairing PC berubah; tidak ada shutdown yang dijalankan.'};
+                v12SaveShutdownTimer(mismatch);
+                try { writeSystemLog(mismatch.message, 'ERROR'); } catch (_) {}
+                return;
+            }
             const deadlineMs = Date.parse(String(current.deadlineAt || ''));
             if (!Number.isFinite(deadlineMs)) {
                 v12SaveShutdownTimer({...current, state:'shutdown_failed', updatedAt:new Date().toISOString(), message:'Deadline timer rusak; shutdown tidak dijalankan.'});
@@ -236,6 +244,7 @@ command_interceptor = r"""            if (cmd === 'cancel_shutdown_timer') {
                 const priorTimer = v12ReadShutdownTimer();
                 const stopped = await v12CancelScheduledShutdown({
                     scheduleId: priorTimer?.scheduleId || null,
+                    targetDeviceId: window.v11GetDeviceIdentity?.()?.deviceId || null,
                     source: 'admin-apk-direct-shutdown'
                 });
                 if (stopped?.ok !== true) {
