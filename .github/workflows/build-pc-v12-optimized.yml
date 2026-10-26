@@ -107,7 +107,7 @@ jobs:
           if (!(Get-Content 'main.js' -Raw).Contains("shutdown: ['/s', '/t', '0']")) { throw 'Validated Windows shutdown IPC is missing from main.js.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
           if ($package.version -ne '12.1.8') { throw "Unexpected patched version: $($package.version)" }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_v12_1_8_test_gate_shutdown.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
           Write-Host 'PASS: V12.1.8 live Electron script syntax, fail-closed test gate, target-bound shutdown schedule/cancel, and API route.'
 
