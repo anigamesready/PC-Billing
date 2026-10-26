@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/dual-db-runtime-routing-v1
+      - audit/pc-source-inspection-2026-10-27
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - 'scripts/patch_pc_log_optimization.py'
@@ -52,6 +53,21 @@ jobs:
           Copy-Item 'scripts/patch_pc_v12_2_3_route_refresh.py' (Join-Path $project.FullName 'patch_pc_v12_2_3_route_refresh.py')
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Detected PC project: $($project.FullName)"
+
+      - name: Upload original PC source files for audit (before patches)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PC-Billing-Source-Inspection-2026-10-27
+          path: |
+            ${{ env.PC_PROJECT_DIR }}/index.html
+            ${{ env.PC_PROJECT_DIR }}/renderer.js
+            ${{ env.PC_PROJECT_DIR }}/main.js
+            ${{ env.PC_PROJECT_DIR }}/preload.js
+            ${{ env.PC_PROJECT_DIR }}/v11-cloud.js
+            ${{ env.PC_PROJECT_DIR }}/package.json
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Apply log and alert patch
         shell: pwsh
