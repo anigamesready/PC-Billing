@@ -388,6 +388,9 @@ if "renderer.js is not loaded by Electron." not in html:
     raise SystemExit("Live Electron runtime marker missing after patch.")
 
 package["version"] = "12.3.0"
+package["description"] = "AniGames Billing V12.3.0: server-authoritative FREE TEST gate and target-bound shutdown timer with cancel/status, built on the V12.2.3 dual-DB runtime"
+if isinstance(package.get("build"), dict):
+    package["build"]["productName"] = "AniGames Billing V12.3.0"
 lock["version"] = "12.3.0"
 if isinstance(lock.get("packages"), dict) and isinstance(lock["packages"].get(""), dict):
     lock["packages"][""]["version"] = "12.3.0"
