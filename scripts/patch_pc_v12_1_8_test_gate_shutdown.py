@@ -258,7 +258,7 @@ for token in ["device/test-policy","device_free_test_policy","window.v11CheckFre
               "window.v11GetLocalShutdownTimerState","schedule_shutdown","cancel_shutdown_timer",
               "SHUTDOWN_TARGET_ID_MISMATCH","FREE_TEST_DISABLED","082298316902"]:
     if token not in combined: raise SystemExit("V12.1.8 feature marker missing: "+token)
-if "window.v11ApplyRemoteCommand = wrapped" not in combined:
+if "window.v11ApplyRemoteCommand=wrapped" not in combined:
     raise SystemExit("Remote-command wrapper was not installed into the Electron runtime")
 if "renderer.js is not loaded by Electron." not in HTML.read_text(encoding="utf-8"):
     raise SystemExit("Electron live-runtime marker missing; test gate must remain in index.html")
