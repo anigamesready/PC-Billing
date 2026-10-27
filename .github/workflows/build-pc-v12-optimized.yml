@@ -150,7 +150,7 @@ jobs:
           if (!$edge.Contains('p==="device/test-policy"') -or !$edge.Contains('device_free_test_policy')) { throw 'Server FREE TEST policy endpoint is missing.' }
           $heartbeatMigration = Get-Content 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' -Raw
           foreach ($token in @('HEARTBEAT_EVENT_WRITE_OPTIMIZATION_V1', 'free_test_disabled', 'device_heartbeats', 'interval ''30 seconds''', 'interval ''60 seconds''')) { if (!$heartbeatMigration.Contains($token)) { throw "Heartbeat migration assertion missing: $token" } }
-          foreach ($token in @('heartbeatInFlight=false', 'window.v11HeartbeatNow=', 'd.free_test_disabled===true', 'err.retryable=(r.status===408||r.status===425||r.status===429||r.status>=500)')) { if (!$cloud.Contains($token)) { throw "V12.3.1 runtime assertion missing: $token" } }
+          foreach ($token in @('heartbeatInFlight=false', 'window.v11HeartbeatNow=', 'd.free_test_disabled===true', 'const routeRetry=', 'err.retryable=routeRetry||')) { if (!$cloud.Contains($token)) { throw "V12.3.1 runtime assertion missing: $token" } }
           Write-Host 'PASS: live Electron syntax, FREE TEST fail-closed preflight + server policy endpoint, target-bound timer/cancel/status, global route guards, and PC v12.3.0.'
 
       - name: Set up Node.js
