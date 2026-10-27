@@ -130,17 +130,38 @@ if "window.v11CheckFreeTestPermission" not in cloud:
 """
     cloud = cloud.replace(cloud_anchor, helper + cloud_anchor, 1)
 
-# Edge route is deployed from this source to both DB projects after the SQL migration is applied.
+# Keep the live source package aligned with the production gateway. Test-policy requests
+# must follow the same verified active-DB route as other device requests.
+gateway_match = re.search(r'const GATEWAY_PATHS=new Set\(\[(?P<items>[^\]]*)\]\);', edge)
+if gateway_match:
+    items = gateway_match.group("items")
+    if '"device/test-policy"' not in items:
+        edge = edge[:gateway_match.start("items")] + items + ',"device/test-policy"' + edge[gateway_match.end("items"):]
+elif "GATEWAY_PATHS" in edge:
+    fail("Unrecognized Edge gateway path set; refusing to bypass active-DB routing.")
+
 if 'p==="device/test-policy"' not in edge:
     route_anchor = 'if(p==="device/heartbeat")'
     if edge.count(route_anchor) != 1:
         fail("Edge Function route insertion anchor mismatch.")
-    route = 'if(p==="device/test-policy")return out(200,await rpc("device_free_test_policy",{p_token:String(b.token||"")}));\n'
+    route = 'if(p==="device/test-policy")return out(200,await rpc("device_free_test_policy",{p_token:String(b.token||"")}));\\n'
     edge = edge.replace(route_anchor, route + route_anchor, 1)
+
+# Update the visible app version as well as the internal build marker.
+visible_old = '<span id="app-version-code">V12.2.3-GLOBAL-ROUTE-READ-WRITE</span>'
+visible_new = '<span id="app-version-code">V12.3.0</span>'
+if visible_old in html:
+    html = html.replace(visible_old, visible_new, 1)
+elif visible_new not in html:
+    fail("Visible app-version-code anchor mismatch; refusing to patch a different UI.")
 
 # Exact version and fail-closed checks. The preceding timer patch must already have applied the V12.3.0 identity.
 if "const APP_VERSION = '" + BUILD + "';" not in html:
     fail("V12.3.0 active Electron runtime version marker missing.")
+if '<span id="app-version-code">V12.3.0</span>' not in html:
+    fail("Visible PC app version did not update to V12.3.0.")
+if '"device/test-policy"' not in edge[edge.find("GATEWAY_PATHS"):edge.find("GATEWAY_PATHS")+400] and "GATEWAY_PATHS" in edge:
+    fail("Test-policy endpoint is missing from the active-DB gateway allowlist.")
 if "APP='" + BUILD + "'" not in cloud:
     fail("V12.3.0 cloud version marker missing.")
 for token in [TEST_MARK, "window.v11CheckFreeTestPermission", "FREE_TEST_DISABLED", PHONE, "if (cmd === 'start_trial')"]:
