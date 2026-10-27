@@ -102,7 +102,7 @@ index = replace_once(index, stop_old, stop_new, "Live rental stop event")
 cloud = replace_once(cloud, "// BUILD_ID: V12.2.3-GLOBAL-ROUTE-READ-WRITE", "// BUILD_ID: " + MARKER, "PC cloud build marker")
 cloud = replace_once(cloud, "APP='" + OLD_MARKER + "'", "APP='" + MARKER + "'", "PC cloud app version")
 index = replace_once(index, "const APP_VERSION = '" + OLD_MARKER + "';", "const APP_VERSION = '" + MARKER + "';", "Live index app version")
-footer_old = '<span id="app-version-code">V12.2.3-GLOBAL-ROUTE-READ-WRITE</span>'
+footer_old = '<span id="app-version-code">V12.3.0</span>'
 footer_new = '<span id="app-version-code">' + MARKER + '</span>'
 index = replace_once(index, footer_old, footer_new, "Visible PC version")
 renderer = replace_once(renderer, "const APP_VERSION = 'V12.2.3-GLOBAL-ROUTE-READ-WRITE';", "const APP_VERSION = '" + MARKER + "';", "Renderer version")
