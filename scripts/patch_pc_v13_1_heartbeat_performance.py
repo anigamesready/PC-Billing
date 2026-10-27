@@ -131,7 +131,7 @@ version_path.write_text(
 
 for token in [
     MARKER, "const DB_ROUTE_CACHE_MS=30000;", "resolveDbRoute(attempt>0)",
-    "err.retryable=(r.status===408||r.status===425||r.status===429||r.status>=500)",
+    "const routeRetry=", "err.retryable=routeRetry||",
     "if(e?.retryable===false)break", "async function heartbeatOnce(){", "async function heartbeat(){",
     "let heartbeatInFlight=false,heartbeatPending=false", "window.v11HeartbeatNow=",
     "d.free_test_disabled===true", "window.v11GetActiveCode?.()==='__TEST10__'",
