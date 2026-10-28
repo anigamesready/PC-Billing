@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.3.1 Heartbeat + Session Performance Fix
+name: Build AniGames PC V12.3.2 App Exit Protection
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - feature/dual-db-runtime-routing-v1
       - feature/v13-free-test-shutdown-timer
       - feature/v13-heartbeat-session-performance
+      - feature/v13-app-exit-protection
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - 'scripts/patch_pc_log_optimization.py'
@@ -18,6 +19,7 @@ on:
       - 'scripts/patch_pc_v13_shutdown_timer.py'
       - 'scripts/patch_pc_v13_free_test_gate.py'
       - 'scripts/patch_pc_v13_1_heartbeat_performance.py'
+      - 'scripts/patch_pc_v13_2_app_exit_protection.py'
       - 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql'
       - 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql'
       - 'supabase/functions/ani-games-api/index.ts'
@@ -61,6 +63,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_v13_shutdown_timer.py' (Join-Path $project.FullName 'patch_pc_v13_shutdown_timer.py')
           Copy-Item 'scripts/patch_pc_v13_free_test_gate.py' (Join-Path $project.FullName 'patch_pc_v13_free_test_gate.py')
           Copy-Item 'scripts/patch_pc_v13_1_heartbeat_performance.py' (Join-Path $project.FullName 'patch_pc_v13_1_heartbeat_performance.py')
+          Copy-Item 'scripts/patch_pc_v13_2_app_exit_protection.py' (Join-Path $project.FullName 'patch_pc_v13_2_app_exit_protection.py')
           New-Item -ItemType Directory -Path (Join-Path $project.FullName 'supabase/migrations') -Force | Out-Null
           Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
@@ -104,11 +107,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'V12.3.0 server-side FREE TEST gate patch failed.' }
           python patch_pc_v13_1_heartbeat_performance.py
           if ($LASTEXITCODE -ne 0) { throw 'V12.3.1 heartbeat/session performance patch failed.' }
+          python patch_pc_v13_2_app_exit_protection.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.3.2 app exit protection patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
         run: |
           Set-Location $env:PC_PROJECT_DIR
+          node --check main.js
+          if ($LASTEXITCODE -ne 0) { throw 'main.js syntax check failed.' }
           node --check renderer.js
           if ($LASTEXITCODE -ne 0) { throw 'renderer.js syntax check failed.' }
           node --check v11-cloud.js
@@ -137,11 +144,11 @@ jobs:
           if (!$edge.Contains('device/alert') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.3.1') { throw "Unexpected V12.3.1 patched version: $($package.version)" }
+          if ($package.version -ne '12.3.2') { throw "Unexpected V12.3.2 patched version: $($package.version)" }
           foreach ($token in @('resolveDbRoute(attempt>0)', 'auth_parity_optional===true', 'active route is not finalized on both projects', "Coordinated global route finalized: '+r.active_target+' epoch '+epoch+' switch '+switchId")) {
             if (!$cloud.Contains($token)) { throw "Global route regression token missing: $token" }
           }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
           foreach ($token in @('V12.3.1-HEARTBEAT-WRITE-OPTIMIZATION', '<span id="app-version-code">V12.3.1-HEARTBEAT-WRITE-OPTIMIZATION</span>', 'V12.3.0-TEST-POLICY-PREFLIGHT', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
             if (!$index.Contains($token) -and !$cloud.Contains($token) -and !$edge.Contains($token)) { throw "V12.3.0 feature regression token missing: $token" }
@@ -151,7 +158,8 @@ jobs:
           $heartbeatMigration = Get-Content 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' -Raw
           foreach ($token in @('HEARTBEAT_EVENT_WRITE_OPTIMIZATION_V1', 'free_test_disabled', 'device_heartbeats', 'interval ''30 seconds''', 'interval ''60 seconds''')) { if (!$heartbeatMigration.Contains($token)) { throw "Heartbeat migration assertion missing: $token" } }
           foreach ($token in @('heartbeatInFlight=false', 'window.v11HeartbeatNow=', 'd.free_test_disabled===true', 'const routeRetry=', 'err.retryable=routeRetry||')) { if (!$cloud.Contains($token)) { throw "V12.3.1 runtime assertion missing: $token" } }
-          Write-Host 'PASS: live Electron syntax, FREE TEST fail-closed preflight + server policy endpoint, target-bound timer/cancel/status, global route guards, and PC v12.3.0.'
+          foreach ($token in @("protectedWindow.on('close'", "render-process-gone", "app.on('before-quit'", "app.on('query-session-end'", 'allowBillingExit = true;')) { if (!(Get-Content 'main.js' -Raw).Contains($token)) { throw "V12.3.2 close-protection assertion missing: $token" } }
+          Write-Host 'PASS: V12.3.2 protected close, renderer recovery, heartbeat performance, FREE TEST gate, shutdown timer, and route guards.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -175,7 +183,7 @@ jobs:
         run: |
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
-          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.3.1.exe'
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.3.2.exe'
           if ($exe.FullName -ne $canonicalExePath) {
             Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
             $exe = Get-Item -LiteralPath $canonicalExePath
@@ -185,7 +193,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.3.1-HEARTBEAT-SESSION-PERFORMANCE-SOURCE.zip")
+          output = Path("AniGames-PC-V12.3.2-APP-EXIT-PROTECTION-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__", "index-runtime-check.js"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -200,10 +208,10 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.3.1-HEARTBEAT-SESSION-PERFORMANCE
+          name: AniGames-PC-V12.3.2-APP-EXIT-PROTECTION
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.3.1-HEARTBEAT-SESSION-PERFORMANCE-SOURCE.zip
+            AniGames-PC-V12.3.2-APP-EXIT-PROTECTION-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
             docs/PC-HEARTBEAT-SESSION-PERFORMANCE-AUDIT.md
             supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql
