@@ -109,7 +109,9 @@ app.whenReady().then(() => {
     "Global quit guard",
 )
 
-index = replace_once(index, OLD_MARKER, MARKER, "Visible app version")
+if index.count(OLD_MARKER) != 2:
+    raise SystemExit(f"Visible app version anchors mismatch: expected 2, got {index.count(OLD_MARKER)}")
+index = index.replace(OLD_MARKER, MARKER)
 renderer = renderer.replace(OLD_MARKER, MARKER)
 if OLD_MARKER in renderer:
     raise SystemExit("Old renderer version marker remains")
