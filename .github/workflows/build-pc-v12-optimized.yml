@@ -150,7 +150,7 @@ jobs:
           }
           python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          foreach ($token in @('V12.3.1-HEARTBEAT-WRITE-OPTIMIZATION', '<span id="app-version-code">V12.3.1-HEARTBEAT-WRITE-OPTIMIZATION</span>', 'V12.3.0-TEST-POLICY-PREFLIGHT', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
+          foreach ($token in @('V12.3.1-HEARTBEAT-WRITE-OPTIMIZATION', '<span id="app-version-code">V12.3.2-APP-EXIT-PROTECTION</span>', 'V12.3.0-TEST-POLICY-PREFLIGHT', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
             if (!$index.Contains($token) -and !$cloud.Contains($token) -and !$edge.Contains($token)) { throw "V12.3.0 feature regression token missing: $token" }
           }
           if (!$index.Contains('window.v11ApplyRemoteCommand = async (command, payload = {}) =>')) { throw 'Live Electron command dispatcher was not found.' }
