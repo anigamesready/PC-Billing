@@ -32,14 +32,7 @@ BEGIN
   WHERE c.device_id = did
     AND c.command = 'restart_billing'
     AND c.created_at >= now() - interval '24 hours'
-    AND (
-      c.status = 'queued'
-      OR (
-        c.status = 'acknowledged'
-        AND COALESCE(c.acknowledged_at, c.delivered_at, c.created_at)
-              <= now() - interval '20 seconds'
-      )
-    )
+    AND c.status = 'queued'
   ORDER BY c.created_at, c.id
   LIMIT 1
   FOR UPDATE SKIP LOCKED;
