@@ -201,7 +201,8 @@ function launchWatchdogAgent() {
         const files = watchdogFiles();
         fs.mkdirSync(files.dir, { recursive: true });
         try { fs.unlinkSync(files.disabled); } catch (_) {}
-        const current = Number(String(fs.readFileSync(files.agent, 'utf8')).trim());
+        let current = 0;
+        try { current = Number(String(fs.readFileSync(files.agent, 'utf8')).trim()); } catch (_) {}
         if (isPidAlive(current)) return;
         const child = spawn(process.execPath, ['--ani-watchdog-agent'], {
             detached: true, stdio: 'ignore', windowsHide: true
@@ -239,12 +240,12 @@ async function watchdogRequest(pathname, credentials, extra = {}) {
     if (!response.ok || data?.ok === false) throw new Error(String(data?.error || ('HTTP ' + response.status)));
     return data;
 }
-async function waitForBillingReady(pid, timeoutMs = 30000) {
+async function waitForBillingReady(launchAt, timeoutMs = 30000) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
         const state = readJsonFile(watchdogFiles().main);
-        if (Number(state?.pid) === Number(pid) && state?.ready === true && isPidAlive(pid)) return true;
-        if (!isPidAlive(pid)) return false;
+        // Portable Electron launchers may create a child process; match the fresh main-state PID, not the wrapper PID.
+        if (Number(state?.updatedAt || 0) >= launchAt && state?.ready === true && isPidAlive(state?.pid)) return true;
         await new Promise(resolve => setTimeout(resolve, 500));
     }
     return false;
@@ -277,9 +278,10 @@ async function watchdogTick(state) {
             }
             let child = null;
             try {
+                const launchAt = Date.now();
                 child = spawn(process.execPath, [], { detached: true, stdio: 'ignore', windowsHide: false });
                 child.unref();
-                const ready = await waitForBillingReady(child.pid, 30000);
+                const ready = await waitForBillingReady(launchAt, 30000);
                 await watchdogRequest('device/ack', credentials, {
                     commandId: command.id, status: ready ? 'completed' : 'failed',
                     result: { ok: ready, phase: ready ? 'watchdog_app_ready' : 'watchdog_launch_timeout', pid: child.pid || null }
