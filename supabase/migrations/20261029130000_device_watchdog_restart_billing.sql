@@ -41,8 +41,8 @@ BEGIN
       )
     )
   ORDER BY c.created_at, c.id
-  FOR UPDATE SKIP LOCKED
-  LIMIT 1;
+  LIMIT 1
+  FOR UPDATE SKIP LOCKED;
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object(
