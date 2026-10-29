@@ -33,7 +33,7 @@ package = json.loads(package_path.read_text(encoding="utf-8"))
 if MARKER in main and MARKER in index:
     print("PASS: V12.3.3 resilience patch already applied")
     raise SystemExit(0)
-if package.get("version") != "12.3.2" or OLD_MARKER not in main or OLD_MARKER not in index:
+if package.get("version") != "12.3.2" or OLD_MARKER not in index or OLD_MARKER not in renderer:
     raise SystemExit(f"Expected V12.3.2 source, got package version {package.get('version')}")
 
 # 1) FREE TEST: an explicit server OFF setting blocks new sessions only.
