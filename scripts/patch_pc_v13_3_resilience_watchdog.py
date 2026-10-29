@@ -143,6 +143,12 @@ preload_new = """    readBackupFile: (filePath) => ipcRenderer.invoke('read-back
     timerHealthPulse: (payload) => ipcRenderer.send('timer-health-pulse', payload)
 });"""
 preload = replace_once(preload, preload_anchor, preload_new, "Preload watchdog IPC")
+preload = replace_once(
+    preload,
+    "    exitBilling: () => ipcRenderer.invoke('exit-billing'),",
+    "    exitBilling: (options = {}) => ipcRenderer.invoke('exit-billing', options),\n    onBillingCloseAttempt: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = () => callback(); ipcRenderer.on('billing-close-attempt', listener); return () => ipcRenderer.removeListener('billing-close-attempt', listener); },\n    cancelBillingClose: () => ipcRenderer.invoke('billing-close-cancelled'),\n    authorizeBillingClose: () => ipcRenderer.invoke('billing-close-authorized'),",
+    "Expose password-gated close IPC",
+)
 
 # Main process: spawn a detached sibling Electron process. It survives an ordinary process kill
 # and listens only for restart_billing commands; it never consumes normal rental/admin commands.
@@ -323,6 +329,81 @@ function runWatchdogAgent() {
 main_anchor = "const approvedBackupRoots = new Set();"
 main = replace_once(main, main_anchor, main_anchor + "\n" + watchdog_helpers, "Watchdog helper insertion")
 
+main = replace_once(
+    main,
+    "let lastTimerRecoveryAt = 0;",
+    "let lastTimerRecoveryAt = 0;\nlet closePromptInProgress = false;\nlet closePromptPending = false;",
+    "Close password prompt state",
+)
+close_prompt_helper = """function requestBillingClosePassword(targetWindow) {
+    if (closePromptInProgress) return;
+    closePromptInProgress = true;
+    closePromptPending = true;
+    try {
+        if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.webContents.isLoading()) {
+            targetWindow.webContents.send('billing-close-attempt');
+            closePromptPending = false;
+        }
+    } catch (e) {
+        closePromptPending = false;
+        closePromptInProgress = false;
+        console.error('Tidak bisa meminta password sebelum keluar:', e?.message || e);
+    }
+}
+"""
+main = replace_once(main, "function watchdogFiles() {", close_prompt_helper + "\nfunction watchdogFiles() {", "Close prompt helper")
+old_close_guard = """    protectedWindow.on('close', (event) => {
+        if (allowBillingExit) return;
+        event.preventDefault();
+        try {
+            if (protectedWindow.isMinimized()) protectedWindow.restore();
+            protectedWindow.show();
+            protectedWindow.focus();
+        } catch (err) {
+            console.error('Gagal memulihkan window Billing setelah percobaan close:', err);
+        }
+    });"""
+new_close_guard = """    protectedWindow.on('close', (event) => {
+        if (allowBillingExit) return;
+        event.preventDefault();
+        requestBillingClosePassword(protectedWindow);
+        try {
+            if (protectedWindow.isMinimized()) protectedWindow.restore();
+            protectedWindow.show();
+            protectedWindow.focus();
+        } catch (err) {
+            console.error('Gagal memulihkan window Billing setelah percobaan close:', err);
+        }
+    });"""
+main = replace_once(main, old_close_guard, new_close_guard, "Password-gated X and Alt-F4")
+
+close_ipc = """ipcMain.handle('billing-close-cancelled', (event) => {
+    if (WATCHDOG_AGENT_MODE || event.sender !== mainWindow?.webContents) return { ok: false, message: 'Pemanggil tidak valid.' };
+    closePromptInProgress = false;
+    closePromptPending = false;
+    try { if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); } } catch (_) {}
+    return { ok: true };
+});
+ipcMain.handle('billing-close-authorized', (event) => {
+    if (WATCHDOG_AGENT_MODE || event.sender !== mainWindow?.webContents) return { ok: false, message: 'Pemanggil tidak valid.' };
+    try {
+        closePromptInProgress = false;
+        closePromptPending = false;
+        try { fs.unlinkSync(watchdogFiles().disabled); } catch (_) {}
+        launchWatchdogAgent();
+        removeMainProcessState();
+        allowBillingExit = true;
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+        else setTimeout(() => app.quit(), 0);
+        return { ok: true, mode: 'normal', watchdog: 'kept_running' };
+    } catch (e) {
+        allowBillingExit = false;
+        return { ok: false, message: String(e?.message || 'Keluar Billing gagal.') };
+    }
+});
+"""
+main = replace_once(main, "ipcMain.handle('watchdog-credentials', (event, raw) => {", close_ipc + "\nipcMain.handle('watchdog-credentials', (event, raw) => {", "Close prompt authorization IPC")
+
 # Secure credential IPC: OS-backed encryption; never log or expose the pairing token.
 credential_anchor = "ipcMain.handle('restart-billing', (event) => {"
 credential_handler = """ipcMain.handle('watchdog-credentials', (event, raw) => {
@@ -375,11 +456,12 @@ main = replace_once(
     "        try { fs.unlinkSync(watchdogFiles().disabled); } catch (_) {}\n        launchWatchdogAgent();\n        allowBillingExit = true;\n        app.relaunch();",
     "Watchdog remains available during restart",
 )
+main = replace_once(main, "ipcMain.handle('exit-billing', (event) => {", "ipcMain.handle('exit-billing', (event, options = {}) => {", "Exit mode argument")
 main = replace_once(
     main,
     "        allowBillingExit = true;\n        setTimeout(() => app.quit(), 0);",
-    "        stopWatchdogAgent();\n        removeMainProcessState();\n        allowBillingExit = true;\n        setTimeout(() => app.quit(), 0);",
-    "Stop watchdog on explicit total exit",
+    "        const totalExit = options && options.total === true;\n        if (totalExit) stopWatchdogAgent();\n        else { try { fs.unlinkSync(watchdogFiles().disabled); } catch (_) {} launchWatchdogAgent(); }\n        removeMainProcessState();\n        closePromptInProgress = false;\n        closePromptPending = false;\n        allowBillingExit = true;\n        setTimeout(() => app.quit(), 0);",
+    "Normal exit keeps watchdog; Exit Total stops it",
 )
 
 # A renderer that reports stale/frozen timer state is reloaded by the Electron main process.
@@ -408,6 +490,12 @@ main = replace_once(
     "            mainWindow.setFocusable(true);\n            mainWindow.focus();",
     "            mainWindow.setFocusable(true);\n            mainWindow.focus();\n            writeMainProcessState(true);",
     "Billing ready state",
+)
+main = replace_once(
+    main,
+    "            writeMainProcessState(true);",
+    "            writeMainProcessState(true);\n            if (closePromptPending && closePromptInProgress) { closePromptPending = false; mainWindow.webContents.send('billing-close-attempt'); }",
+    "Send pending close prompt after page load",
 )
 # Main boot: agent mode has no UI, while the normal app records its PID and launches the detached watcher.
 main = replace_once(
@@ -454,6 +542,183 @@ if "p===\"device/watchdog\"" not in api:
         "Watchdog API route",
     )
 
+
+# Require the existing Admin PIN/password on ordinary X/Alt+F4 close attempts.
+old_auth_markup = """<div class="modal-title">AKSES ADMIN</div>
+            <p class="modal-message">Masukkan PIN Admin untuk mengakses konfigurasi billing.</p>
+            <input type="password" id="admin-pin-input" class="input-code" placeholder="PIN ADMIN" style="margin-bottom: 15px; font-size: 16px;">
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" style="flex: 1;" onclick="closeAdminAuth()">Batal</button>
+                <button class="btn btn-primary" style="flex: 1;" onclick="submitAdminAuth()">Masuk</button>
+            </div>"""
+new_auth_markup = """<div class="modal-title" id="admin-auth-title">AKSES ADMIN</div>
+            <p class="modal-message" id="admin-auth-message">Masukkan PIN Admin untuk mengakses konfigurasi billing.</p>
+            <input type="password" id="admin-pin-input" class="input-code" placeholder="PIN ADMIN" style="margin-bottom: 15px; font-size: 16px;" autocomplete="current-password">
+            <div style="display: flex; gap: 10px;">
+                <button id="admin-auth-cancel" class="btn btn-secondary" style="flex: 1;" onclick="closeAdminAuth()">Batal</button>
+                <button id="admin-auth-submit" class="btn btn-primary" style="flex: 1;" onclick="submitAdminAuth()">Masuk</button>
+            </div>"""
+index = replace_once(index, old_auth_markup, new_auth_markup, "Admin auth modal markup")
+
+old_open_auth = """        function openAdminAuth() {
+            document.getElementById('admin-pin-input').value = '';
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+            focusAdminPinInput();
+        }"""
+new_open_auth = """        let adminAuthPurpose = 'admin';
+        function restoreAdminAuthModalCopy() {
+            document.getElementById('admin-auth-title').textContent = 'AKSES ADMIN';
+            document.getElementById('admin-auth-message').textContent = 'Masukkan PIN Admin untuk mengakses konfigurasi billing.';
+            document.getElementById('admin-auth-message').style.color = '';
+            document.getElementById('admin-auth-cancel').textContent = 'Batal';
+            document.getElementById('admin-auth-submit').textContent = 'Masuk';
+        }
+        function openAdminAuth() {
+            adminAuthPurpose = 'admin';
+            restoreAdminAuthModalCopy();
+            document.getElementById('admin-pin-input').value = '';
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+            focusAdminPinInput();
+        }"""
+index = replace_once(index, old_open_auth, new_open_auth, "Separate Admin login from exit authorization")
+
+old_close_auth = """        function closeAdminAuth() {
+            document.getElementById('admin-login-modal').classList.add('hidden');
+        }"""
+new_close_auth = """        function closeAdminAuth() {
+            const closeAttempt = adminAuthPurpose === 'close';
+            document.getElementById('admin-login-modal').classList.add('hidden');
+            adminAuthPurpose = 'admin';
+            restoreAdminAuthModalCopy();
+            if (closeAttempt) void window.electronAPI?.cancelBillingClose?.();
+        }"""
+index = replace_once(index, old_close_auth, new_close_auth, "Cancel close prompt")
+
+old_submit_auth = """        async function submitAdminAuth() {
+            const inputPin = document.getElementById('admin-pin-input').value.trim();
+            let valid = inputPin === ADMIN_PIN;
+            try {
+                const storedHash = localStorage.getItem(ADMIN_CUSTOM_PIN_HASH_KEY);
+                if (storedHash) valid = valid || (await hashAdminPin(inputPin)) === storedHash;
+                else {
+                    // Kompatibilitas build lama: migrasikan password plaintext sekali setelah login sukses.
+                    const legacy = localStorage.getItem(ADMIN_CUSTOM_PIN_KEY);
+                    if (legacy && inputPin === legacy) {
+                        localStorage.setItem(ADMIN_CUSTOM_PIN_HASH_KEY, await hashAdminPin(legacy));
+                        localStorage.removeItem(ADMIN_CUSTOM_PIN_KEY);
+                        valid = true;
+                    }
+                }
+            } catch (e) {
+                valid = getAdminPins().includes(inputPin);
+            }
+            if (valid) {
+                closeAdminAuth();
+                renderUserTable();
+                renderThemeList();
+                document.getElementById('admin-panel').classList.remove('hidden');
+            } else {
+                closeAdminAuth();
+                showCustomModal("PIN Admin Salah!", "AKSES DITOLAK", true, "🔒");
+            }
+        }"""
+new_submit_auth = """        async function submitAdminAuth() {
+            const input = document.getElementById('admin-pin-input');
+            const inputPin = input.value.trim();
+            const closeAttempt = adminAuthPurpose === 'close';
+            let valid = inputPin === ADMIN_PIN;
+            try {
+                const storedHash = localStorage.getItem(ADMIN_CUSTOM_PIN_HASH_KEY);
+                if (storedHash) valid = valid || (await hashAdminPin(inputPin)) === storedHash;
+                else {
+                    // Kompatibilitas build lama: migrasikan password plaintext sekali setelah login sukses.
+                    const legacy = localStorage.getItem(ADMIN_CUSTOM_PIN_KEY);
+                    if (legacy && inputPin === legacy) {
+                        localStorage.setItem(ADMIN_CUSTOM_PIN_HASH_KEY, await hashAdminPin(legacy));
+                        localStorage.removeItem(ADMIN_CUSTOM_PIN_KEY);
+                        valid = true;
+                    }
+                }
+            } catch (e) {
+                valid = getAdminPins().includes(inputPin);
+            }
+            if (valid && closeAttempt) {
+                document.getElementById('admin-login-modal').classList.add('hidden');
+                adminAuthPurpose = 'admin';
+                restoreAdminAuthModalCopy();
+                const result = await window.electronAPI?.authorizeBillingClose?.();
+                if (result?.ok === false) {
+                    showCustomModal('Keluar Billing gagal: ' + String(result.message || 'izin ditolak'), 'KELUAR BILLING', true, '⚠️');
+                }
+                return;
+            }
+            if (valid) {
+                closeAdminAuth();
+                renderUserTable();
+                renderThemeList();
+                document.getElementById('admin-panel').classList.remove('hidden');
+            } else if (closeAttempt) {
+                document.getElementById('admin-auth-message').textContent = 'Password salah. Billing tetap berjalan; coba lagi atau tekan Batal.';
+                document.getElementById('admin-auth-message').style.color = '#ff6b86';
+                input.value = '';
+                focusAdminPinInput();
+            } else {
+                closeAdminAuth();
+                showCustomModal("PIN Admin Salah!", "AKSES DITOLAK", true, "🔒");
+            }
+        }"""
+index = replace_once(index, old_submit_auth, new_submit_auth, "Verify the existing Admin password before closing")
+
+close_listener = """        window.electronAPI?.onBillingCloseAttempt?.(() => {
+            adminAuthPurpose = 'close';
+            restoreAdminAuthModalCopy();
+            document.getElementById('admin-auth-title').textContent = 'KONFIRMASI KELUAR BILLING';
+            document.getElementById('admin-auth-message').textContent = 'Masukkan password Admin Billing untuk keluar. Jika batal atau password salah, Billing tetap berjalan.';
+            document.getElementById('admin-auth-cancel').textContent = 'Batal / Tetap Buka';
+            document.getElementById('admin-auth-submit').textContent = 'Keluar Billing';
+            document.getElementById('admin-pin-input').value = '';
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+            focusAdminPinInput();
+        });
+
+"""
+index = replace_once(index, "        document.getElementById('admin-pin-input').addEventListener('keypress', function(e) {", close_listener + "        document.getElementById('admin-pin-input').addEventListener('keypress', function(e) {", "Handle X and Alt-F4 close request")
+
+old_exit_button = """<button type="button" class="btn btn-danger" onclick="exitBillingApp()">🚪 Exit Billing</button>"""
+new_exit_button = """<button type="button" class="btn btn-danger" onclick="exitBillingApp(false)">🚪 Keluar Billing (Restart Jarak Jauh Tetap Aktif)</button>
+                        <button type="button" class="btn btn-danger" onclick="exitBillingApp(true)">⛔ Exit Total / Maintenance</button>
+                        <small class="theme-help" style="grid-column:1/-1">Keluar Billing menjaga agen pemulih tetap hidup. Exit Total menghentikan agen; PC tidak dapat direstart dari Admin APK sampai Billing dibuka lagi.</small>"""
+index = replace_once(index, old_exit_button, new_exit_button, "Distinct normal and total exit buttons")
+
+old_exit_fn = """        async function exitBillingApp() {
+            if (!window.electronAPI?.exitBilling) return showCustomModal('Fungsi Exit Billing belum tersedia.', 'ERROR', true, '⚠️');
+            if (!confirm('Yakin ingin keluar total dari Billing?')) return;
+            try {
+                persistActiveSession();
+                saveDB();
+                writeSystemLog('Exit Billing dari Admin.');
+                await window.electronAPI.exitBilling();
+            } catch (error) {
+                showCustomModal('Exit Billing gagal: ' + error.message, 'EXIT GAGAL', true, '⚠️');
+            }
+        }"""
+new_exit_fn = """        async function exitBillingApp(totalExit = false) {
+            if (!window.electronAPI?.exitBilling) return showCustomModal('Fungsi Exit Billing belum tersedia.', 'ERROR', true, '⚠️');
+            const question = totalExit
+                ? 'EXIT TOTAL / MAINTENANCE akan menghentikan agen pemulih. Restart Billing dari Admin APK tidak akan berfungsi sampai aplikasi dibuka lagi. Lanjutkan?'
+                : 'Keluar dari tampilan Billing? Agen pemulih tetap aktif sehingga Admin APK masih dapat memanggil Billing. Lanjutkan?';
+            if (!confirm(question)) return;
+            try {
+                persistActiveSession();
+                saveDB();
+                writeSystemLog(totalExit ? 'Exit Total / Maintenance dari Admin.' : 'Keluar Billing dari Admin; agen pemulih dipertahankan.');
+                await window.electronAPI.exitBilling({ total: Boolean(totalExit) });
+            } catch (error) {
+                showCustomModal('Keluar Billing gagal: ' + error.message, 'EXIT GAGAL', true, '⚠️');
+            }
+        }"""
+index = replace_once(index, old_exit_fn, new_exit_fn, "Normal versus total exit handler")
+
 # Align all visible runtime version identities and package metadata.
 index = index.replace(OLD_MARKER, MARKER)
 renderer = renderer.replace(OLD_MARKER, MARKER)
@@ -479,12 +744,12 @@ cloud_path.write_text(cloud, encoding="utf-8")
 api_path.write_text(api, encoding="utf-8")
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 version_path.write_text(
-    "AniGames Billing PC V12.3.3 — offline-safe local FREE TEST, timer-health renderer recovery, encrypted device credential handoff, and detached agent that can process restart_billing after the main process is killed. Physical PC test still required.\n",
+    "AniGames Billing PC V12.3.3 — offline-safe FREE TEST, timer-health recovery, detached restart watchdog, Admin-password close guard, and explicit normal/total exit. Physical PC test still required.\n",
     encoding="utf-8",
 )
 
 for token in [
-    "V12.3.3-RESILIENT-OFFLINE-TEST-WATCHDOG", "WATCHDOG_AGENT_MODE", "runWatchdogAgent()",
+    "V12.3.3-RESILIENT-OFFLINE-TEST-WATCHDOG", "WATCHDOG_AGENT_MODE", "runWatchdogAgent()", "billing-close-attempt", "authorizeBillingClose", "cancelBillingClose", "Exit Total / Maintenance", "adminAuthPurpose",
     "device/watchdog", "watchdog-credentials", "safeStorage.encryptString", "safeStorage.decryptString",
     "timer-health-pulse", "timerHealth.mismatchCount", "stopWatchdogAgent()", "showCustomModal",
 ]:
