@@ -24,6 +24,7 @@ on:
       - 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql'
       - 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql'
       - 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql'
+      - 'supabase/migrations/20261029140000_offline_restart_command_gate.sql'
       - 'supabase/functions/ani-games-api/index.ts'
       - 'supabase/functions/ani-games-api/deno.json'
       - 'docs/PC-LOG-OPTIMIZATION-AUDIT.md'
@@ -71,6 +72,7 @@ jobs:
           Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
           Copy-Item 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql' (Join-Path $project.FullName 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql') -Force
+          Copy-Item 'supabase/migrations/20261029140000_offline_restart_command_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261029140000_offline_restart_command_gate.sql') -Force
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Detected PC project: $($project.FullName)"
 
@@ -226,5 +228,6 @@ jobs:
             supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql
             supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql
             supabase/migrations/20261029130000_device_watchdog_restart_billing.sql
+            supabase/migrations/20261029140000_offline_restart_command_gate.sql
           if-no-files-found: error
           retention-days: 14
