@@ -25,7 +25,7 @@ BEGIN
     RAISE EXCEPTION 'DEVICE_ACCESS_DENIED';
   END IF;
   IF d.status = 'disabled' THEN RAISE EXCEPTION 'DEVICE_DISABLED'; END IF;
-  IF NOT (p_command = 'restart_billing' AND coalesce(p_payload->>'queuedWhileOffline', 'false') = 'true') AND (
+  IF p_command IS DISTINCT FROM 'restart_billing' AND (
     coalesce(d.last_heartbeat_at, d.last_seen_at) IS NULL
       OR coalesce(d.last_heartbeat_at, d.last_seen_at) < now() - interval '45 seconds'
       OR d.status <> 'online'
