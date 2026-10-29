@@ -62,9 +62,8 @@ new_gate = """            // V12.3.3: an explicit online OFF setting blocks new 
             } catch (__freeTestError) {
                 const __message = String(__freeTestError?.message || __freeTestError || '');
                 const __status = Number(__freeTestError?.status || 0);
-                const __offline = __message === 'PAIRING_REQUIRED'
-                    || __status >= 500
-                    || /Failed to fetch|fetch failed|NetworkError|ERR_INTERNET_DISCONNECTED|AbortError|timed? ?out|network unavailable|DB_ROUTE_STATUS_UNAVAILABLE|DB_ROUTE_CUTOVER_INCOMPLETE|DB_ROUTE_CUTOVER_BLOCKED|ACTIVE_DB_GATEWAY_UNAVAILABLE|GLOBAL_ROUTE_MISMATCH|GLOBAL_ROUTE_NOT_FINALIZED/i.test(__message);
+                const __offline = __status >= 500
+                    || /Failed to fetch|fetch failed|NetworkError|ERR_INTERNET_DISCONNECTED|AbortError|timed? ?out|network unavailable|SERVICE_UNAVAILABLE|SUPABASE_API_NOT_CONFIGURED|HTTP 5\\d\\d|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|DB_ROUTE_STATUS_UNAVAILABLE|DB_ROUTE_CUTOVER_INCOMPLETE|DB_ROUTE_CUTOVER_BLOCKED|ACTIVE_DB_GATEWAY_UNAVAILABLE|GLOBAL_ROUTE_MISMATCH|GLOBAL_ROUTE_NOT_FINALIZED/i.test(__message);
                 if (!__offline || __status === 401 || __status === 403 || /INVALID_DEVICE_TOKEN|TOKEN_CLOUD_DITOLAK|UNAUTHORIZED/i.test(__message)) {
                     showCustomModal('Izin test belum dapat diverifikasi. Periksa koneksi dan pairing Cloud. Kode unik dan Panel Admin tetap tersedia.', 'IZIN TEST TIDAK TERSEDIA', true, '⚠️');
                     return {ok:false, error:'FREE_TEST_POLICY_UNAVAILABLE', message:__message || 'Status izin test tidak tersedia.'};
@@ -649,6 +648,7 @@ new_submit_auth = """        async function submitAdminAuth() {
                 restoreAdminAuthModalCopy();
                 const result = await window.electronAPI?.authorizeBillingClose?.();
                 if (result?.ok === false) {
+                    await window.electronAPI?.cancelBillingClose?.();
                     showCustomModal('Keluar Billing gagal: ' + String(result.message || 'izin ditolak'), 'KELUAR BILLING', true, '⚠️');
                 }
                 return;
