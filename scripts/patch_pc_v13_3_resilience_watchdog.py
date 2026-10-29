@@ -154,8 +154,8 @@ main = replace_once(
 )
 main = replace_once(
     main,
-    "const { execFile } = require('child_process');",
-    "const { execFile, spawn } = require('child_process');\nconst WATCHDOG_AGENT_MODE = process.argv.includes('--ani-watchdog-agent');\nconst DB1_API_URL = 'https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/ani-games-api';\nconst DB1_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6a2pweWNqaXpleHhjeHJmZHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc0OTUsImV4cCI6MjEwNjYxMzQ5NX0.lxjSt7CqWDJhKItPi1ckVRIcc-kM7etMzxTu3txANaI';\nlet timerHealth = { at: 0, activeCode: null, deadlineMs: null, displaySeconds: null, mismatchCount: 0 };\nlet lastTimerRecoveryAt = 0;",
+    "const fs = require('fs');\nconst { execFile } = require('child_process');",
+    "const fs = require('fs');\nconst { execFile, spawn } = require('child_process');\n// V12.3.3-RESILIENT-OFFLINE-TEST-WATCHDOG\nconst WATCHDOG_AGENT_MODE = process.argv.includes('--ani-watchdog-agent');\nconst DB1_API_URL = 'https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/ani-games-api';\nconst DB1_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6a2pweWNqaXpleHhjeHJmZHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc0OTUsImV4cCI6MjEwNjYxMzQ5NX0.lxjSt7CqWDJhKItPi1ckVRIcc-kM7etMzxTu3txANaI';\nlet timerHealth = { at: 0, activeCode: null, deadlineMs: null, displaySeconds: null, mismatchCount: 0 };\nlet lastTimerRecoveryAt = 0;",
     "Watchdog mode constants",
 )
 
