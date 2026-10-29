@@ -402,7 +402,7 @@ ipcMain.handle('billing-close-authorized', (event) => {
     }
 });
 """
-main = replace_once(main, "ipcMain.handle('watchdog-credentials', (event, raw) => {", close_ipc + "\nipcMain.handle('watchdog-credentials', (event, raw) => {", "Close prompt authorization IPC")
+# Close IPC is inserted after the watchdog credential handler below.
 
 # Secure credential IPC: OS-backed encryption; never log or expose the pairing token.
 credential_anchor = "ipcMain.handle('restart-billing', (event) => {"
@@ -448,6 +448,7 @@ ipcMain.on('timer-health-pulse', (event, payload) => {
 
 """
 main = replace_once(main, credential_anchor, credential_handler + credential_anchor, "Watchdog IPC insertion")
+main = replace_once(main, "ipcMain.handle('watchdog-credentials', (event, raw) => {", close_ipc + "\nipcMain.handle('watchdog-credentials', (event, raw) => {", "Close prompt authorization IPC")
 
 # Restart keeps the watchdog running; explicit total exit deliberately stops it.
 main = replace_once(
