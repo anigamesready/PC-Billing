@@ -1,5 +1,5 @@
 -- GLOBAL_RENTAL_ACCOUNTS_AND_OFFLINE_LEASES_V1
--- Release-candidate migration. Apply separately to DB1 and DB2 only after review.
+-- DB1 active-primary migration only. DB2 is intentionally untouched until separate parity/cutover approval.
 -- This migration is intentionally additive and fails closed if existing account/session data conflicts.
 
 BEGIN;
@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.rental_offline_leases (
 );
 CREATE INDEX IF NOT EXISTS rental_offline_leases_device_until_idx
   ON public.rental_offline_leases(device_id, lease_until);
+ALTER TABLE public.rental_offline_leases ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.rental_offline_leases FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rental_offline_leases TO service_role;
 
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.rental_sync_conflicts (
   resolved_at timestamptz,
   UNIQUE(org_id, source_event_id)
 );
+ALTER TABLE public.rental_sync_conflicts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.rental_sync_conflicts FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rental_sync_conflicts TO service_role;
 
@@ -58,7 +60,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS rental_sessions_one_open_per_rental_account
 CREATE OR REPLACE FUNCTION api.admin_rental_accounts_global(p_org_id uuid)
 RETURNS SETOF public.rental_accounts
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE uid uuid := auth.uid();
 BEGIN
@@ -83,7 +85,7 @@ CREATE OR REPLACE FUNCTION api.admin_create_rental_global(
   p_expiry_at timestamptz DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE
   uid uuid := auth.uid();
@@ -133,7 +135,7 @@ CREATE OR REPLACE FUNCTION api.admin_update_rental_global(
   p_minutes bigint, p_client_label text, p_expiry_at timestamptz, p_status text
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE
   uid uuid := auth.uid();
@@ -190,7 +192,7 @@ $function$;
 CREATE OR REPLACE FUNCTION api.admin_disable_rental_global(p_org_id uuid, p_rental_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE uid uuid := auth.uid(); r public.rental_accounts%ROWTYPE;
 BEGIN
@@ -219,7 +221,7 @@ $function$;
 CREATE OR REPLACE FUNCTION api.device_rental_lookup(p_token text, p_code text)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE
   did uuid; oid uuid; c text:=upper(trim(coalesce(p_code,'')));
@@ -280,7 +282,7 @@ $function$;
 CREATE OR REPLACE FUNCTION api.device_start_rental_session(p_token text, p_code text, p_source_event_id text DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE
   did uuid; oid uuid; c text:=upper(trim(coalesce(p_code,'')));
@@ -347,7 +349,7 @@ CREATE OR REPLACE FUNCTION api.device_end_rental_session(
   p_token text, p_code text, p_remaining_seconds bigint, p_source_event_id text DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE did uuid; oid uuid; c text:=upper(trim(coalesce(p_code,''))); s public.rental_sessions%ROWTYPE;
   secs bigint:=greatest(0,coalesce(p_remaining_seconds,0)); rid uuid;
@@ -388,7 +390,7 @@ $function$;
 CREATE OR REPLACE FUNCTION api.device_release_rental_lease(p_token text, p_code text)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE did uuid; oid uuid; c text:=upper(trim(coalesce(p_code,''))); rid uuid; removed integer;
 BEGIN
@@ -409,7 +411,7 @@ $function$;
 CREATE OR REPLACE FUNCTION api.device_sync_cursor(p_token text)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE did uuid; oid uuid; ts timestamptz:=now();
 BEGIN
@@ -423,7 +425,7 @@ $function$;
 CREATE OR REPLACE FUNCTION api.device_pull_sync(p_token text, p_cursor timestamptz DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','pg_catalog'
+SET search_path TO 'pg_catalog','public'
 AS $function$
 DECLARE did uuid; oid uuid; rows jsonb; ts timestamptz:=now();
 BEGIN
@@ -551,5 +553,8 @@ REVOKE ALL ON FUNCTION api.device_sync_cursor(text) FROM PUBLIC, authenticated;
 GRANT EXECUTE ON FUNCTION api.device_sync_cursor(text) TO anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION api.device_pull_sync(text,timestamptz) FROM PUBLIC, authenticated;
 GRANT EXECUTE ON FUNCTION api.device_pull_sync(text,timestamptz) TO anon, authenticated, service_role;
+
+GRANT USAGE ON SCHEMA api TO anon, authenticated, service_role;
+NOTIFY pgrst, 'reload schema';
 
 COMMIT;
