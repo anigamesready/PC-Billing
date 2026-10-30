@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/global-rental-pc-v12.3.5
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
