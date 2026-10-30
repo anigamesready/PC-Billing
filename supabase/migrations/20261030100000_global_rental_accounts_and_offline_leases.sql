@@ -157,6 +157,7 @@ BEGIN
   IF st NOT IN ('active','expired','disabled') THEN RAISE EXCEPTION 'RENTAL_STATUS_INVALID'; END IF;
   IF expiry IS NOT NULL AND expiry<=now() THEN RAISE EXCEPTION 'EXPIRY_MUST_BE_FUTURE'; END IF;
   secs := p_minutes*60;
+  IF secs=0 AND st='active' THEN st:='expired'; END IF;
   SELECT * INTO r FROM public.rental_accounts WHERE id=p_rental_id AND org_id=p_org_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'RENTAL_NOT_FOUND'; END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended(p_org_id::text||':'||c,0));
@@ -250,7 +251,8 @@ BEGIN
   SELECT * INTO l FROM public.rental_offline_leases WHERE rental_account_id=r.id FOR UPDATE;
   IF FOUND AND l.lease_until>now() AND l.device_id<>did THEN RAISE EXCEPTION 'RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC'; END IF;
   IF FOUND AND l.lease_until>now() AND l.device_id=did THEN
-    until_at:=l.lease_until;
+    IF s.id IS NOT NULL AND s.deadline_at IS NOT NULL THEN until_at:=greatest(l.lease_until,s.deadline_at);
+    ELSE until_at:=now()+make_interval(secs=>greatest(0,r.remaining_seconds)+1800); END IF;
   ELSE
     remaining:=CASE WHEN s.id IS NOT NULL AND s.deadline_at IS NOT NULL
       THEN greatest(0,ceil(extract(epoch from (s.deadline_at-now())))::bigint)
@@ -353,7 +355,14 @@ BEGIN
   ) THEN RETURN jsonb_build_object('ok',true,'idempotent',true); END IF;
   SELECT * INTO s FROM public.rental_sessions WHERE org_id=oid AND device_id=did AND code=c
     AND status IN ('active','paused') ORDER BY started_at DESC LIMIT 1 FOR UPDATE;
-  IF NOT FOUND THEN RETURN jsonb_build_object('ok',true,'idempotent',true,'no_session',true); END IF;
+  IF NOT FOUND THEN
+    SELECT id INTO rid FROM public.rental_accounts WHERE org_id=oid AND upper(trim(code))=c;
+    IF rid IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.rental_sessions WHERE rental_account_id=rid AND status IN ('active','paused')) THEN
+      UPDATE public.rental_accounts SET remaining_seconds=secs,status=CASE WHEN secs=0 THEN 'expired' ELSE status END,updated_at=now() WHERE id=rid;
+      DELETE FROM public.rental_offline_leases WHERE rental_account_id=rid AND device_id=did;
+    END IF;
+    RETURN jsonb_build_object('ok',true,'idempotent',true,'no_session',true);
+  END IF;
   rid:=s.rental_account_id;
   IF rid IS NOT NULL THEN
     UPDATE public.rental_accounts SET remaining_seconds=secs,
