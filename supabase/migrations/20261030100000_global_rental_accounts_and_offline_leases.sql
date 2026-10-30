@@ -445,16 +445,19 @@ BEGIN
     '  accepted jsonb := ''[]''::jsonb;'||E'\n  conflicts jsonb := ''[]''::jsonb;');
   changed := replace(changed,
     '  existing_updated timestamptz;',
-    '  existing_updated timestamptz;'||E'\n  existing_source text;'||E'\n  existing_source_event text;');
+    '  existing_updated timestamptz;'||E'\n  existing_source text;'||E'\n  existing_source_event text;'||E'\n  existing_source_device text;');
   changed := replace(changed,
     'SELECT id, theme_id, device_id, updated_at'||E'\n      INTO rid, tid, existing_device_id, existing_updated',
-    'SELECT id, theme_id, device_id, updated_at, metadata->>''source'', metadata->>''sourceEventId'''||E'\n      INTO rid, tid, existing_device_id, existing_updated, existing_source, existing_source_event');
+    'SELECT id, theme_id, device_id, updated_at, metadata->>''source'', metadata->>''sourceEventId'', metadata->>''originDeviceId'''||E'\n      INTO rid, tid, existing_device_id, existing_updated, existing_source, existing_source_event, existing_source_device');
   changed := replace(changed,
     'jsonb_build_object(''source'', ''pc-sync'')',
-    'jsonb_build_object(''source'', ''pc-sync'', ''sourceEventId'', sid)');
+    'jsonb_build_object(''source'', ''pc-sync'', ''sourceEventId'', sid, ''originDeviceId'', did)');
   changed := replace(changed,
     '            client_label = coalesce(nullif(item->>''clientLabel'', ''''), client_label),'||E'\n            updated_at = now()',
-    '            client_label = coalesce(nullif(item->>''clientLabel'', ''''), client_label),'||E'\n            metadata = coalesce(metadata, ''{}''::jsonb) || jsonb_build_object(''sourceEventId'', sid),'||E'\n            updated_at = now()');
+    '            client_label = coalesce(nullif(item->>''clientLabel'', ''''), client_label),'||E'\n            metadata = coalesce(metadata, ''{}''::jsonb) || jsonb_build_object(''sourceEventId'', sid, ''originDeviceId'', did),'||E'\n            updated_at = now()');
+  changed := replace(changed,
+    '          oid, did, c,',
+    '          oid, NULL, c,');
   changed := replace(changed,
     'WHERE org_id = oid AND code = c',
     'WHERE org_id = oid AND upper(trim(code)) = c');
@@ -463,7 +466,7 @@ BEGIN
     '      IF base_updated IS NOT NULL AND existing_updated IS NOT NULL AND existing_updated > base_updated AND existing_source_event IS DISTINCT FROM sid THEN'||E'\n        INSERT INTO public.rental_sync_conflicts(org_id,device_id,code,source_event_id,reason,event_payload)'||E'\n        VALUES(oid,did,c,sid,''CLOUD_ROW_CHANGED_SINCE_LOCAL_BASE'',item)'||E'\n        ON CONFLICT(org_id,source_event_id) DO NOTHING;'||E'\n        conflicts := conflicts || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;');
   changed := replace(changed,
     '      -- Never reassign an account owned by another PC/device. Mark the event'||E'\n      -- accepted so a client retry cannot jam the whole sync batch forever.'||E'\n      IF rid IS NOT NULL AND existing_device_id IS NOT NULL'||E'\n         AND existing_device_id <> did THEN'||E'\n        accepted := accepted || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;',
-    '      -- Existing cloud accounts are authoritative. Only retry an account created'||E'\n      -- by this same PC sync path; never overwrite an admin/global row or another PC row.'||E'\n      IF rid IS NOT NULL AND NOT (existing_device_id = did AND existing_source = ''pc-sync'' AND (base_updated IS NOT NULL OR existing_source_event = sid)) THEN'||E'\n        INSERT INTO public.rental_sync_conflicts(org_id,device_id,code,source_event_id,reason,event_payload)'||E'\n        VALUES(oid,did,c,sid,''CODE_ALREADY_EXISTS_IN_SHARED_DB'',item)'||E'\n        ON CONFLICT(org_id,source_event_id) DO NOTHING;'||E'\n        conflicts := conflicts || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;');
+    '      -- Existing cloud accounts are authoritative. Only retry an account created'||E'\n      -- by this same PC sync path; never overwrite an admin/global row or another PC row.'||E'\n      IF rid IS NOT NULL AND NOT (coalesce(existing_source_device, existing_device_id::text) = did::text AND existing_source = ''pc-sync'' AND (base_updated IS NOT NULL OR existing_source_event = sid)) THEN'||E'\n        INSERT INTO public.rental_sync_conflicts(org_id,device_id,code,source_event_id,reason,event_payload)'||E'\n        VALUES(oid,did,c,sid,''CODE_ALREADY_EXISTS_IN_SHARED_DB'',item)'||E'\n        ON CONFLICT(org_id,source_event_id) DO NOTHING;'||E'\n        conflicts := conflicts || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;');
   changed := replace(changed,
     '''acceptedSourceEventIds'', accepted,'||E'\n    ''inserted'', inserted_count,',
     '''acceptedSourceEventIds'', accepted,'||E'\n    ''conflictSourceEventIds'', conflicts,'||E'\n    ''inserted'', inserted_count,');
@@ -471,6 +474,7 @@ BEGIN
      OR position('conflictSourceEventIds' in changed)=0
      OR position('existing_source text' in changed)=0
      OR position('existing_source_event text' in changed)=0
+     OR position('existing_source_device text' in changed)=0
      OR position('CODE_ALREADY_EXISTS_IN_SHARED_DB' in changed)=0 THEN
     RAISE EXCEPTION 'GLOBAL_RENTAL_DEVICE_SYNC_PATCH_ANCHOR_MISMATCH';
   END IF;
