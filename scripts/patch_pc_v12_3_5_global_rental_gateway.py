@@ -83,7 +83,7 @@ renderer_path.write_text(renderer, encoding="utf-8")
 main_path.write_text(main, encoding="utf-8")
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 version_path.write_text(
-    "AniGames Billing PC V12.3.5 — DB-first global rental routing through shared DB gateway; stable local identity.\\n",
+    "AniGames Billing PC V12.3.5 — DB-first global rental routing through shared DB gateway; stable local identity.\n",
     encoding="utf-8",
 )
 
