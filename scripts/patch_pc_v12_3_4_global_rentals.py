@@ -313,8 +313,9 @@ new_start = r"""        async function startSession() {
             try { auth = await window.v11StartRentalSession(inputCode); }
             catch (e) { auth = {ok:false,message:e?.message||'Pengecekan DB gagal.'}; }
             if (!auth?.ok) return showCustomModal(auth?.message||"Kode rental tidak dapat digunakan.", "AKSES DITOLAK", true, "❌");
-            const user = dbUsers[inputCode] || auth.user;
-            if (!user) return showCustomModal("Data rental tidak tersedia di cache lokal.", "AKSES DITOLAK", true, "❌");
+            const user = { ...(dbUsers[inputCode] || {}), ...(auth.user || {}) };
+            if (!user || !Object.keys(user).length) return showCustomModal("Data rental tidak tersedia di cache lokal.", "AKSES DITOLAK", true, "❌");
+            dbUsers[inputCode] = user;
             if (user.expiryDate) {
                 const exp = new Date(user.expiryDate);
                 if (Number.isNaN(exp.getTime()) || Date.now() > exp.getTime()) return showCustomModal("Masa aktif paket ini telah habis.", "PAKET EXPIRED", true, "⏳");
