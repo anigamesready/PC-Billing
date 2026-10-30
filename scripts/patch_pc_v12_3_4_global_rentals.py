@@ -397,7 +397,8 @@ index = index.replace(end_anchor, end_replace, 1)
 index = index.replace(BASE, NEW)
 package["version"] = "12.3.4"
 package["description"] = "AniGames Billing V12.3.4: global DB-first rental lookup, exclusive sessions, offline lease cache, and conflict-safe incremental sync"
-package["build"]["productName"] = "AniGames Billing V12.3.4"
+# Keep the V12.3.3 product identity so Electron reuses the existing %APPDATA% userData folder (pairing token, cache, and outbox).
+package["build"]["productName"] = "AniGames Billing V12.3.3"
 if main_path.exists():
     main = main_path.read_text(encoding="utf-8").replace("appVersion: 'V12.3.3-watchdog'", "appVersion: 'V12.3.4-watchdog'")
     main_path.write_text(main, encoding="utf-8")
