@@ -191,6 +191,51 @@ if cloud.count(old_enqueue) != 1:
 cloud = cloud.replace(old_enqueue, new_enqueue, 1)
 
 old_sync = re.compile(r"async function syncNow\(\)\{.*?\}\s*\n\s*async function pullNow\(\)", re.S)
+
+manual_sync_pattern = re.compile(r"async function v11ManualSync\(\)\{.*?\}\s*\n\s*window\.v11ManualSync=v11ManualSync;", re.S)
+new_manual_sync = r"""async function v11ManualSync(){
+ try{
+  const wasResume=resumeCloudAuthoritative,c=read();
+  if(!c.token)throw new Error('Pairing Cloud belum tersedia.');
+  if(localStorage.getItem('billing_v11_token_rejected_hold')==='1')throw new Error('Token cloud masih ditolak; pairing dan antrean dipertahankan.');
+  if(wasResume){
+    const activeCode=String(window.v11GetActiveCode?.()||localStorage.getItem('billing_remote_paused_code')||'').trim().toUpperCase();
+    if(activeCode&&activeCode!=='__TEST10__'){
+      let users=window.v11GetUsers?.()||{},u=users[activeCode]||{};
+      if(u.localCreation&&!u.cloudUpdatedAt&&!u.offlineSyncConflict){
+        resumeCloudAuthoritative=false;
+        await syncLocalRental(activeCode);
+        users=window.v11GetUsers?.()||{};u=users[activeCode]||u;
+        if(u.offlineSyncConflict)throw new Error('Kode lokal bentrok dengan DB. Payload lokal dipertahankan untuk pemeriksaan Admin.');
+      }
+      const verified=await v11LookupRentalCode(activeCode);
+      if(verified?.ok!==true)throw new Error('Kode aktif belum terverifikasi di DB. Pairing, timer, cache, dan antrean tetap dipertahankan.');
+      if(verified.user?.offlineSyncConflict)throw new Error('Konflik kode rental belum diselesaikan. Data lokal dipertahankan.');
+    }else{
+      const d=await request('/device/sync-cursor',{token:c.token},{retries:2,timeoutMs:7000});
+      if(!d?.cursor)throw new Error('DB belum mengonfirmasi cursor sinkronisasi.');
+      if(!localStorage.getItem(SYNC_CURSOR_KEY))localStorage.setItem(SYNC_CURSOR_KEY,d.cursor);
+    }
+    resumeCloudAuthoritative=false;
+  }else{
+    await heartbeat();
+    if(localStorage.getItem('billing_v11_token_rejected_hold')==='1')throw new Error('Token cloud masih ditolak; pairing dan antrean dipertahankan.');
+  }
+  await pullNow();
+  await syncNow();
+  await flushSessionOutbox();
+  status('ONLINE • pengecekan kode DB dan sinkronisasi perubahan selesai; tidak ada full-table download.');
+  if(!heartbeatTimer)start();
+  return {ok:true,count:0};
+ }catch(e){
+  status('SYNC GAGAL • '+(e?.message||'gagal'));
+  return {ok:false,message:e?.message||'gagal'};
+ }
+}
+window.v11ManualSync=v11ManualSync;"""
+cloud, n = manual_sync_pattern.subn(new_manual_sync, cloud, count=1)
+if n != 1:
+    raise SystemExit("Manual sync replacement anchor mismatch; keep original code untouched")
 new_sync = r"""async function syncNow(){
  if(syncBusy||resumeCloudAuthoritative)return;
  const c=read(),q=queue();if(!c.token||!q.length)return;
