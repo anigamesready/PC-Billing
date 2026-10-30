@@ -194,8 +194,9 @@ old_sync = re.compile(r"async function syncNow\(\)\{.*?\}\s*\n\s*async function 
 
 manual_sync_pattern = re.compile(r"async function v11ManualSync\(\)\{.*?\}\s*\n\s*window\.v11ManualSync=v11ManualSync;", re.S)
 new_manual_sync = r"""async function v11ManualSync(){
+ const wasResume=resumeCloudAuthoritative;
  try{
-  const wasResume=resumeCloudAuthoritative,c=read();
+  const c=read();
   if(!c.token)throw new Error('Pairing Cloud belum tersedia.');
   if(localStorage.getItem('billing_v11_token_rejected_hold')==='1')throw new Error('Token cloud masih ditolak; pairing dan antrean dipertahankan.');
   if(wasResume){
@@ -228,6 +229,7 @@ new_manual_sync = r"""async function v11ManualSync(){
   if(!heartbeatTimer)start();
   return {ok:true,count:0};
  }catch(e){
+  if(wasResume)resumeCloudAuthoritative=true;
   status('SYNC GAGAL • '+(e?.message||'gagal'));
   return {ok:false,message:e?.message||'gagal'};
  }
