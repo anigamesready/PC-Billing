@@ -237,7 +237,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'RENTAL_NOT_FOUND'; END IF;
   IF r.status<>'active' THEN RAISE EXCEPTION 'RENTAL_NOT_ACTIVE'; END IF;
   IF r.expiry_at IS NOT NULL AND r.expiry_at<=now() THEN RAISE EXCEPTION 'RENTAL_EXPIRED'; END IF;
-  IF r.remaining_seconds<=0 THEN RAISE EXCEPTION 'RENTAL_TIME_EXHAUSTED'; END IF;
+  IF r.remaining_seconds<=0 AND NOT EXISTS(SELECT 1 FROM public.rental_sessions ps WHERE ps.rental_account_id=r.id AND ps.status='paused' AND coalesce(ps.last_client_remaining_seconds,0)>0) THEN RAISE EXCEPTION 'RENTAL_TIME_EXHAUSTED'; END IF;
   SELECT * INTO s FROM public.rental_sessions
    WHERE rental_account_id=r.id AND status IN ('active','paused')
    ORDER BY started_at DESC LIMIT 1 FOR UPDATE;
@@ -296,31 +296,33 @@ BEGIN
   IF nullif(trim(p_source_event_id),'') IS NOT NULL THEN
     SELECT * INTO s FROM public.rental_sessions WHERE org_id=oid AND source_event_id=p_source_event_id LIMIT 1;
     IF FOUND THEN RETURN jsonb_build_object('ok',true,'session_id',s.id,'status',s.status,'idempotent',true,
-      'remaining_seconds',greatest(0,ceil(extract(epoch from (s.deadline_at-now())))::bigint),'deadline_at',s.deadline_at); END IF;
+      'remaining_seconds',CASE WHEN s.status='paused' THEN greatest(0,coalesce(s.last_client_remaining_seconds,(SELECT ra.remaining_seconds FROM public.rental_accounts ra WHERE ra.id=s.rental_account_id),0)) ELSE greatest(0,ceil(extract(epoch from (s.deadline_at-now())))::bigint) END,
+      'deadline_at',CASE WHEN s.status='paused' THEN now()+make_interval(secs=>greatest(0,coalesce(s.last_client_remaining_seconds,(SELECT ra.remaining_seconds FROM public.rental_accounts ra WHERE ra.id=s.rental_account_id),0))) ELSE s.deadline_at END); END IF;
   END IF;
   SELECT * INTO r FROM public.rental_accounts WHERE org_id=oid AND upper(trim(code))=c FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'RENTAL_NOT_FOUND'; END IF;
   IF r.status<>'active' THEN RAISE EXCEPTION 'RENTAL_NOT_ACTIVE'; END IF;
   IF r.expiry_at IS NOT NULL AND r.expiry_at<=now() THEN RAISE EXCEPTION 'RENTAL_EXPIRED'; END IF;
-  IF r.remaining_seconds<=0 THEN RAISE EXCEPTION 'RENTAL_TIME_EXHAUSTED'; END IF;
+  IF r.remaining_seconds<=0 AND NOT EXISTS(SELECT 1 FROM public.rental_sessions ps WHERE ps.rental_account_id=r.id AND ps.status='paused' AND coalesce(ps.last_client_remaining_seconds,0)>0) THEN RAISE EXCEPTION 'RENTAL_TIME_EXHAUSTED'; END IF;
   SELECT * INTO s FROM public.rental_sessions
   WHERE rental_account_id=r.id AND status IN ('active','paused') ORDER BY started_at DESC LIMIT 1 FOR UPDATE;
   IF FOUND THEN
     IF s.device_id<>did THEN RAISE EXCEPTION 'RENTAL_ACTIVE_ON_OTHER_PC'; END IF;
-    IF s.deadline_at IS NOT NULL AND s.deadline_at<=now() THEN
+    IF s.status='active' AND s.deadline_at IS NOT NULL AND s.deadline_at<=now() THEN
       UPDATE public.rental_sessions SET status='ended',ended_at=now() WHERE id=s.id;
       UPDATE public.rental_accounts SET remaining_seconds=0,status='expired',updated_at=now() WHERE id=r.id;
       DELETE FROM public.rental_offline_leases WHERE rental_account_id=r.id;
       RETURN jsonb_build_object('ok',false,'error','RENTAL_TIME_EXHAUSTED');
     END IF;
     RETURN jsonb_build_object('ok',true,'session_id',s.id,'status',s.status,'idempotent',true,
-      'remaining_seconds',greatest(0,ceil(extract(epoch from (s.deadline_at-now())))::bigint),'deadline_at',s.deadline_at);
+      'remaining_seconds',CASE WHEN s.status='paused' THEN greatest(0,coalesce(s.last_client_remaining_seconds,(SELECT ra.remaining_seconds FROM public.rental_accounts ra WHERE ra.id=s.rental_account_id),0)) ELSE greatest(0,ceil(extract(epoch from (s.deadline_at-now())))::bigint) END,
+      'deadline_at',CASE WHEN s.status='paused' THEN now()+make_interval(secs=>greatest(0,coalesce(s.last_client_remaining_seconds,(SELECT ra.remaining_seconds FROM public.rental_accounts ra WHERE ra.id=s.rental_account_id),0))) ELSE s.deadline_at END);
   END IF;
   SELECT * INTO lease FROM public.rental_offline_leases WHERE rental_account_id=r.id FOR UPDATE;
   IF FOUND AND lease.lease_until>now() AND lease.device_id<>did THEN RAISE EXCEPTION 'RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC'; END IF;
   SELECT * INTO s FROM public.rental_sessions
    WHERE device_id=did AND status IN ('active','paused') ORDER BY started_at DESC LIMIT 1 FOR UPDATE;
-  IF FOUND AND s.code<>c AND (s.deadline_at IS NULL OR s.deadline_at>now()) THEN RAISE EXCEPTION 'ACTIVE_SESSION_EXISTS'; END IF;
+  IF FOUND AND s.code<>c AND (s.status='paused' OR s.deadline_at IS NULL OR s.deadline_at>now()) THEN RAISE EXCEPTION 'ACTIVE_SESSION_EXISTS'; END IF;
   IF FOUND AND s.status='active' AND s.deadline_at IS NOT NULL AND s.deadline_at<=now() THEN
     UPDATE public.rental_sessions SET status='ended',ended_at=now() WHERE id=s.id;
   END IF;
