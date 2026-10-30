@@ -328,7 +328,7 @@ BEGIN
   VALUES(oid,did,r.id,c,'rental',now(),deadline,'active',now(),r.remaining_seconds,nullif(trim(p_source_event_id),''),coalesce(r.theme_id,tid),
     jsonb_build_object('source','global-rental-api')) RETURNING id INTO sid;
   INSERT INTO public.rental_offline_leases(rental_account_id,org_id,device_id,lease_until,created_at,updated_at)
-  VALUES(r.id,oid,did,deadline,now(),now())
+  VALUES(r.id,oid,did,deadline+make_interval(secs=>1800),now(),now())
   ON CONFLICT(rental_account_id) DO UPDATE SET org_id=EXCLUDED.org_id,device_id=EXCLUDED.device_id,
     lease_until=EXCLUDED.lease_until,updated_at=now()
   WHERE public.rental_offline_leases.device_id=did OR public.rental_offline_leases.lease_until<=now();
