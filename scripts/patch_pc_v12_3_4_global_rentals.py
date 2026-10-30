@@ -166,13 +166,14 @@ helpers = identity_anchor + r"""
       if(prev!==next)localStorage.removeItem(PREAUTH_KEY);
     });
   }
+  window.addEventListener('load',attachRentalPreauth);
 """
 if cloud.count(identity_anchor) != 1:
     raise SystemExit("Device identity helper anchor mismatch")
 cloud = cloud.replace(identity_anchor, helpers, 1)
 
 # Keep conflict events in local durable storage; never silently accept them or retry forever.
-old_local_pending = "function localSyncPending(code, users){const u=users?.[code];if(dirty().has(code)||(u&&!u.cloudUpdatedAt)){markDirty(code);return true}return false}"
+old_local_pending = "function localSyncPending(code,users){const u=users?.[code];if(u?.offlineSyncConflict)return true;if(dirty().has(code)||(u&&!u.cloudUpdatedAt)){markDirty(code);return true}return false}"
 new_local_pending = "function localSyncPending(code, users){const u=users?.[code];if(u?.offlineSyncConflict)return true;if(dirty().has(code)||(u&&!u.cloudUpdatedAt)){markDirty(code);return true}return false}"
 if cloud.count(old_local_pending) != 1:
     raise SystemExit("localSyncPending anchor mismatch")
