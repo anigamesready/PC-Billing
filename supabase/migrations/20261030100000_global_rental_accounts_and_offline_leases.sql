@@ -476,6 +476,11 @@ BEGIN
      OR position('existing_source text' in changed)=0
      OR position('existing_source_event text' in changed)=0
      OR position('existing_source_device text' in changed)=0
+     OR position('originDeviceId' in changed)=0
+     OR position('sourceEventId' in changed)=0
+     OR position('oid, NULL, c,' in changed)=0
+     OR position('oid, did, c,' in changed)>0
+     OR position('coalesce(existing_source_device, existing_device_id::text)' in changed)=0
      OR position('CODE_ALREADY_EXISTS_IN_SHARED_DB' in changed)=0 THEN
     RAISE EXCEPTION 'GLOBAL_RENTAL_DEVICE_SYNC_PATCH_ANCHOR_MISMATCH';
   END IF;
