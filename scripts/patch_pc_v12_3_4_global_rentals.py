@@ -309,6 +309,13 @@ start_pattern = re.compile(r"        function startSession\(\) \{.*?\n        \}
 new_start = r"""        async function startSession() {
             const inputCode = document.getElementById('user-code-input').value.trim().toUpperCase();
             if (!inputCode) return showCustomModal("Silahkan masukkan Kode Unik terlebih dahulu!", "KODE KOSONG", true, "⌨️");
+            // Preserve the existing Free Test flow; it has its own Admin permission gate and timer lifecycle.
+            if (inputCode === TEST_SESSION_CODE) {
+                if (typeof startTenMinuteTest !== 'function') return showCustomModal("Fungsi Free Test belum siap. Restart billing atau hubungi admin.", "FREE TEST BELUM SIAP", true, "⚠️");
+                try { await startTenMinuteTest(); }
+                catch (e) { showCustomModal(String(e?.message || 'Free Test gagal dijalankan.'), "FREE TEST GAGAL", true, "⚠️"); }
+                return;
+            }
             if (typeof window.v11StartRentalSession !== 'function') return showCustomModal("Pengecekan DB belum siap. Restart billing atau hubungi admin.", "CLOUD BELUM SIAP", true, "☁️");
             let auth;
             try { auth = await window.v11StartRentalSession(inputCode); }
