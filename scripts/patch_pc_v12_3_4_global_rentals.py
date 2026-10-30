@@ -258,7 +258,7 @@ new_sync = r"""async function syncNow(){
     }
   }
   saveRentalConflicts(keepConflicts);
-  try{localStorage.setItem('billing_db_users',JSON.stringify(users))}catch(_){}
+  try{window.v11PersistPulledUsers?.(users);localStorage.setItem('billing_db_users',JSON.stringify(users))}catch(_){}
   const handled=new Set([...accepted,...conflictIds]);for(const id of [...accepted,...conflictIds])for(const oldId of (supersededBy.get(id)||[]))handled.add(oldId);const latest=queue(),remaining=latest.filter(x=>!handled.has(x.sourceEventId));
   for(const ev of batch){if(!accepted.has(ev.sourceEventId)&&!conflictIds.has(ev.sourceEventId)||!ev.code)continue;const code=String(ev.code).toUpperCase();if(remaining.some(x=>String(x.code||'').toUpperCase()===code&&x.eventType==='rental_account_upsert'))markDirty(code);else clearDirty(code);}
   saveQueue(remaining);
