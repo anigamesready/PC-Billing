@@ -421,12 +421,20 @@ BEGIN
   changed := replace(changed,
     'ORDER BY CASE WHEN ra.device_id = d.id THEN 0 ELSE 1 END, ra.created_at DESC',
     'ORDER BY ra.created_at DESC');
+  -- A device may update timer balance only for its active DB session or its own
+  -- valid offline lease. Never copy stale category/expiry/status/label back over Admin edits.
   changed := replace(changed,
     'SET device_id = d.id,'||E'\n            category = target_category,',
     'SET category = target_category,');
   changed := replace(changed,
     'device_id IS DISTINCT FROM d.id'||E'\n            OR ',
     '');
+  changed := replace(changed,
+    'UPDATE public.rental_accounts'||E'\n        SET category = target_category,'||E'\n            remaining_seconds = target_remaining,'||E'\n            expiry_at = target_expiry,'||E'\n            status = CASE WHEN target_remaining > 0 THEN ''active'' ELSE status END,'||E'\n            client_label = coalesce(target_label, client_label),'||E'\n            updated_at = now()'||E'\n        WHERE id = rid'||E'\n          AND (',
+    'UPDATE public.rental_accounts'||E'\n        SET remaining_seconds = target_remaining, updated_at = now()'||E'\n        WHERE id = rid'||E'\n          AND ((open_sid IS NOT NULL AND open_code = target_code AND open_account_id = rid)'||E'\n            OR EXISTS (SELECT 1 FROM public.rental_offline_leases l WHERE l.rental_account_id = rid AND l.device_id = d.id AND l.lease_until > now()))'||E'\n          AND (');
+  changed := replace(changed,
+    'IF NOT free_test_blocked THEN',
+    'IF NOT free_test_blocked AND NOT EXISTS ('||E'\n    SELECT 1 FROM public.rental_accounts ra'||E'\n    JOIN public.rental_offline_leases l ON l.rental_account_id = ra.id'||E'\n    WHERE ra.org_id = d.org_id AND upper(trim(ra.code)) = target_code'||E'\n      AND l.device_id <> d.id AND l.lease_until > now()'||E'\n  ) THEN');
   changed := replace(changed,
     'WHERE r.org_id = d.org_id'||E'\n    AND r.device_id = d.id'||E'\n    AND upper(r.code) <> ''__TEST10__'';',
     'WHERE r.org_id = d.org_id'||E'\n    AND r.code = target_code'||E'\n    AND upper(r.code) <> ''__TEST10__'';');
