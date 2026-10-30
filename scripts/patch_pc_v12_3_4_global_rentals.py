@@ -57,6 +57,7 @@ helpers = identity_anchor + r"""
   function persistRentalUsers(users){suppressQueue=true;window.v11SyncApplying=true;try{window.v11PersistPulledUsers?.(users);localStorage.setItem('billing_db_users',JSON.stringify(users))}catch(_){}finally{suppressQueue=false;window.v11SyncApplying=false}}
   function apiBusinessError(d){const e=new Error(String(d?.error||d?.message||'DB_RENTAL_REQUEST_FAILED'));e.status=/RENTAL_NOT_FOUND/.test(e.message)?404:/RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|RENTAL_HAS_OFFLINE_LEASE|ACTIVE_SESSION_EXISTS/.test(e.message)?409:/INVALID_DEVICE_TOKEN/.test(e.message)?401:/RENTAL_NOT_ACTIVE|RENTAL_EXPIRED|RENTAL_TIME_EXHAUSTED|RENTAL_CODE_INVALID/.test(e.message)?403:400;e.retryable=false;return e}
   function onlineRetryable(e){return !e?.status||e?.retryable===true||e?.status===408||e?.status===425||e?.status===429||e?.status>=500}
+  function hasPendingLocalRental(code,u){const c=String(code||'').toUpperCase();return Boolean(u&&!u.cloudUpdatedAt&&!u.offlineSyncConflict&&(u.localCreation===true||u.offlinePending===true||queue().some(ev=>ev.eventType==='rental_account_upsert'&&String(ev.code||'').toUpperCase()===c)))}
   function offlineLeaseValid(u){
     const cfg=read(),identity=window.v11GetDeviceIdentity?.()||{};
     const until=Date.parse(u?.offlineLeaseUntil||u?.offline_lease_until||'');
@@ -113,14 +114,14 @@ helpers = identity_anchor + r"""
           const until=Date.parse(u.offlineLeaseUntil||u.offline_lease_until),left=Math.floor((until-Date.now())/1000),remain=Math.min(Math.max(0,Number(u.remainingSeconds)||0),left);
           if(remain>0){u.remainingSeconds=remain;u.offlineUnverified=false;persistRentalUsers(users);return {ok:true,remainingSeconds:remain,offline:true,offlineUnverified:false,user:u,message:'Sesi dimulai memakai izin offline dari DB.'}}
         }
-        if(!u.cloudUpdatedAt&&!u.offlineSyncConflict){
+        if(hasPendingLocalRental(c,u)){
           const remain=Math.max(0,Number(u.remainingSeconds)||0);
           if(remain>0){u.offlinePending=true;u.offlineUnverified=true;persistRentalUsers(users);return {ok:true,remainingSeconds:remain,offline:true,offlineUnverified:true,user:u,message:'Akun dibuat lokal saat offline; belum terverifikasi di DB.'}}
         }
         return {ok:false,message:'Internet/DB tidak tersedia dan kode ini tidak punya izin offline yang masih berlaku. Hubungkan internet, cek kode, lalu coba lagi.'};
       }
     }
-    if(!u.cloudUpdatedAt&&!u.offlineSyncConflict&&Math.max(0,Number(u.remainingSeconds)||0)>0){
+    if(hasPendingLocalRental(c,u)&&Math.max(0,Number(u.remainingSeconds)||0)>0){
       u.offlinePending=true;u.offlineUnverified=true;persistRentalUsers(users);
       return {ok:true,remainingSeconds:Math.max(0,Number(u.remainingSeconds)||0),offline:true,offlineUnverified:true,user:u,message:'Akun lokal belum terverifikasi di DB.'};
     }
@@ -179,7 +180,7 @@ cloud = cloud.replace(identity_anchor, helpers, 1)
 
 # Keep conflict events in local durable storage; never silently accept them or retry forever.
 old_local_pending = "function localSyncPending(code, users){const u=users?.[code];if(dirty().has(code)||(u&&!u.cloudUpdatedAt)){markDirty(code);return true}return false}"
-new_local_pending = "function localSyncPending(code, users){const u=users?.[code];if(u?.offlineSyncConflict)return true;if(dirty().has(code)||(u&&!u.cloudUpdatedAt)){markDirty(code);return true}return false}"
+new_local_pending = "function localSyncPending(code, users){const u=users?.[code];if(u?.offlineSyncConflict)return true;const c=String(code||'').toUpperCase(),queued=queue().some(ev=>ev.eventType==='rental_account_upsert'&&String(ev.code||'').toUpperCase()===c);if(dirty().has(code)||(u&&!u.cloudUpdatedAt&&(u.localCreation===true||u.offlinePending===true||queued))){markDirty(code);return true}return false}"
 if cloud.count(old_local_pending) != 1:
     raise SystemExit("localSyncPending anchor mismatch")
 cloud = cloud.replace(old_local_pending, new_local_pending, 1)
