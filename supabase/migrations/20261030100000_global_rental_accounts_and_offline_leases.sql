@@ -356,7 +356,8 @@ BEGIN
   SELECT * INTO s FROM public.rental_sessions WHERE org_id=oid AND device_id=did AND code=c
     AND status IN ('active','paused') ORDER BY started_at DESC LIMIT 1 FOR UPDATE;
   IF NOT FOUND THEN
-    SELECT id INTO rid FROM public.rental_accounts WHERE org_id=oid AND upper(trim(code))=c;
+    SELECT id INTO rid FROM public.rental_accounts WHERE org_id=oid AND upper(trim(code))=c
+      AND (device_id=did OR (metadata->>'source'='pc-sync' AND metadata->>'originDeviceId'=did::text)) FOR UPDATE;
     IF rid IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.rental_sessions WHERE rental_account_id=rid AND status IN ('active','paused')) THEN
       UPDATE public.rental_accounts SET remaining_seconds=secs,status=CASE WHEN secs=0 THEN 'expired' ELSE status END,updated_at=now() WHERE id=rid;
       DELETE FROM public.rental_offline_leases WHERE rental_account_id=rid AND device_id=did;
