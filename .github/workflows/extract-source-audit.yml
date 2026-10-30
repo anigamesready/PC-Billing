@@ -1,12 +1,14 @@
-name: Extract PC Billing source for audit
+name: Build guarded PC Billing dual-DB routing source
 
 on:
   push:
     branches:
       - main
+      - feature/dual-db-runtime-routing-v1
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - '.github/workflows/extract-source-audit.yml'
+      - 'scripts/patch_pc_dual_db_routing.py'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,15 @@ jobs:
           test -s "$ZIP"
           mkdir -p pc-source
           unzip -q "$ZIP" -d pc-source
+          python3 scripts/patch_pc_dual_db_routing.py pc-source
+          CLOUD_JS="$(find pc-source -type f -name v11-cloud.js -print -quit)"
+          test -n "$CLOUD_JS"
+          PROJECT_DIR="$(dirname "$CLOUD_JS")"
+          echo "PC_PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          node --check "$CLOUD_JS"
+          grep -q 'data_parity_ready' "$CLOUD_JS"
+          grep -q 'TOKEN TIDAK DITEMUKAN PADA DB AKTIF' "$CLOUD_JS"
+          (cd pc-source && zip -qr "$GITHUB_WORKSPACE/AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip" .)
           find pc-source -type d \( -name node_modules -o -name .git -o -name dist -o -name build \) -prune -o -type f -print | sort > pc-source-files.txt
           {
             echo '# PC Billing source audit inventory'
@@ -42,12 +53,73 @@ jobs:
           } > pc-billing-audit.txt
           zip -qr pc-source-unpacked.zip pc-source pc-source-files.txt
           echo 'Source extracted and audit inventory generated.'
+      - name: Set up Node.js for Electron
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ${{ env.PC_PROJECT_DIR }}/package-lock.json
       - name: Upload extracted source and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: PC-Billing-Source-Audit
+          name: AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE
           path: |
             pc-source-unpacked.zip
             pc-billing-audit.txt
+            AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip
           if-no-files-found: error
           retention-days: 7
+  build-windows:
+    needs: extract-audit
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js for native Windows build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Download patched source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE
+          path: downloaded
+      - name: Extract patched PC source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive -LiteralPath (Join-Path $PWD 'downloaded/pc-source-unpacked.zip') -DestinationPath (Join-Path $PWD 'build-src') -Force
+          $cloud = Get-ChildItem -Path (Join-Path $PWD 'build-src/pc-source') -Recurse -File -Filter 'v11-cloud.js' | Select-Object -First 1
+          if (-not $cloud) { throw 'Patched v11-cloud.js was not found' }
+          $projectDir = $cloud.Directory.FullName
+          if (-not (Test-Path (Join-Path $projectDir 'package.json'))) { throw 'PC package.json not found' }
+          if (-not (Test-Path (Join-Path $projectDir 'package-lock.json'))) { throw 'PC package-lock.json not found' }
+          "PC_PROJECT_DIR=$projectDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          node --check $cloud.FullName
+          if (-not (Select-String -Path $cloud.FullName -Pattern 'data_parity_ready' -Quiet)) { throw 'DB parity route guard missing' }
+      - name: Install dependencies and build Windows portable executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location $env:PC_PROJECT_DIR
+          try {
+            npm ci
+            if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw 'npm run build failed' }
+            $exe = Get-ChildItem -Path (Join-Path $env:PC_PROJECT_DIR 'dist') -Recurse -File -Filter '*.exe' | Select-Object -First 1
+            if (-not $exe) { throw 'No Windows executable was produced' }
+            Copy-Item $exe.FullName (Join-Path $env:GITHUB_WORKSPACE 'AniGames-PC-V12.2.0-DUAL-DB-ROUTING.exe') -Force
+          } finally {
+            Pop-Location
+          }
+      - name: Upload Windows portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-PC-V12.2.0-DUAL-DB-ROUTING-WINDOWS-PORTABLE
+          path: |
+            AniGames-PC-V12.2.0-DUAL-DB-ROUTING.exe
+            downloaded/AniGames-PC-V12.2.0-DUAL-DB-ROUTING-SOURCE.zip
+            downloaded/pc-billing-audit.txt
+          if-no-files-found: error
+          retention-days: 14
