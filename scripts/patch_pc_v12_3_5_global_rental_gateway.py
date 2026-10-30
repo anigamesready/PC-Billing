@@ -23,8 +23,8 @@ if package.get("build", {}).get("productName") != "AniGames Billing V12.3.3":
     raise SystemExit("Electron productName/userData identity changed; refusing build to protect pairing/cache/outbox.")
 
 # All device data/business endpoints must pass through the DB1 shared gateway.
-old = r"viaGateway=/^device\\/(?:alert|disconnect|enroll|heartbeat|ack|sync|pull|rentals|watchdog)$/.test(clean)"
-new = r"viaGateway=/^device\\/(?:alert|disconnect|enroll|heartbeat|ack|sync|pull|rentals|watchdog|rental\\/lookup|session\\/start|session\\/end|rental\\/release|sync-cursor)$/.test(clean)"
+old = r"viaGateway=/^device\/(?:alert|disconnect|enroll|heartbeat|ack|sync|pull|rentals|watchdog)$/.test(clean)"
+new = r"viaGateway=/^device\/(?:alert|disconnect|enroll|heartbeat|ack|sync|pull|rentals|watchdog|rental\/lookup|session\/start|session\/end|rental\/release|sync-cursor)$/.test(clean)"
 if cloud.count(old) != 1:
     raise SystemExit(f"Shared-gateway route anchor mismatch: found {cloud.count(old)}")
 cloud = cloud.replace(old, new, 1)
@@ -56,7 +56,7 @@ renderer, count = re.subn(
 if count != 1:
     raise SystemExit("renderer.js APP_VERSION anchor mismatch")
 main, count = re.subn(
-    r"appVersion: 'V12\\.3\\.4-watchdog'",
+    r"appVersion: 'V12\.3\.4-watchdog'",
     "appVersion: 'V12.3.5-watchdog'",
     main,
     count=1,
@@ -75,13 +75,13 @@ if lock_path.exists():
     lock["version"] = "12.3.5"
     if isinstance(lock.get("packages"), dict) and isinstance(lock["packages"].get(""), dict):
         lock["packages"][""]["version"] = "12.3.5"
-    lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\\n", encoding="utf-8")
+    lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 cloud_path.write_text(cloud, encoding="utf-8")
 index_path.write_text(index, encoding="utf-8")
 renderer_path.write_text(renderer, encoding="utf-8")
 main_path.write_text(main, encoding="utf-8")
-package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\\n", encoding="utf-8")
+package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 version_path.write_text(
     "AniGames Billing PC V12.3.5 — DB-first global rental routing through shared DB gateway; stable local identity.\\n",
     encoding="utf-8",
