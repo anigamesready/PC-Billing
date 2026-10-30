@@ -145,7 +145,11 @@ helpers = identity_anchor + r"""
   }
   async function releaseRentalLease(code){
     const c=String(code||'').trim().toUpperCase(),cfg=read();if(!c||!cfg?.token)return {ok:false};
-    try{return await request('/device/rental/release',{token:cfg.token,code:c},{retries:0,timeoutMs:4000})}catch(_){return {ok:false,pending:true}}
+    try{
+      const r=await request('/device/rental/release',{token:cfg.token,code:c},{retries:0,timeoutMs:4000});
+      if(r?.released===true){const users=window.v11GetUsers?.()||{};if(users[c]){users[c].offlineLeaseUntil='';users[c].offline_lease_until='';users[c].offlineLeaseReleased=true;try{localStorage.setItem('billing_db_users',JSON.stringify(users))}catch(_){}}}
+      return r;
+    }catch(_){return {ok:false,pending:true}}
   }
   window.v11LookupRentalCode=v11LookupRentalCode;
   window.v11StartRentalSession=v11StartRentalSession;
@@ -167,6 +171,7 @@ helpers = identity_anchor + r"""
     });
   }
   window.addEventListener('load',attachRentalPreauth);
+  attachRentalPreauth();
 """
 if cloud.count(identity_anchor) != 1:
     raise SystemExit("Device identity helper anchor mismatch")
@@ -326,7 +331,7 @@ if index.count(pause_anchor) != 1:
     raise SystemExit("pauseSession anchor mismatch")
 index = index.replace(pause_anchor, pause_replace, 1)
 end_anchor = "            currentActiveCode = null;\n            window.v11HeartbeatNow?.('session_stopped');"
-end_replace = "            if (endedCode && endedCode !== TEST_SESSION_CODE) void window.v11EndRentalSession?.(endedCode, Math.max(0, Number(endedUser?.remainingSeconds) || 0));\n            currentActiveCode = null;\n            window.v11HeartbeatNow?.('session_stopped');"
+end_replace = "            if (endedCode && endedCode !== TEST_SESSION_CODE) void window.v11EndRentalSession?.(endedCode, Math.max(0, Number(endedUser?.remainingSeconds) || 0));\n            if (endedCode && endedCode !== TEST_SESSION_CODE && endedUser?.offlinePending && !endedUser?.cloudUpdatedAt) {\n                window.v11MarkLocalRentalDirty?.(endedCode);\n                void window.v11SyncLocalRental?.(endedCode);\n            }\n            currentActiveCode = null;\n            window.v11HeartbeatNow?.('session_stopped');"
 if index.count(end_anchor) != 1:
     raise SystemExit("session end API anchor mismatch")
 index = index.replace(end_anchor, end_replace, 1)
