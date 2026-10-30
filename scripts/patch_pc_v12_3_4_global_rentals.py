@@ -205,7 +205,7 @@ new_manual_sync = r"""async function v11ManualSync(){
       let users=window.v11GetUsers?.()||{},u=users[activeCode]||{};
       if(u.localCreation&&!u.cloudUpdatedAt&&!u.offlineSyncConflict){
         resumeCloudAuthoritative=false;
-        await syncLocalRental(activeCode);
+        await syncNow();
         users=window.v11GetUsers?.()||{};u=users[activeCode]||u;
         if(u.offlineSyncConflict)throw new Error('Kode lokal bentrok dengan DB. Payload lokal dipertahankan untuk pemeriksaan Admin.');
       }
@@ -243,7 +243,7 @@ new_sync = r"""async function syncNow(){
  const c=read(),q=queue();if(!c.token||!q.length)return;
  syncBusy=true;
  try{
-  const rawBatch=q.slice(0,100),users=window.v11GetUsers?.()||{},batch=rawBatch.map(ev=>{const code=String(ev.code||'').toUpperCase(),u=users[code];if(ev.eventType==='rental_account_upsert'&&ev.payload&&!ev.payload.baseUpdatedAt&&u?.cloudUpdatedAt)return {...ev,payload:{...ev.payload,baseUpdatedAt:u.cloudUpdatedAt}};return ev;}),d=await request('/device/sync',{token:c.token,events:batch},{retries:1,timeoutMs:7000});
+  const rawBatch=q.slice(0,100),users=window.v11GetUsers?.()||{},latestUpsert=new Map();rawBatch.forEach((ev,i)=>{if(ev.eventType==='rental_account_upsert'&&ev.code)latestUpsert.set(String(ev.code).toUpperCase(),i)});const batch=rawBatch.filter((ev,i)=>ev.eventType!=='rental_account_upsert'||!ev.code||latestUpsert.get(String(ev.code).toUpperCase())===i).map(ev=>{const code=String(ev.code||'').toUpperCase(),u=users[code];if(ev.eventType==='rental_account_upsert'&&ev.payload&&!ev.payload.baseUpdatedAt&&u?.cloudUpdatedAt)return {...ev,payload:{...ev.payload,baseUpdatedAt:u.cloudUpdatedAt}};return ev;}),supersededBy=new Map();for(const ev of batch){if(ev.eventType==='rental_account_upsert'&&ev.code){const code=String(ev.code).toUpperCase();supersededBy.set(ev.sourceEventId,rawBatch.filter(x=>x.eventType==='rental_account_upsert'&&String(x.code||'').toUpperCase()===code).map(x=>x.sourceEventId).filter(id=>id!==ev.sourceEventId));}}const d=await request('/device/sync',{token:c.token,events:batch},{retries:1,timeoutMs:7000});
   const accepted=new Set(d.acceptedSourceEventIds||[]),conflictIds=new Set(d.conflictSourceEventIds||[]);
   const keepConflicts=readRentalConflicts();
   for(const ev of batch){
@@ -259,8 +259,8 @@ new_sync = r"""async function syncNow(){
   }
   saveRentalConflicts(keepConflicts);
   try{localStorage.setItem('billing_db_users',JSON.stringify(users))}catch(_){}
-  const handled=new Set([...accepted,...conflictIds]),latest=queue(),remaining=latest.filter(x=>!handled.has(x.sourceEventId));
-  for(const ev of batch){if(!accepted.has(ev.sourceEventId)||!ev.code)continue;const code=String(ev.code).toUpperCase();if(remaining.some(x=>String(x.code||'').toUpperCase()===code&&x.eventType==='rental_account_upsert'))markDirty(code);else clearDirty(code);}
+  const handled=new Set([...accepted,...conflictIds]);for(const id of [...accepted,...conflictIds])for(const oldId of (supersededBy.get(id)||[]))handled.add(oldId);const latest=queue(),remaining=latest.filter(x=>!handled.has(x.sourceEventId));
+  for(const ev of batch){if(!accepted.has(ev.sourceEventId)&&!conflictIds.has(ev.sourceEventId)||!ev.code)continue;const code=String(ev.code).toUpperCase();if(remaining.some(x=>String(x.code||'').toUpperCase()===code&&x.eventType==='rental_account_upsert'))markDirty(code);else clearDirty(code);}
   saveQueue(remaining);
   status('ONLINE • '+accepted.size+' perubahan tersimpan'+(conflictIds.size?' • '+conflictIds.size+' konflik disimpan lokal (tidak ditimpa)':''));
  }catch(e){status('ONLINE • Sinkronisasi tertunda; antrean dipertahankan ('+(e?.message||'network')+')')}
