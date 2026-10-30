@@ -249,7 +249,7 @@ new_sync = r"""async function syncNow(){
   for(const ev of batch){
     if(accepted.has(ev.sourceEventId)){
       if(ev.eventType==='rental_account_upsert'&&ev.code&&d.serverTime){
-        const code=String(ev.code).toUpperCase();users[code]={...(users[code]||{}),cloudUpdatedAt:d.serverTime,offlinePending:false,offlineSyncConflict:false};
+        const code=String(ev.code).toUpperCase();users[code]={...(users[code]||{}),cloudUpdatedAt:d.serverTime,offlinePending:false,offlineSyncConflict:false,localCreation:false};
       }
     }else if(conflictIds.has(ev.sourceEventId)){
       const code=String(ev.code||'').toUpperCase(),reason='Kode lokal bentrok dengan data DB. Payload lokal disimpan dan tidak ditimpa.';
