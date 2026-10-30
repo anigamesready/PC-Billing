@@ -440,29 +440,25 @@ BEGIN
 END
 $patch$;
 
-DO $grants$
-BEGIN
-  REVOKE ALL ON FUNCTION api.admin_rental_accounts_global(uuid) FROM PUBLIC, anon;
-  GRANT EXECUTE ON FUNCTION api.admin_rental_accounts_global(uuid) TO authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.admin_create_rental_global(uuid,text,text,bigint,text,timestamptz) FROM PUBLIC, anon;
-  GRANT EXECUTE ON FUNCTION api.admin_create_rental_global(uuid,text,text,bigint,text,timestamptz) TO authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.admin_update_rental_global(uuid,uuid,text,text,bigint,text,timestamptz,text) FROM PUBLIC, anon;
-  GRANT EXECUTE ON FUNCTION api.admin_update_rental_global(uuid,uuid,text,text,bigint,text,timestamptz,text) TO authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.admin_disable_rental_global(uuid,uuid) FROM PUBLIC, anon;
-  GRANT EXECUTE ON FUNCTION api.admin_disable_rental_global(uuid,uuid) TO authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.device_rental_lookup(text,text) FROM PUBLIC, authenticated;
-  GRANT EXECUTE ON FUNCTION api.device_rental_lookup(text,text) TO anon, authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.device_start_rental_session(text,text,text) FROM PUBLIC, authenticated;
-  GRANT EXECUTE ON FUNCTION api.device_start_rental_session(text,text,text) TO anon, authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.device_end_rental_session(text,text,bigint,text) FROM PUBLIC, authenticated;
-  GRANT EXECUTE ON FUNCTION api.device_end_rental_session(text,text,bigint,text) TO anon, authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.device_release_rental_lease(text,text) FROM PUBLIC, authenticated;
-  GRANT EXECUTE ON FUNCTION api.device_release_rental_lease(text,text) TO anon, authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.device_sync_cursor(text) FROM PUBLIC, authenticated;
-  GRANT EXECUTE ON FUNCTION api.device_sync_cursor(text) TO anon, authenticated, service_role;
-  REVOKE ALL ON FUNCTION api.device_pull_sync(text,timestamptz) FROM PUBLIC, authenticated;
-  GRANT EXECUTE ON FUNCTION api.device_pull_sync(text,timestamptz) TO anon, authenticated, service_role;
-END
-$grants$;
+REVOKE ALL ON FUNCTION api.admin_rental_accounts_global(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION api.admin_rental_accounts_global(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION api.admin_create_rental_global(uuid,text,text,bigint,text,timestamptz) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION api.admin_create_rental_global(uuid,text,text,bigint,text,timestamptz) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION api.admin_update_rental_global(uuid,uuid,text,text,bigint,text,timestamptz,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION api.admin_update_rental_global(uuid,uuid,text,text,bigint,text,timestamptz,text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION api.admin_disable_rental_global(uuid,uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION api.admin_disable_rental_global(uuid,uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION api.device_rental_lookup(text,text) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION api.device_rental_lookup(text,text) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION api.device_start_rental_session(text,text,text) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION api.device_start_rental_session(text,text,text) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION api.device_end_rental_session(text,text,bigint,text) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION api.device_end_rental_session(text,text,bigint,text) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION api.device_release_rental_lease(text,text) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION api.device_release_rental_lease(text,text) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION api.device_sync_cursor(text) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION api.device_sync_cursor(text) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION api.device_pull_sync(text,timestamptz) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION api.device_pull_sync(text,timestamptz) TO anon, authenticated, service_role;
 
 COMMIT;
