@@ -501,6 +501,32 @@ DO $patch$
 DECLARE def text; changed text;
 BEGIN
   def := pg_get_functiondef('api.device_heartbeat(text,text,jsonb)'::regprocedure);
+  IF position($old$UPDATE public.rental_accounts
+        SET device_id = d.id,
+            category = target_category,
+            remaining_seconds = target_remaining,
+            expiry_at = target_expiry,
+            status = CASE WHEN target_remaining > 0 THEN 'active' ELSE status END,
+            client_label = coalesce(target_label, client_label),
+            updated_at = now()
+        WHERE id = rid
+          AND (
+            device_id IS DISTINCT FROM d.id
+            OR category IS DISTINCT FROM target_category
+            OR expiry_at IS DISTINCT FROM target_expiry
+            OR (target_label IS NOT NULL AND client_label IS DISTINCT FROM target_label)
+            OR status IS DISTINCT FROM (CASE WHEN target_remaining > 0 THEN 'active' ELSE status END)
+            OR (
+              remaining_seconds IS DISTINCT FROM target_remaining
+              AND (
+                abs(coalesce(remaining_seconds,0)-target_remaining) >= 30
+                OR target_remaining <= 30
+                OR coalesce(remaining_seconds,0) <= 30
+              )
+            )
+          );$old$ in def)=0 THEN
+    RAISE EXCEPTION 'GLOBAL_RENTAL_HEARTBEAT_ACCOUNT_UPDATE_ANCHOR_MISMATCH';
+  END IF;
   changed := replace(def,
     'AND (ra.device_id IS NULL OR ra.device_id = d.id)',
     '');
