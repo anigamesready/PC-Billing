@@ -17,6 +17,21 @@ CREATE INDEX IF NOT EXISTS rental_offline_leases_device_until_idx
 REVOKE ALL ON TABLE public.rental_offline_leases FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rental_offline_leases TO service_role;
 
+CREATE TABLE IF NOT EXISTS public.rental_sync_conflicts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  device_id uuid NOT NULL REFERENCES public.devices(id) ON DELETE CASCADE,
+  code text NOT NULL,
+  source_event_id text NOT NULL,
+  reason text NOT NULL,
+  event_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz,
+  UNIQUE(org_id, source_event_id)
+);
+REVOKE ALL ON TABLE public.rental_sync_conflicts FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rental_sync_conflicts TO service_role;
+
 DO $$
 BEGIN
   IF EXISTS (
@@ -408,6 +423,44 @@ BEGIN
     'fullSnapshot',false,'scope','organization-delta');
 END
 $function$;
+
+-- Conflicted offline-created codes are stored as an outbox conflict, not silently accepted
+-- or overwritten against a shared account. The client moves these events out of the
+-- retry queue while retaining their complete payload in local conflict storage.
+DO $syncpatch$
+DECLARE def text; changed text;
+BEGIN
+  def := pg_get_functiondef('api.device_sync(text,jsonb)'::regprocedure);
+  changed := replace(def,
+    '  accepted jsonb := ''[]''::jsonb;',
+    '  accepted jsonb := ''[]''::jsonb;'||E'\n  conflicts jsonb := ''[]''::jsonb;');
+  changed := replace(changed,
+    '  existing_updated timestamptz;',
+    '  existing_updated timestamptz;'||E'\n  existing_source text;');
+  changed := replace(changed,
+    'SELECT id, theme_id, device_id, updated_at'||E'\n      INTO rid, tid, existing_device_id, existing_updated',
+    'SELECT id, theme_id, device_id, updated_at, metadata->>''source'''||E'\n      INTO rid, tid, existing_device_id, existing_updated, existing_source');
+  changed := replace(changed,
+    'WHERE org_id = oid AND code = c',
+    'WHERE org_id = oid AND upper(trim(code)) = c');
+  changed := replace(changed,
+    '      IF base_updated IS NOT NULL AND existing_updated IS NOT NULL'||E'\n         AND existing_updated > base_updated THEN'||E'\n        accepted := accepted || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;',
+    '      IF base_updated IS NOT NULL AND existing_updated IS NOT NULL AND existing_updated > base_updated THEN'||E'\n        INSERT INTO public.rental_sync_conflicts(org_id,device_id,code,source_event_id,reason,event_payload)'||E'\n        VALUES(oid,did,c,sid,''CLOUD_ROW_CHANGED_SINCE_LOCAL_BASE'',item)'||E'\n        ON CONFLICT(org_id,source_event_id) DO NOTHING;'||E'\n        conflicts := conflicts || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;');
+  changed := replace(changed,
+    '      -- Never reassign an account owned by another PC/device. Mark the event'||E'\n      -- accepted so a client retry cannot jam the whole sync batch forever.'||E'\n      IF rid IS NOT NULL AND existing_device_id IS NOT NULL'||E'\n         AND existing_device_id <> did THEN'||E'\n        accepted := accepted || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;',
+    '      -- Existing cloud accounts are authoritative. Only retry an account created'||E'\n      -- by this same PC sync path; never overwrite an admin/global row or another PC row.'||E'\n      IF rid IS NOT NULL AND NOT (existing_device_id = did AND existing_source = ''pc-sync'') THEN'||E'\n        INSERT INTO public.rental_sync_conflicts(org_id,device_id,code,source_event_id,reason,event_payload)'||E'\n        VALUES(oid,did,c,sid,''CODE_ALREADY_EXISTS_IN_SHARED_DB'',item)'||E'\n        ON CONFLICT(org_id,source_event_id) DO NOTHING;'||E'\n        conflicts := conflicts || jsonb_build_array(sid);'||E'\n        CONTINUE;'||E'\n      END IF;');
+  changed := replace(changed,
+    '''acceptedSourceEventIds'', accepted,'||E'\n    ''inserted'', inserted_count,',
+    '''acceptedSourceEventIds'', accepted,'||E'\n    ''conflictSourceEventIds'', conflicts,'||E'\n    ''inserted'', inserted_count,');
+  IF changed = def
+     OR position('conflictSourceEventIds' in changed)=0
+     OR position('existing_source text' in changed)=0
+     OR position('CODE_ALREADY_EXISTS_IN_SHARED_DB' in changed)=0 THEN
+    RAISE EXCEPTION 'GLOBAL_RENTAL_DEVICE_SYNC_PATCH_ANCHOR_MISMATCH';
+  END IF;
+  EXECUTE changed;
+END
+$syncpatch$;
 
 -- Existing heartbeat remains responsible for liveness/commands. It must lookup a shared
 -- code globally, never reassign the account to the current PC, and return at most one account.
