@@ -244,7 +244,7 @@ BEGIN
     UPDATE public.rental_sessions SET status='ended',ended_at=now() WHERE id=s.id;
     UPDATE public.rental_accounts SET remaining_seconds=0,status='expired',updated_at=now() WHERE id=r.id;
     DELETE FROM public.rental_offline_leases WHERE rental_account_id=r.id;
-    RAISE EXCEPTION 'RENTAL_TIME_EXHAUSTED';
+    RETURN jsonb_build_object('ok',false,'error','RENTAL_TIME_EXHAUSTED');
   END IF;
   IF FOUND AND s.device_id<>did THEN RAISE EXCEPTION 'RENTAL_ACTIVE_ON_OTHER_PC'; END IF;
   SELECT * INTO l FROM public.rental_offline_leases WHERE rental_account_id=r.id FOR UPDATE;
@@ -255,7 +255,7 @@ BEGIN
     remaining:=CASE WHEN s.id IS NOT NULL AND s.deadline_at IS NOT NULL
       THEN greatest(0,ceil(extract(epoch from (s.deadline_at-now())))::bigint)
       ELSE greatest(0,r.remaining_seconds) END;
-    until_at:=now()+make_interval(secs=>remaining);
+    until_at:=now()+make_interval(secs=>remaining + 1800);
   END IF;
   IF until_at<=now() THEN RAISE EXCEPTION 'RENTAL_TIME_EXHAUSTED'; END IF;
   INSERT INTO public.rental_offline_leases(rental_account_id,org_id,device_id,lease_until,created_at,updated_at)
@@ -306,7 +306,7 @@ BEGIN
       UPDATE public.rental_sessions SET status='ended',ended_at=now() WHERE id=s.id;
       UPDATE public.rental_accounts SET remaining_seconds=0,status='expired',updated_at=now() WHERE id=r.id;
       DELETE FROM public.rental_offline_leases WHERE rental_account_id=r.id;
-      RAISE EXCEPTION 'RENTAL_TIME_EXHAUSTED';
+      RETURN jsonb_build_object('ok',false,'error','RENTAL_TIME_EXHAUSTED');
     END IF;
     RETURN jsonb_build_object('ok',true,'session_id',s.id,'status',s.status,'idempotent',true,
       'remaining_seconds',greatest(0,ceil(extract(epoch from (s.deadline_at-now())))::bigint),'deadline_at',s.deadline_at);
@@ -487,7 +487,7 @@ BEGIN
     'UPDATE public.rental_accounts'||E'\n        SET remaining_seconds = target_remaining, updated_at = now()'||E'\n        WHERE id = rid'||E'\n          AND ((open_sid IS NOT NULL AND open_code = target_code AND open_account_id = rid)'||E'\n            OR EXISTS (SELECT 1 FROM public.rental_offline_leases l WHERE l.rental_account_id = rid AND l.device_id = d.id AND l.lease_until > now()))'||E'\n          AND (');
   changed := replace(changed,
     'IF NOT free_test_blocked THEN',
-    'IF NOT free_test_blocked AND NOT EXISTS ('||E'\n    SELECT 1 FROM public.rental_accounts ra'||E'\n    JOIN public.rental_offline_leases l ON l.rental_account_id = ra.id'||E'\n    WHERE ra.org_id = d.org_id AND upper(trim(ra.code)) = target_code'||E'\n      AND l.device_id <> d.id AND l.lease_until > now()'||E'\n  ) THEN');
+    'IF NOT free_test_blocked AND coalesce(p_metadata->>'localPendingActiveCode','') IS DISTINCT FROM coalesce(target_code,'') AND NOT EXISTS ('||E'\n    SELECT 1 FROM public.rental_accounts ra'||E'\n    JOIN public.rental_offline_leases l ON l.rental_account_id = ra.id'||E'\n    WHERE ra.org_id = d.org_id AND upper(trim(ra.code)) = target_code'||E'\n      AND l.device_id <> d.id AND l.lease_until > now()'||E'\n  ) THEN');
   changed := replace(changed,
     'WHERE r.org_id = d.org_id'||E'\n    AND r.device_id = d.id'||E'\n    AND upper(r.code) <> ''__TEST10__'';',
     'WHERE r.org_id = d.org_id'||E'\n    AND r.code = target_code'||E'\n    AND upper(r.code) <> ''__TEST10__'';');
