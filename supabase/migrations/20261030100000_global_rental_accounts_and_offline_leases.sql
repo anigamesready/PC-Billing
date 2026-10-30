@@ -489,8 +489,13 @@ BEGIN
     'UPDATE public.rental_accounts'||E'\n        SET device_id = d.id,'||E'\n            category = target_category,'||E'\n            remaining_seconds = target_remaining,'||E'\n            expiry_at = target_expiry,'||E'\n            status = CASE WHEN target_remaining > 0 THEN ''active'' ELSE status END,'||E'\n            client_label = coalesce(target_label, client_label),'||E'\n            updated_at = now()'||E'\n        WHERE id = rid'||E'\n          AND ('||E'\n            device_id IS DISTINCT FROM d.id'||E'\n            OR category IS DISTINCT FROM target_category'||E'\n            OR expiry_at IS DISTINCT FROM target_expiry'||E'\n            OR (target_label IS NOT NULL AND client_label IS DISTINCT FROM target_label)'||E'\n            OR status IS DISTINCT FROM (CASE WHEN target_remaining > 0 THEN ''active'' ELSE status END)'||E'\n            OR ('||E'\n              remaining_seconds IS DISTINCT FROM target_remaining'||E'\n              AND ('||E'\n                abs(coalesce(remaining_seconds,0)-target_remaining) >= 30'||E'\n                OR target_remaining <= 30'||E'\n                OR coalesce(remaining_seconds,0) <= 30'||E'\n              )'||E'\n            )'||E'\n          );',
     'UPDATE public.rental_accounts'||E'\n        SET remaining_seconds = target_remaining, updated_at = now()'||E'\n        WHERE id = rid'||E'\n          AND ((open_sid IS NOT NULL AND open_code = target_code AND open_account_id = rid)'||E'\n            OR EXISTS (SELECT 1 FROM public.rental_offline_leases l WHERE l.rental_account_id = rid AND l.device_id = d.id AND l.lease_until > now()))'||E'\n          AND remaining_seconds IS DISTINCT FROM target_remaining'||E'\n          AND (abs(coalesce(remaining_seconds,0)-target_remaining) >= 30 OR target_remaining <= 30 OR coalesce(remaining_seconds,0) <= 30);');
   changed := replace(changed,
-    'IF NOT free_test_blocked THEN',
-    'IF NOT free_test_blocked AND (coalesce(p_metadata->>'localPendingActiveCode','') = '' OR p_metadata->>'localPendingActiveCode' IS DISTINCT FROM target_code) AND NOT EXISTS ('||E'\n    SELECT 1 FROM public.rental_accounts ra'||E'\n    JOIN public.rental_offline_leases l ON l.rental_account_id = ra.id'||E'\n    WHERE ra.org_id = d.org_id AND upper(trim(ra.code)) = target_code'||E'\n      AND l.device_id <> d.id AND l.lease_until > now()'||E'\n  ) THEN');
+    $old$IF NOT free_test_blocked THEN$old$,
+    $new$IF NOT free_test_blocked AND (coalesce(p_metadata->>'localPendingActiveCode','') = '' OR p_metadata->>'localPendingActiveCode' IS DISTINCT FROM target_code) AND NOT EXISTS (
+    SELECT 1 FROM public.rental_accounts ra
+    JOIN public.rental_offline_leases l ON l.rental_account_id = ra.id
+    WHERE ra.org_id = d.org_id AND upper(trim(ra.code)) = target_code
+      AND l.device_id <> d.id AND l.lease_until > now()
+  ) THEN$new$);
   changed := replace(changed,
     'WHERE r.org_id = d.org_id'||E'\n    AND r.device_id = d.id'||E'\n    AND upper(r.code) <> ''__TEST10__'';',
     'WHERE r.org_id = d.org_id'||E'\n    AND r.code = target_code'||E'\n    AND upper(r.code) <> ''__TEST10__'';');
