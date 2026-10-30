@@ -192,7 +192,7 @@ cloud = cloud.replace(old_enqueue, new_enqueue, 1)
 
 old_sync = re.compile(r"async function syncNow\(\)\{.*?\}\s*\n\s*async function pullNow\(\)", re.S)
 
-manual_sync_pattern = re.compile(r"async function v11ManualSync\(\)\{.*?\}\s*\n\s*window\.v11ManualSync=v11ManualSync;", re.S)
+manual_sync_pattern = re.compile(r"async function v11ManualSync\(\)\{.*?\}\s*(?=\n\s*Object\.assign\(window,\{v11EnrollDevice,v11CloudStatus,v11DisconnectDevice,v11ManualSync\}\);)", re.S)
 new_manual_sync = r"""async function v11ManualSync(){
  const wasResume=resumeCloudAuthoritative;
  try{
@@ -234,7 +234,7 @@ new_manual_sync = r"""async function v11ManualSync(){
   return {ok:false,message:e?.message||'gagal'};
  }
 }
-window.v11ManualSync=v11ManualSync;"""
+"""
 cloud, n = manual_sync_pattern.subn(new_manual_sync, cloud, count=1)
 if n != 1:
     raise SystemExit("Manual sync replacement anchor mismatch; keep original code untouched")
