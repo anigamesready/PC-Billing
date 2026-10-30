@@ -1,0 +1,177 @@
+name: Build AniGames Billing PC V12.3.5 Global Rental Gateway
+
+on:
+  push:
+    branches:
+      - feature/global-rental-pc-v12.3.5
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pc:
+    name: Patch, audit, and build PC Billing V12.3.5
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Extract source ZIP and prepare current migration/API
+        shell: pwsh
+        run: |
+          $zip = 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+          if (!(Test-Path $zip)) { throw 'PC Billing source ZIP missing.' }
+          Expand-Archive -LiteralPath $zip -DestinationPath 'source-bundle' -Force
+          $project = Get-ChildItem 'source-bundle' -Directory -Recurse | Where-Object { $_.Name -eq 'Ani-Games-Billing-PC-V12.1.0' } | Select-Object -First 1
+          if (!$project) { throw 'Ani-Games-Billing-PC-V12.1.0 folder not found in source ZIP.' }
+          if (!(Test-Path (Join-Path $project.FullName 'renderer.js'))) { throw 'PC renderer.js missing.' }
+          $edgeTarget = Join-Path $project.FullName 'supabase/functions/ani-games-api'
+          New-Item -ItemType Directory -Path $edgeTarget -Force | Out-Null
+          Copy-Item 'supabase/functions/ani-games-api/index.ts' (Join-Path $edgeTarget 'index.ts') -Force
+          Copy-Item 'supabase/functions/ani-games-api/deno.json' (Join-Path $edgeTarget 'deno.json') -Force
+          $patches = @(
+            'patch_pc_log_optimization.py',
+            'patch_pc_token_preservation.py',
+            'patch_pc_live_alert_runtime.py',
+            'patch_pc_dual_db_routing.py',
+            'patch_pc_shared_gateway.py',
+            'patch_pc_v12_2_3_route_refresh.py',
+            'patch_pc_v13_shutdown_timer.py',
+            'patch_pc_v13_free_test_gate.py',
+            'patch_pc_v13_1_heartbeat_performance.py',
+            'patch_pc_v13_2_app_exit_protection.py',
+            'patch_pc_v13_3_resilience_watchdog.py',
+            'patch_pc_v12_3_4_global_rentals.py',
+            'patch_pc_v12_3_5_global_rental_gateway.py'
+          )
+          foreach ($patch in $patches) {
+            Copy-Item (Join-Path 'scripts' $patch) (Join-Path $project.FullName $patch) -Force
+          }
+          New-Item -ItemType Directory -Path (Join-Path $project.FullName 'supabase/migrations') -Force | Out-Null
+          Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
+          Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
+          Copy-Item 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql' (Join-Path $project.FullName 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql') -Force
+          Copy-Item 'supabase/migrations/20261029140000_offline_restart_command_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261029140000_offline_restart_command_gate.sql') -Force
+          Copy-Item 'supabase/migrations/20261030100000_global_rental_accounts_and_offline_leases.sql' (Join-Path $project.FullName 'supabase/migrations/20261030100000_global_rental_accounts_and_offline_leases.sql') -Force
+          "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Detected PC project: $($project.FullName)"
+
+      - name: Apply current PC patches
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          $patches = @(
+            'patch_pc_log_optimization.py',
+            'patch_pc_token_preservation.py',
+            'patch_pc_live_alert_runtime.py',
+            'patch_pc_dual_db_routing.py',
+            'patch_pc_shared_gateway.py',
+            'patch_pc_v12_2_3_route_refresh.py',
+            'patch_pc_v13_shutdown_timer.py',
+            'patch_pc_v13_free_test_gate.py',
+            'patch_pc_v13_1_heartbeat_performance.py',
+            'patch_pc_v13_2_app_exit_protection.py',
+            'patch_pc_v13_3_resilience_watchdog.py',
+            'patch_pc_v12_3_4_global_rentals.py',
+            'patch_pc_v12_3_5_global_rental_gateway.py'
+          )
+          foreach ($patch in $patches) {
+            python $patch
+            if ($LASTEXITCODE -ne 0) { throw "PC patch failed: $patch" }
+          }
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_4_global_rentals.py patch_pc_v12_3_5_global_rental_gateway.py
+          node --check main.js
+          node --check renderer.js
+          node --check v11-cloud.js
+          @'
+          import re
+          from pathlib import Path
+          page = Path("index.html").read_text(encoding="utf-8")
+          match = re.search(r"<script>(.*?)</script>", page, re.S)
+          if not match:
+              raise SystemExit("Live index.html inline JavaScript not found")
+          Path("index-runtime-check.js").write_text(match.group(1), encoding="utf-8")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Could not extract live renderer script.' }
+          node --check index-runtime-check.js
+          @'
+          import json
+          from pathlib import Path
+          p=json.loads(Path("package.json").read_text(encoding="utf-8"))
+          if p.get("version")!="12.3.5": raise SystemExit("PC version is not 12.3.5")
+          if p.get("build",{}).get("productName")!="AniGames Billing V12.3.3": raise SystemExit("Stable userData productName changed")
+          if p.get("build",{}).get("appId")!="com.anigames.billing.v12test": raise SystemExit("PC test appId changed")
+          cloud=Path("v11-cloud.js").read_text(encoding="utf-8")
+          for route in ("rental\\/lookup","session\\/start","session\\/end","rental\\/release","sync-cursor"):
+              if route not in cloud: raise SystemExit("Shared gateway route missing: "+route)
+          if "async function fullRentalSnapshot" not in cloud: raise SystemExit("DB-first sync function missing")
+          if "TEST_SESSION_CODE" not in Path("index.html").read_text(encoding="utf-8"): raise SystemExit("Free Test login path missing")
+          if "billing_v11_cloud_config" not in cloud: raise SystemExit("Pairing persistence key missing")
+          if "V12.3.5-GLOBAL-RENTAL-DB-FIRST" not in cloud: raise SystemExit("Runtime version marker missing")
+          print("PASS: PC V12.3.5 static regression assertions.")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'PC static regression assertions failed.' }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: source-bundle/**/package-lock.json
+
+      - name: Install locked dependencies
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+
+      - name: Build Windows portable EXE
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw 'Electron Windows build failed.' }
+
+      - name: Verify EXE and package source
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
+          if (!$exe) { throw 'No portable EXE produced.' }
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.3.5.exe'
+          if ($exe.FullName -ne $canonicalExePath) {
+            Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
+            $exe = Get-Item -LiteralPath $canonicalExePath
+          }
+          Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List
+          New-Item -ItemType Directory -Path 'output' -Force | Out-Null
+          Copy-Item $exe.FullName 'output/AniGames Billing V12.3.5.exe' -Force
+          @'
+          import os, zipfile
+          from pathlib import Path
+          root=Path(os.environ["PC_PROJECT_DIR"]).resolve()
+          output=Path("AniGames-PC-V12.3.5-GLOBAL-RENTAL-SOURCE.zip")
+          excluded={"node_modules","dist",".git",".cache","__pycache__","index-runtime-check.js"}
+          with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=6) as zf:
+              for item in root.rglob("*"):
+                  if not item.is_file() or any(part in excluded for part in item.relative_to(root).parts):
+                      continue
+                  zf.write(item,(Path(root.name)/item.relative_to(root)).as_posix())
+          with zipfile.ZipFile(output) as zf:
+              bad=zf.testzip()
+              if bad: raise SystemExit("Corrupt source archive member: "+bad)
+          print(f"Source archive: {output} ({output.stat().st_size} bytes)")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Source archive packaging or integrity check failed.' }
+
+      - name: Upload PC V12.3.5 EXE and source
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-PC-V12.3.5-GLOBAL-RENTAL-DB-FIRST
+          path: |
+            output/*
+            AniGames-PC-V12.3.5-GLOBAL-RENTAL-SOURCE.zip
+          if-no-files-found: error
+          retention-days: 30
