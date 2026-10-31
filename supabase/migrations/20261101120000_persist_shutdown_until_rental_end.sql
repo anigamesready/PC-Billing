@@ -227,7 +227,7 @@ BEGIN
             last_message = coalesce(nullif(NEW.result->>'message',''), 'Timer diterima PC dan aktif.'),
             updated_at = now()
         WHERE device_id = NEW.device_id AND schedule_id = sid
-          AND state <> 'cancel_requested';
+          AND state NOT IN ('cancel_requested','superseded','canceled','completed','target_mismatch');
 
       ELSIF NEW.status IN ('failed','expired') THEN
         IF coalesce(NEW.result->>'state','') = 'blocked_active_session'
@@ -238,14 +238,14 @@ BEGIN
               last_message = 'Menunggu sesi rental selesai; timer tidak dibatalkan.',
               updated_at = now()
           WHERE device_id = NEW.device_id AND schedule_id = sid
-            AND state <> 'cancel_requested';
+            AND state NOT IN ('cancel_requested','superseded','canceled','completed','target_mismatch');
         ELSE
           UPDATE public.device_shutdown_schedules
           SET state = 'error',
               last_message = left(coalesce(NEW.result->>'message', NEW.result->>'error', 'PC belum mengonfirmasi timer shutdown.'), 500),
               updated_at = now()
           WHERE device_id = NEW.device_id AND schedule_id = sid
-            AND state <> 'cancel_requested';
+            AND state NOT IN ('cancel_requested','superseded','canceled','completed','target_mismatch');
         END IF;
       END IF;
 
@@ -325,7 +325,7 @@ BEGIN
         last_message = coalesce(timer_message, 'Perintah shutdown diteruskan ke Windows.'),
         updated_at = now()
     WHERE device_id = NEW.id AND schedule_id = sid
-      AND state <> 'cancel_requested';
+      AND state NOT IN ('cancel_requested','superseded','canceled','completed','target_mismatch');
 
   ELSIF timer_state = 'canceled' THEN
     UPDATE public.device_shutdown_schedules
@@ -341,7 +341,7 @@ BEGIN
         last_message = coalesce(timer_message, 'Identitas PC tidak cocok; tidak ada shutdown yang dijalankan.'),
         updated_at = now()
     WHERE device_id = NEW.id AND schedule_id = sid
-      AND state <> 'cancel_requested';
+      AND state NOT IN ('cancel_requested','superseded','canceled','completed','target_mismatch');
 
   ELSIF timer_state = 'previous_admin_shutdown' THEN
     UPDATE public.device_shutdown_schedules
