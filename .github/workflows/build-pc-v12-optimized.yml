@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.3.7 Single Instance Guard
+name: Build AniGames PC V12.3.8 Automatic WOL LAN MAC
 
 on:
   push:
@@ -29,6 +29,8 @@ on:
       - 'scripts/patch_pc_v12_3_5_global_rental_gateway.py'
       - 'scripts/patch_pc_v12_3_6_wol_relay.py'
       - 'scripts/patch_pc_v12_3_7_single_instance.py'
+      - 'scripts/patch_pc_v12_3_8_auto_wol_mac.py'
+      - 'supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql'
       - 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql'
       - 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql'
       - 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql'
@@ -82,12 +84,14 @@ jobs:
           Copy-Item 'scripts/patch_pc_v12_3_5_global_rental_gateway.py' (Join-Path $project.FullName 'patch_pc_v12_3_5_global_rental_gateway.py')
           Copy-Item 'scripts/patch_pc_v12_3_6_wol_relay.py' (Join-Path $project.FullName 'patch_pc_v12_3_6_wol_relay.py')
           Copy-Item 'scripts/patch_pc_v12_3_7_single_instance.py' (Join-Path $project.FullName 'patch_pc_v12_3_7_single_instance.py')
+          Copy-Item 'scripts/patch_pc_v12_3_8_auto_wol_mac.py' (Join-Path $project.FullName 'patch_pc_v12_3_8_auto_wol_mac.py')
           New-Item -ItemType Directory -Path (Join-Path $project.FullName 'supabase/migrations') -Force | Out-Null
           Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
           Copy-Item 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql' (Join-Path $project.FullName 'supabase/migrations/20261029130000_device_watchdog_restart_billing.sql') -Force
           Copy-Item 'supabase/migrations/20261029140000_offline_restart_command_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261029140000_offline_restart_command_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261030100000_global_rental_accounts_and_offline_leases.sql' (Join-Path $project.FullName 'supabase/migrations/20261030100000_global_rental_accounts_and_offline_leases.sql') -Force
+          Copy-Item 'supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql' (Join-Path $project.FullName 'supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql') -Force
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Detected PC project: $($project.FullName)"
 
@@ -140,6 +144,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'V12.3.6 Wake-on-LAN relay patch failed.' }
           python patch_pc_v12_3_7_single_instance.py
           if ($LASTEXITCODE -ne 0) { throw 'V12.3.7 single-instance guard patch failed.' }
+          python patch_pc_v12_3_8_auto_wol_mac.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.3.8 automatic wired LAN MAC heartbeat patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -178,15 +184,23 @@ jobs:
           }
           if (!$edge.Contains('device/alert') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
+          $wolRuntimeMatch = [regex]::Match($index, '(?s)<script>(.*?)</script>')
+          if (!$wolRuntimeMatch.Success) { throw 'Live index.html runtime missing for WOL syntax check.' }
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'index-wol-runtime-check.js'), $wolRuntimeMatch.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
+          node --check index-wol-runtime-check.js
+          if ($LASTEXITCODE -ne 0) { throw 'Live index.html WOL runtime syntax check failed.' }
+          Remove-Item 'index-wol-runtime-check.js' -Force
+          if (!$main.Contains("ipcMain.handle('get-wol-network-info'") -or !$preload.Contains("getWolNetworkInfo: () => ipcRenderer.invoke('get-wol-network-info')") -or !$cloud.Contains('wolLanMac:wolNetworkInfo.lanMac') -or !$cloud.Contains('wolLanObservedAt')) { throw 'Automatic wired LAN MAC heartbeat pipeline is incomplete.' }
+          if ($index.Contains('targetMac:mac')) { throw 'Old client-provided MAC WoL payload remains in the PC relay.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.3.7') { throw "Unexpected PC single-instance patched version: $($package.version)" }
+          if ($package.version -ne '12.3.8') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
           if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Persistent Electron appId/productName changed; refusing build.' }
           foreach ($token in @('resolveDbRoute(attempt>0)', 'auth_parity_optional===true', 'active route is not finalized on both projects', "Coordinated global route finalized: '+r.active_target+' epoch '+epoch+' switch '+switchId")) {
             if (!$cloud.Contains($token)) { throw "Global route regression token missing: $token" }
           }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py patch_pc_v12_3_8_auto_wol_mac.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          foreach ($token in @('V12.3.7-SINGLE-INSTANCE-GUARD', '<span id="app-version-code">V12.3.7-SINGLE-INSTANCE-GUARD</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
+          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', '<span id="app-version-code">V12.3.8-AUTO-WOL-LAN-MAC</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
             if (!$index.Contains($token) -and !$cloud.Contains($token) -and !$edge.Contains($token)) { throw "V12.3.0 feature regression token missing: $token" }
           }
           if (!$index.Contains('window.v11ApplyRemoteCommand = async (command, payload = {}) =>')) { throw 'Live Electron command dispatcher was not found.' }
@@ -196,7 +210,7 @@ jobs:
           if (!$main.Contains("app.setPath('userData', WATCHDOG_LOCK_PROFILE);")) { throw 'Separate watchdog lock profile is missing.' }
           if (!$edge.Contains('p==="device/test-policy"') -or !$edge.Contains('device_free_test_policy')) { throw 'Server FREE TEST policy endpoint is missing.' }
           foreach ($token in @('p==="device/rental/lookup"', 'p==="device/session/start"', 'p==="device/session/end"', 'p==="device/rental/release"', 'p==="device/sync-cursor"', 'device_rental_lookup', 'device_start_rental_session', 'device_end_rental_session')) { if (!$edge.Contains($token)) { throw "Global rental API route missing: $token" } }
-          foreach ($token in @('V12.3.7-SINGLE-INSTANCE-GUARD', 'v11StartRentalSession', 'v11LookupRentalCode', 'offlineLeaseValid', 'conflictSourceEventIds', 'localPendingActiveCode', 'flushSessionOutbox')) { if (!$cloud.Contains($token) -and !$index.Contains($token)) { throw "Global rental runtime token missing: $token" } }
+          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', 'v11StartRentalSession', 'v11LookupRentalCode', 'offlineLeaseValid', 'conflictSourceEventIds', 'localPendingActiveCode', 'flushSessionOutbox')) { if (!$cloud.Contains($token) -and !$index.Contains($token)) { throw "Global rental runtime token missing: $token" } }
           if ($cloud.Contains("request('/device/rentals'")) { throw 'Full rental snapshot API call remains enabled.' }
           $globalRentalMigration = Get-Content 'supabase/migrations/20261030100000_global_rental_accounts_and_offline_leases.sql' -Raw
           foreach ($token in @('admin_rental_accounts_global', 'admin_create_rental_global', 'admin_update_rental_global', 'admin_disable_rental_global', 'rental_offline_leases', 'rental_sessions_one_open_per_rental_account', 'rental_sync_conflicts', 'GLOBAL_RENTAL_HEARTBEAT_PATCH_ANCHOR_MISMATCH')) { if (!$globalRentalMigration.Contains($token)) { throw "Global rental SQL migration assertion missing: $token" } }
@@ -233,7 +247,7 @@ jobs:
         run: |
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
-          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.3.7.exe'
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.3.8.exe'
           if ($exe.FullName -ne $canonicalExePath) {
             Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
             $exe = Get-Item -LiteralPath $canonicalExePath
@@ -243,7 +257,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.3.7-SINGLE-INSTANCE-GUARD-SOURCE.zip")
+          output = Path("AniGames-PC-V12.3.8-AUTO-WOL-LAN-MAC-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__", "index-runtime-check.js"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -258,13 +272,14 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.3.7-SINGLE-INSTANCE-GUARD
+          name: AniGames-PC-V12.3.8-AUTO-WOL-LAN-MAC
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.3.7-SINGLE-INSTANCE-GUARD-SOURCE.zip
+            AniGames-PC-V12.3.8-AUTO-WOL-LAN-MAC-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
             docs/PC-HEARTBEAT-SESSION-PERFORMANCE-AUDIT.md
             docs/PC-SINGLE-INSTANCE-AUDIT-V12.3.7.md
+            supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql
             supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql
             supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql
             supabase/migrations/20261029130000_device_watchdog_restart_billing.sql
