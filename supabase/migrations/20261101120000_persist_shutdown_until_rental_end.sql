@@ -197,7 +197,8 @@ BEGIN
           last_command_id = EXCLUDED.last_command_id,
           last_queued_at = now(),
           last_message = 'Perintah timer shutdown menunggu konfirmasi PC.',
-          updated_at = now();
+          updated_at = now()
+      WHERE public.device_shutdown_schedules.state NOT IN ('cancel_requested','canceled','completed','superseded','target_mismatch');
 
     ELSIF NEW.command = 'cancel_shutdown_timer' THEN
       sid := nullif(btrim(coalesce(NEW.payload->>'scheduleId','')), '');
@@ -305,7 +306,7 @@ BEGIN
         last_message = coalesce(timer_message, 'Timer shutdown aktif di PC.'),
         updated_at = now()
     WHERE device_id = NEW.id AND schedule_id = sid
-      AND state <> 'cancel_requested';
+      AND state NOT IN ('cancel_requested','superseded','canceled','completed','target_mismatch');
 
   ELSIF timer_state = 'blocked_active_session' THEN
     UPDATE public.device_shutdown_schedules
@@ -314,7 +315,7 @@ BEGIN
         last_message = coalesce(timer_message, 'Menunggu sesi rental selesai; timer tidak dibatalkan.'),
         updated_at = now()
     WHERE device_id = NEW.id AND schedule_id = sid
-      AND state <> 'cancel_requested';
+      AND state NOT IN ('cancel_requested','superseded','canceled','completed','target_mismatch');
 
     PERFORM private.try_queue_deferred_shutdown(NEW.id);
 
