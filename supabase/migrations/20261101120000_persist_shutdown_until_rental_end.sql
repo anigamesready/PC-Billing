@@ -371,6 +371,32 @@ BEGIN
 END;
 $function$;
 
+
+-- Preserve shutdown timers that were already accepted by a PC before this migration.
+INSERT INTO public.device_shutdown_schedules(
+  org_id, device_id, schedule_id, deadline_at, target_device_name, state, last_message
+)
+SELECT
+  d.org_id,
+  d.id,
+  d.metadata #>> '{shutdownTimer,scheduleId}',
+  (d.metadata #>> '{shutdownTimer,deadlineAt}')::timestamptz,
+  coalesce(d.device_name, d.client_id, 'PC'),
+  CASE d.metadata #>> '{shutdownTimer,state}'
+    WHEN 'blocked_active_session' THEN 'waiting_for_rental_end'
+    WHEN 'shutdown_requested' THEN 'shutdown_requested'
+    WHEN 'admin_shutdown_requested' THEN 'shutdown_requested'
+    ELSE 'scheduled'
+  END,
+  left(coalesce(d.metadata #>> '{shutdownTimer,message}', 'Timer shutdown dipulihkan dari metadata PC.'), 500)
+FROM public.devices d
+WHERE nullif(btrim(coalesce(d.metadata #>> '{shutdownTimer,scheduleId}','')), '') IS NOT NULL
+  AND nullif(btrim(coalesce(d.metadata #>> '{shutdownTimer,deadlineAt}','')), '') IS NOT NULL
+  AND d.metadata #>> '{shutdownTimer,state}' IN (
+    'scheduled','blocked_active_session','shutdown_requested','admin_shutdown_requested'
+  )
+ON CONFLICT (device_id, schedule_id) DO NOTHING;
+
 DROP TRIGGER IF EXISTS track_device_shutdown_command_insert ON public.device_commands;
 CREATE TRIGGER track_device_shutdown_command_insert
 AFTER INSERT ON public.device_commands
@@ -392,6 +418,20 @@ AFTER UPDATE OF status ON public.rental_sessions
 FOR EACH ROW
 WHEN (OLD.status IN ('active','paused') AND NEW.status IN ('ended','expired'))
 EXECUTE FUNCTION private.retry_shutdown_after_rental_end();
+
+-- If a timer was already waiting when the migration landed, attempt its safe handoff now.
+DO $deferred_shutdown_backfill$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT device_id
+    FROM public.device_shutdown_schedules
+    WHERE state = 'waiting_for_rental_end'
+  LOOP
+    PERFORM private.try_queue_deferred_shutdown(r.device_id);
+  END LOOP;
+END;
+$deferred_shutdown_backfill$;
 
 REVOKE ALL ON FUNCTION private.try_queue_deferred_shutdown(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION private.track_device_shutdown_command() FROM PUBLIC, anon, authenticated;
