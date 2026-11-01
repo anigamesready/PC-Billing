@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.4.1 Lock State Recovery
+name: Build AniGames PC V12.4.2 Watchdog After Ready
 
 on:
   push:
@@ -15,6 +15,7 @@ on:
       - fix/pc-v12.3.9-kiosk-failsafe
       - fix/pc-v12.4.0-timer-window-stability
       - fix/pc-v12.4.1-lock-state-recovery
+      - fix/pc-v12.4.2-watchdog-after-ready
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - 'scripts/patch_pc_log_optimization.py'
@@ -36,6 +37,7 @@ on:
       - 'scripts/patch_pc_v12_3_9_kiosk_failsafe.py'
       - 'scripts/patch_pc_v12_4_0_timer_window_stability.py'
       - 'scripts/patch_pc_v12_4_1_lock_state_recovery.py'
+      - 'scripts/patch_pc_v12_4_2_watchdog_after_ready.py'
       - 'supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql'
       - 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql'
       - 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql'
@@ -50,6 +52,7 @@ on:
       - 'docs/PC-KIOSK-FAILSAFE-AUDIT-V12.3.9.md'
       - 'docs/PC-TIMER-WINDOW-STABILITY-V12.4.0.md'
       - 'docs/PC-LOCK-STATE-RECOVERY-V12.4.1.md'
+      - 'docs/PC-WATCHDOG-AFTER-READY-V12.4.2.md'
       - '.github/workflows/build-pc-v12-optimized.yml'
   workflow_dispatch:
 
@@ -97,6 +100,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_v12_3_9_kiosk_failsafe.py' (Join-Path $project.FullName 'patch_pc_v12_3_9_kiosk_failsafe.py')
           Copy-Item 'scripts/patch_pc_v12_4_0_timer_window_stability.py' (Join-Path $project.FullName 'patch_pc_v12_4_0_timer_window_stability.py')
           Copy-Item 'scripts/patch_pc_v12_4_1_lock_state_recovery.py' (Join-Path $project.FullName 'patch_pc_v12_4_1_lock_state_recovery.py')
+          Copy-Item 'scripts/patch_pc_v12_4_2_watchdog_after_ready.py' (Join-Path $project.FullName 'patch_pc_v12_4_2_watchdog_after_ready.py')
           New-Item -ItemType Directory -Path (Join-Path $project.FullName 'supabase/migrations') -Force | Out-Null
           Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
@@ -164,6 +168,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.0 timer-window stability patch failed.' }
           python patch_pc_v12_4_1_lock_state_recovery.py
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.1 lock-state recovery patch failed.' }
+          python patch_pc_v12_4_2_watchdog_after_ready.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.2 watchdog-after-ready patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -211,14 +217,14 @@ jobs:
           if (!$main.Contains("ipcMain.handle('get-wol-network-info'") -or !$preload.Contains("getWolNetworkInfo: () => ipcRenderer.invoke('get-wol-network-info')") -or !$cloud.Contains('wolLanMac:wolNetworkInfo.lanMac') -or !$cloud.Contains('wolLanObservedAt')) { throw 'Automatic wired LAN MAC heartbeat pipeline is incomplete.' }
           if ($index.Contains('targetMac:mac')) { throw 'Old client-provided MAC WoL payload remains in the PC relay.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.4.1') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
+          if ($package.version -ne '12.4.2') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
           if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Persistent Electron appId/productName changed; refusing build.' }
           foreach ($token in @('resolveDbRoute(attempt>0)', 'auth_parity_optional===true', 'active route is not finalized on both projects', "Coordinated global route finalized: '+r.active_target+' epoch '+epoch+' switch '+switchId")) {
             if (!$cloud.Contains($token)) { throw "Global route regression token missing: $token" }
           }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py patch_pc_v12_3_8_auto_wol_mac.py patch_pc_v12_3_9_kiosk_failsafe.py patch_pc_v12_4_0_timer_window_stability.py patch_pc_v12_4_1_lock_state_recovery.py
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py patch_pc_v12_3_8_auto_wol_mac.py patch_pc_v12_3_9_kiosk_failsafe.py patch_pc_v12_4_0_timer_window_stability.py patch_pc_v12_4_1_lock_state_recovery.py patch_pc_v12_4_2_watchdog_after_ready.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', '<span id="app-version-code">V12.4.1-LOCK-STATE-RECOVERY</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
+          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', '<span id="app-version-code">V12.4.2-WATCHDOG-AFTER-READY</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
             if (!$index.Contains($token) -and !$cloud.Contains($token) -and !$edge.Contains($token)) { throw "V12.3.0 feature regression token missing: $token" }
           }
           if (!$index.Contains('window.v11ApplyRemoteCommand = async (command, payload = {}) =>')) { throw 'Live Electron command dispatcher was not found.' }
@@ -244,7 +250,7 @@ jobs:
           $failsafeTokens = @("globalShortcut.register('Control+Alt+F12'", 'function releaseDesktopLock(', "protectedWindow.webContents.on('did-fail-load'", "ipcMain.on('billing-renderer-ready'", 'Recovery limit reached')
           foreach ($token in $failsafeTokens) { if (!$main.Contains($token)) { throw "V12.3.9 kiosk fail-safe token missing: $token" } }
           foreach ($token in @('reportAppReady:', 'billing-renderer-ready')) { if (!$preload.Contains($token)) { throw "V12.3.9 preload bridge missing: $token" } }
-          foreach ($token in @('reportAppReady?.({', 'functionsReady', 'domReady', 'V12.4.1-LOCK-STATE-RECOVERY')) { if (!$index.Contains($token)) { throw "V12.3.9 active renderer readiness token missing: $token" } }
+          foreach ($token in @('reportAppReady?.({', 'functionsReady', 'domReady', 'V12.4.2-WATCHDOG-AFTER-READY')) { if (!$index.Contains($token)) { throw "V12.3.9 active renderer readiness token missing: $token" } }
           if (!$main.Contains('fullscreen: false,') -or !$main.Contains('kiosk: false,')) { throw 'V12.3.9 startup still locks kiosk before renderer readiness.' }
           $timerPositionFile = 'ani-games-timer-window-position.json'
           if (!$main.Contains($timerPositionFile) -or !$main.Contains('screen.getDisplayNearestPoint') -or !$main.Contains("protectedWindow.on('move'")) { throw 'V12.4.0 timer position persistence/display clamp is incomplete.' }
@@ -267,7 +273,17 @@ jobs:
           if ($readyStart -lt 0 -or $readyEnd -le $readyStart -or $main.Substring($readyStart, $readyEnd - $readyStart).Contains('rendererRecoveryAttempts=0')) { throw 'V12.4.1 recovery budget is still reset at every renderer-ready event.' }
           if (!$main.Contains('Date.now()-rendererHealthySince>=60000')) { throw 'V12.4.1 stable-health recovery budget reset missing.' }
           if (!$main.Contains('rendererRecoveryPending)return')) { throw 'V12.4.1 duplicate recovery guard missing.' }
-          Write-Host 'PASS: V12.4.1 fail-open recovery keeps Billing visible, disables kiosk without minimizing, bounds reloads, and resets recovery budget only after 60 seconds healthy.'
+          $bootStart = $main.IndexOf('app.whenReady().then(() => {')
+          $bootEnd = $main.IndexOf('createWindow();', $bootStart)
+          if ($bootStart -lt 0 -or $bootEnd -le $bootStart) { throw 'V12.4.2 startup boundary check failed.' }
+          $bootBody = $main.Substring($bootStart, $bootEnd - $bootStart)
+          if ($bootBody.Contains('launchWatchdogAgent()') -or $bootBody.Contains('billingTimerWatchdog=setInterval')) { throw 'V12.4.2 watchdog still starts before renderer READY.' }
+          if (!$main.Contains('function startBillingWatchdogsAfterReady()') -or !$main.Contains('startBillingWatchdogsAfterReady();') -or !$main.Contains('billingWatchdogsStarted=true')) { throw 'V12.4.2 READY-gated one-time watchdog start is missing.' }
+          $readyAt = $main.IndexOf("ipcMain.on('billing-renderer-ready'")
+          $readyUntil = $main.IndexOf("ipcMain.on('set-lock-mode'", $readyAt)
+          if ($readyAt -lt 0 -or $readyUntil -le $readyAt -or $main.Substring($readyAt, $readyUntil - $readyAt).IndexOf('writeMainProcessState(true)') -gt $main.Substring($readyAt, $readyUntil - $readyAt).IndexOf('startBillingWatchdogsAfterReady();')) { throw 'V12.4.2 main READY state must be written before watchdog starts.' }
+          if (!$bootBody.Contains("globalShortcut.register('Control+Alt+F12'")) { throw 'Emergency unlock shortcut must stay active during startup.' }
+          Write-Host 'PASS: V12.4.2 detached + in-process watchdogs start once after live renderer READY; no watchdog interval/spawn during startup; emergency unlock remains active.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -291,7 +307,7 @@ jobs:
         run: |
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
-          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.1.exe'
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.2.exe'
           if ($exe.FullName -ne $canonicalExePath) {
             Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
             $exe = Get-Item -LiteralPath $canonicalExePath
@@ -301,7 +317,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.4.1-LOCK-STATE-RECOVERY-SOURCE.zip")
+          output = Path("AniGames-PC-V12.4.2-WATCHDOG-AFTER-READY-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__", "index-runtime-check.js"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -316,15 +332,16 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.4.1-LOCK-STATE-RECOVERY
+          name: AniGames-PC-V12.4.2-WATCHDOG-AFTER-READY
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.4.1-LOCK-STATE-RECOVERY-SOURCE.zip
+            AniGames-PC-V12.4.2-WATCHDOG-AFTER-READY-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
             docs/PC-HEARTBEAT-SESSION-PERFORMANCE-AUDIT.md
             docs/PC-SINGLE-INSTANCE-AUDIT-V12.3.7.md
             docs/PC-TIMER-WINDOW-STABILITY-V12.4.0.md
             docs/PC-LOCK-STATE-RECOVERY-V12.4.1.md
+            docs/PC-WATCHDOG-AFTER-READY-V12.4.2.md
             supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql
             supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql
             supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql
