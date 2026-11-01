@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.4.2 Watchdog After Ready
+name: Build AniGames PC V12.4.3 Emergency Shutdown Removal
 
 on:
   push:
@@ -38,6 +38,7 @@ on:
       - 'scripts/patch_pc_v12_4_0_timer_window_stability.py'
       - 'scripts/patch_pc_v12_4_1_lock_state_recovery.py'
       - 'scripts/patch_pc_v12_4_2_watchdog_after_ready.py'
+      - 'scripts/patch_pc_v12_4_3_emergency_no_shutdown.py'
       - 'supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql'
       - 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql'
       - 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql'
@@ -101,6 +102,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_v12_4_0_timer_window_stability.py' (Join-Path $project.FullName 'patch_pc_v12_4_0_timer_window_stability.py')
           Copy-Item 'scripts/patch_pc_v12_4_1_lock_state_recovery.py' (Join-Path $project.FullName 'patch_pc_v12_4_1_lock_state_recovery.py')
           Copy-Item 'scripts/patch_pc_v12_4_2_watchdog_after_ready.py' (Join-Path $project.FullName 'patch_pc_v12_4_2_watchdog_after_ready.py')
+          Copy-Item 'scripts/patch_pc_v12_4_3_emergency_no_shutdown.py' (Join-Path $project.FullName 'patch_pc_v12_4_3_emergency_no_shutdown.py')
           New-Item -ItemType Directory -Path (Join-Path $project.FullName 'supabase/migrations') -Force | Out-Null
           Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
@@ -170,6 +172,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.1 lock-state recovery patch failed.' }
           python patch_pc_v12_4_2_watchdog_after_ready.py
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.2 watchdog-after-ready patch failed.' }
+          python patch_pc_v12_4_3_emergency_no_shutdown.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.3 emergency shutdown removal patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -217,16 +221,26 @@ jobs:
           if (!$main.Contains("ipcMain.handle('get-wol-network-info'") -or !$preload.Contains("getWolNetworkInfo: () => ipcRenderer.invoke('get-wol-network-info')") -or !$cloud.Contains('wolLanMac:wolNetworkInfo.lanMac') -or !$cloud.Contains('wolLanObservedAt')) { throw 'Automatic wired LAN MAC heartbeat pipeline is incomplete.' }
           if ($index.Contains('targetMac:mac')) { throw 'Old client-provided MAC WoL payload remains in the PC relay.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.4.2') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
+          if ($package.version -ne '12.4.3') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
           if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Persistent Electron appId/productName changed; refusing build.' }
           foreach ($token in @('resolveDbRoute(attempt>0)', 'auth_parity_optional===true', 'active route is not finalized on both projects', "Coordinated global route finalized: '+r.active_target+' epoch '+epoch+' switch '+switchId")) {
             if (!$cloud.Contains($token)) { throw "Global route regression token missing: $token" }
           }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py patch_pc_v12_3_8_auto_wol_mac.py patch_pc_v12_3_9_kiosk_failsafe.py patch_pc_v12_4_0_timer_window_stability.py patch_pc_v12_4_1_lock_state_recovery.py patch_pc_v12_4_2_watchdog_after_ready.py
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py patch_pc_v12_3_8_auto_wol_mac.py patch_pc_v12_3_9_kiosk_failsafe.py patch_pc_v12_4_0_timer_window_stability.py patch_pc_v12_4_1_lock_state_recovery.py patch_pc_v12_4_2_watchdog_after_ready.py patch_pc_v12_4_3_emergency_no_shutdown.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', '<span id="app-version-code">V12.4.2-WATCHDOG-AFTER-READY</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
+          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', '<span id="app-version-code">V12.4.3-EMERGENCY-NO-SHUTDOWN</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial')) {
             if (!$index.Contains($token) -and !$cloud.Contains($token) -and !$edge.Contains($token)) { throw "V12.3.0 feature regression token missing: $token" }
           }
+          foreach ($token in @('ANI_GAMES_V12_4_3_PURGE_LEGACY_SHUTDOWN_TIMER', 'SHUTDOWN_TIMER_DISABLED', 'SHUTDOWN_DISABLED')) {
+            if (!$index.Contains($token)) { throw "V12.4.3 emergency renderer guard missing: $token" }
+          }
+          foreach ($token in @('ANI_GAMES_V12_4_3_CANCEL_PENDING_WINDOWS_SHUTDOWN', "shutdown.exe', ['/a']", 'ANI_GAMES_V12_4_3_BLOCK_SHUTDOWN_IPC')) {
+            if (!$main.Contains($token)) { throw "V12.4.3 emergency main-process guard missing: $token" }
+          }
+          foreach ($token in @('function v12CheckScheduledShutdown()', 'function v12ShutdownScheduleFromAdmin(', 'function v12CancelScheduledShutdown(', 'window.__v12ShutdownTimerInterval', 'V12_SHUTDOWN_TIMER_KEY')) {
+            if ($index.Contains($token)) { throw "Legacy shutdown countdown runtime remains: $token" }
+          }
+          if ($cloud.Contains('shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) { throw 'Shutdown timer heartbeat metadata is still being published.' }
           if (!$index.Contains('window.v11ApplyRemoteCommand = async (command, payload = {}) =>')) { throw 'Live Electron command dispatcher was not found.' }
           if (!$main.Contains("ipcMain.handle('wake-on-lan'") -or !$preload.Contains("wakeOnLan: (payload = {}) => ipcRenderer.invoke('wake-on-lan'") -or !$index.Contains("if (cmd === 'wake')") -or !$index.Contains('WAKE_COMMAND_EXPIRED')) { throw 'PC WOL relay IPC/identity/expiry guards are missing.' }
           if (!$index.Contains('WAKE_RELAY_IDENTITY_MISMATCH') -or !$index.Contains('wake-on-lan-magic-packet')) { throw 'PC relay identity or WOL acknowledgement fields are missing.' }
@@ -273,11 +287,12 @@ jobs:
           if ($readyStart -lt 0 -or $readyEnd -le $readyStart -or $main.Substring($readyStart, $readyEnd - $readyStart).Contains('rendererRecoveryAttempts=0')) { throw 'V12.4.1 recovery budget is still reset at every renderer-ready event.' }
           if (!$main.Contains('Date.now()-rendererHealthySince>=60000')) { throw 'V12.4.1 stable-health recovery budget reset missing.' }
           if (!$main.Contains('rendererRecoveryPending)return')) { throw 'V12.4.1 duplicate recovery guard missing.' }
-          $bootStart = $main.IndexOf('app.whenReady().then(() => {')
+          $bootStart = $main.IndexOf('app.whenReady().then(async () => {')
           $bootEnd = $main.IndexOf('createWindow();', $bootStart)
-          if ($bootStart -lt 0 -or $bootEnd -le $bootStart) { throw 'V12.4.2 startup boundary check failed.' }
+          if ($bootStart -lt 0 -or $bootEnd -le $bootStart) { throw 'V12.4.3 emergency startup boundary check failed.' }
           $bootBody = $main.Substring($bootStart, $bootEnd - $bootStart)
           if ($bootBody.Contains('launchWatchdogAgent()') -or $bootBody.Contains('billingTimerWatchdog=setInterval')) { throw 'V12.4.2 watchdog still starts before renderer READY.' }
+          if (!$bootBody.Contains('await cancelPendingWindowsShutdownOnLaunch();')) { throw 'V12.4.3 shutdown abort must execute before Billing window creation.' }
           if (!$main.Contains('function startBillingWatchdogsAfterReady()') -or !$main.Contains('startBillingWatchdogsAfterReady();') -or !$main.Contains('billingWatchdogsStarted=true')) { throw 'V12.4.2 READY-gated one-time watchdog start is missing.' }
           $readyAt = $main.IndexOf("ipcMain.on('billing-renderer-ready'")
           $readyUntil = $main.IndexOf("ipcMain.on('set-lock-mode'", $readyAt)
@@ -307,7 +322,7 @@ jobs:
         run: |
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
-          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.2.exe'
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.3.exe'
           if ($exe.FullName -ne $canonicalExePath) {
             Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
             $exe = Get-Item -LiteralPath $canonicalExePath
@@ -317,7 +332,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.4.2-WATCHDOG-AFTER-READY-SOURCE.zip")
+          output = Path("AniGames-PC-V12.4.3-EMERGENCY-NO-SHUTDOWN-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__", "index-runtime-check.js"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -332,7 +347,7 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.4.2-WATCHDOG-AFTER-READY
+          name: AniGames-PC-V12.4.3-EMERGENCY-NO-SHUTDOWN
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
             AniGames-PC-V12.4.2-WATCHDOG-AFTER-READY-SOURCE.zip
@@ -342,6 +357,7 @@ jobs:
             docs/PC-TIMER-WINDOW-STABILITY-V12.4.0.md
             docs/PC-LOCK-STATE-RECOVERY-V12.4.1.md
             docs/PC-WATCHDOG-AFTER-READY-V12.4.2.md
+            ${{ env.PC_PROJECT_DIR }}/EMERGENCY-SHUTDOWN-REMOVAL-AUDIT.md
             supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql
             supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql
             supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql
