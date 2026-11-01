@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.4.0 Timer Window Stability
+name: Build AniGames PC V12.4.1 Lock State Recovery
 
 on:
   push:
@@ -14,6 +14,7 @@ on:
       - fix/pc-v12.3.7-single-instance-guard
       - fix/pc-v12.3.9-kiosk-failsafe
       - fix/pc-v12.4.0-timer-window-stability
+      - fix/pc-v12.4.1-lock-state-recovery
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - 'scripts/patch_pc_log_optimization.py'
@@ -34,6 +35,7 @@ on:
       - 'scripts/patch_pc_v12_3_8_auto_wol_mac.py'
       - 'scripts/patch_pc_v12_3_9_kiosk_failsafe.py'
       - 'scripts/patch_pc_v12_4_0_timer_window_stability.py'
+      - 'scripts/patch_pc_v12_4_1_lock_state_recovery.py'
       - 'supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql'
       - 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql'
       - 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql'
@@ -47,6 +49,7 @@ on:
       - 'docs/PC-SINGLE-INSTANCE-AUDIT-V12.3.7.md'
       - 'docs/PC-KIOSK-FAILSAFE-AUDIT-V12.3.9.md'
       - 'docs/PC-TIMER-WINDOW-STABILITY-V12.4.0.md'
+      - 'docs/PC-LOCK-STATE-RECOVERY-V12.4.1.md'
       - '.github/workflows/build-pc-v12-optimized.yml'
   workflow_dispatch:
 
@@ -93,6 +96,7 @@ jobs:
           Copy-Item 'scripts/patch_pc_v12_3_8_auto_wol_mac.py' (Join-Path $project.FullName 'patch_pc_v12_3_8_auto_wol_mac.py')
           Copy-Item 'scripts/patch_pc_v12_3_9_kiosk_failsafe.py' (Join-Path $project.FullName 'patch_pc_v12_3_9_kiosk_failsafe.py')
           Copy-Item 'scripts/patch_pc_v12_4_0_timer_window_stability.py' (Join-Path $project.FullName 'patch_pc_v12_4_0_timer_window_stability.py')
+          Copy-Item 'scripts/patch_pc_v12_4_1_lock_state_recovery.py' (Join-Path $project.FullName 'patch_pc_v12_4_1_lock_state_recovery.py')
           New-Item -ItemType Directory -Path (Join-Path $project.FullName 'supabase/migrations') -Force | Out-Null
           Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
@@ -158,6 +162,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'V12.3.9 kiosk fail-safe patch failed.' }
           python patch_pc_v12_4_0_timer_window_stability.py
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.0 timer-window stability patch failed.' }
+          python patch_pc_v12_4_1_lock_state_recovery.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.1 lock-state recovery patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -205,14 +211,14 @@ jobs:
           if (!$main.Contains("ipcMain.handle('get-wol-network-info'") -or !$preload.Contains("getWolNetworkInfo: () => ipcRenderer.invoke('get-wol-network-info')") -or !$cloud.Contains('wolLanMac:wolNetworkInfo.lanMac') -or !$cloud.Contains('wolLanObservedAt')) { throw 'Automatic wired LAN MAC heartbeat pipeline is incomplete.' }
           if ($index.Contains('targetMac:mac')) { throw 'Old client-provided MAC WoL payload remains in the PC relay.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.4.0') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
+          if ($package.version -ne '12.4.1') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
           if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Persistent Electron appId/productName changed; refusing build.' }
           foreach ($token in @('resolveDbRoute(attempt>0)', 'auth_parity_optional===true', 'active route is not finalized on both projects', "Coordinated global route finalized: '+r.active_target+' epoch '+epoch+' switch '+switchId")) {
             if (!$cloud.Contains($token)) { throw "Global route regression token missing: $token" }
           }
-          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py patch_pc_v12_3_8_auto_wol_mac.py patch_pc_v12_3_9_kiosk_failsafe.py patch_pc_v12_4_0_timer_window_stability.py
+          python -m py_compile patch_pc_log_optimization.py patch_pc_token_preservation.py patch_pc_live_alert_runtime.py patch_pc_dual_db_routing.py patch_pc_shared_gateway.py patch_pc_v12_2_3_route_refresh.py patch_pc_v13_shutdown_timer.py patch_pc_v13_free_test_gate.py patch_pc_v13_1_heartbeat_performance.py patch_pc_v13_2_app_exit_protection.py patch_pc_v13_3_resilience_watchdog.py patch_pc_v12_3_5_global_rental_gateway.py patch_pc_v12_3_6_wol_relay.py patch_pc_v12_3_7_single_instance.py patch_pc_v12_3_8_auto_wol_mac.py patch_pc_v12_3_9_kiosk_failsafe.py patch_pc_v12_4_0_timer_window_stability.py patch_pc_v12_4_1_lock_state_recovery.py
           if ($LASTEXITCODE -ne 0) { throw 'Patch script syntax check failed.' }
-          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', '<span id="app-version-code">V12.4.0-TIMER-WINDOW-STABILITY</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
+          foreach ($token in @('V12.3.8-AUTO-WOL-LAN-MAC', '<span id="app-version-code">V12.4.1-LOCK-STATE-RECOVERY</span>', '__freeTestOfflineFallback', 'window.v11CheckFreeTestPermission', 'device/test-policy', 'device_free_test_policy', 'FREE_TEST_DISABLED', '082298316902', 'start_trial', 'schedule_shutdown', 'cancel_shutdown_timer', 'SHUTDOWN_TARGET_ID_MISMATCH', 'shutdownTimer:window.v11GetShutdownTimerStatus?.()||null')) {
             if (!$index.Contains($token) -and !$cloud.Contains($token) -and !$edge.Contains($token)) { throw "V12.3.0 feature regression token missing: $token" }
           }
           if (!$index.Contains('window.v11ApplyRemoteCommand = async (command, payload = {}) =>')) { throw 'Live Electron command dispatcher was not found.' }
@@ -250,7 +256,18 @@ jobs:
           $activeEnd = $main.IndexOf('function releaseDesktopLock', $activeStart)
           if ($activeStart -lt 0 -or $activeEnd -le $activeStart -or $main.Substring($activeStart, $activeEnd - $activeStart).Contains('.center()')) { throw 'V12.4.0 active timer transition still recenters the window.' }
           if (!$index.Contains('lastTimerWindowSizeKey')) { throw 'V12.4.0 renderer size deduplication is missing.' }
-          Write-Host 'PASS: V12.3.3 offline FREE TEST, timer-health recovery, encrypted watchdog credentials, remote restart watchdog, V12.3.9 kiosk fail-safe, V12.4.0 position-stable timer sizing/position persistence, emergency desktop unlock, existing server gates, shutdown timer, and route guards.'
+          $recoveryStart = $main.IndexOf('function releaseDesktopLock')
+          $recoveryEnd = $main.IndexOf('function armRendererReadyTimeout', $recoveryStart)
+          if ($recoveryStart -lt 0 -or $recoveryEnd -le $recoveryStart) { throw 'V12.4.1 recovery function boundaries missing.' }
+          $recoveryBody = $main.Substring($recoveryStart, $recoveryEnd - $recoveryStart)
+          if ($recoveryBody.Contains('.minimize()') -or $recoveryBody.Contains('.center()')) { throw 'V12.4.1 fail-open path still hides or recenters Billing.' }
+          if (!$main.Contains('rendererHealthySince') -or !$main.Contains('recoveryReloadInProgress')) { throw 'V12.4.1 recovery state guards missing.' }
+          $readyStart = $main.IndexOf("ipcMain.on('billing-renderer-ready'")
+          $readyEnd = $main.IndexOf("ipcMain.on('set-lock-mode'", $readyStart)
+          if ($readyStart -lt 0 -or $readyEnd -le $readyStart -or $main.Substring($readyStart, $readyEnd - $readyStart).Contains('rendererRecoveryAttempts=0')) { throw 'V12.4.1 recovery budget is still reset at every renderer-ready event.' }
+          if (!$main.Contains('Date.now()-rendererHealthySince>=60000')) { throw 'V12.4.1 stable-health recovery budget reset missing.' }
+          if (!$main.Contains('rendererRecoveryPending)return')) { throw 'V12.4.1 duplicate recovery guard missing.' }
+          Write-Host 'PASS: V12.4.1 fail-open recovery keeps Billing visible, disables kiosk without minimizing, bounds reloads, and resets recovery budget only after 60 seconds healthy.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -274,7 +291,7 @@ jobs:
         run: |
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
-          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.0.exe'
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.1.exe'
           if ($exe.FullName -ne $canonicalExePath) {
             Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
             $exe = Get-Item -LiteralPath $canonicalExePath
@@ -284,7 +301,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.4.0-TIMER-WINDOW-STABILITY-SOURCE.zip")
+          output = Path("AniGames-PC-V12.4.1-LOCK-STATE-RECOVERY-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__", "index-runtime-check.js"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -299,14 +316,15 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.4.0-TIMER-WINDOW-STABILITY
+          name: AniGames-PC-V12.4.1-LOCK-STATE-RECOVERY
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.4.0-TIMER-WINDOW-STABILITY-SOURCE.zip
+            AniGames-PC-V12.4.1-LOCK-STATE-RECOVERY-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
             docs/PC-HEARTBEAT-SESSION-PERFORMANCE-AUDIT.md
             docs/PC-SINGLE-INSTANCE-AUDIT-V12.3.7.md
             docs/PC-TIMER-WINDOW-STABILITY-V12.4.0.md
+            docs/PC-LOCK-STATE-RECOVERY-V12.4.1.md
             supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql
             supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql
             supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql
