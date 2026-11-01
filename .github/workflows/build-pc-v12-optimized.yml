@@ -193,8 +193,12 @@ jobs:
           $main = Get-Content 'main.js' -Raw
           $preload = Get-Content 'preload.js' -Raw
           $edge = Get-Content 'supabase/functions/ani-games-api/index.ts' -Raw
-          $runtimeMatch = [regex]::Match($index, '(?s)<script>(.*?)</script>')
-          if (!$runtimeMatch.Success -or !$runtimeMatch.Groups[1].Value.Contains('function pauseSession')) { throw 'Live index.html script was not found.' }
+          $runtimeMatches = [regex]::Matches($index, '(?s)<script(?:\s[^>]*)?>(.*?)</script>')
+          $runtimeMatch = $null
+          foreach ($candidate in $runtimeMatches) {
+            if ($candidate.Groups[1].Value.Contains('function pauseSession')) { $runtimeMatch = $candidate; break }
+          }
+          if (!$runtimeMatch) { throw 'Live index.html main runtime script was not found.' }
           [System.IO.File]::WriteAllText((Join-Path $PWD 'index-runtime-check.js'), $runtimeMatch.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
           node --check index-runtime-check.js
           if ($LASTEXITCODE -ne 0) { throw 'Live index.html JavaScript syntax check failed.' }
@@ -212,8 +216,12 @@ jobs:
           }
           if (!$edge.Contains('device/alert') -or !$edge.Contains('device_emit_admin_alert')) { throw 'Edge Function alert route missing.' }
           if ($cloud.Contains('setInterval(()=>{syncNow();pullNow();flushAdminAlerts()},30000)')) { throw 'Redundant 30-second pull timer remains.' }
-          $wolRuntimeMatch = [regex]::Match($index, '(?s)<script>(.*?)</script>')
-          if (!$wolRuntimeMatch.Success) { throw 'Live index.html runtime missing for WOL syntax check.' }
+          $wolRuntimeMatches = [regex]::Matches($index, '(?s)<script(?:\s[^>]*)?>(.*?)</script>')
+          $wolRuntimeMatch = $null
+          foreach ($candidate in $wolRuntimeMatches) {
+            if ($candidate.Groups[1].Value.Contains('function pauseSession')) { $wolRuntimeMatch = $candidate; break }
+          }
+          if (!$wolRuntimeMatch) { throw 'Live index.html main runtime missing for WOL syntax check.' }
           [System.IO.File]::WriteAllText((Join-Path $PWD 'index-wol-runtime-check.js'), $wolRuntimeMatch.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
           node --check index-wol-runtime-check.js
           if ($LASTEXITCODE -ne 0) { throw 'Live index.html WOL runtime syntax check failed.' }
