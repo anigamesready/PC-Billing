@@ -26,10 +26,9 @@ main=once(main,
 watchdog_start_helper=r'''function startBillingWatchdogsAfterReady(){
     if(WATCHDOG_AGENT_MODE||!billingUiReady||billingRecoveryMode||billingWatchdogsStarted)return;
     billingWatchdogsStarted=true;
-    // The detached process is started only after the live Billing renderer reports READY.
+    // Detached agent is started only after the live Billing renderer reports READY.
     launchWatchdogAgent();
-    // The in-process timer watchdog also starts after READY; it remains the only
-    // component allowed to reload the Billing renderer while the main Electron process is alive.
+    // The in-process watchdog is the only owner of renderer reload while main Electron is alive.
     if(!billingTimerWatchdog){
         billingTimerWatchdog=setInterval(()=>{
             if(!billingUiReady||billingRecoveryMode||!mainWindow||mainWindow.isDestroyed()||!timerHealth.activeCode||rendererRecoveryPending)return;
@@ -45,11 +44,7 @@ watchdog_start_helper=r'''function startBillingWatchdogsAfterReady(){
 '''
 main=once(main,"app.whenReady().then(() => {",watchdog_start_helper+"\napp.whenReady().then(() => {","Watchdog start helper insertion")
 
-oldboot="""app.whenReady().then(() => {
-    if (DUPLICATE_BILLING_PROCESS) { app.quit(); return; }
-    if (WATCHDOG_AGENT_MODE) { runWatchdogAgent(); return; }
-    writeMainProcessState(false);
-    launchWatchdogAgent();
+old_watchdogs=r'''    launchWatchdogAgent();
     // Timer watchdog unlocks Windows before any renderer reload.
     setInterval(() => {
         if (!billingUiReady || billingRecoveryMode || !mainWindow || mainWindow.isDestroyed() || !timerHealth.activeCode || rendererRecoveryPending) return;
@@ -60,26 +55,17 @@ oldboot="""app.whenReady().then(() => {
             scheduleRendererRecovery(mainWindow, stale ? 'Heartbeat timer terhenti' : 'Tampilan timer tidak sinkron', 1800);
         }
     }, 5000);
-    if (!globalShortcut.register('Control+Alt+F12', () => emergencyUnlockDesktop('Ctrl+Alt+F12'))) console.error('Hotkey darurat Ctrl+Alt+F12 tidak tersedia.');
-    createWindow();
-});"""
-newboot="""app.whenReady().then(() => {
-    if (DUPLICATE_BILLING_PROCESS) { app.quit(); return; }
-    if (WATCHDOG_AGENT_MODE) { runWatchdogAgent(); return; }
-    writeMainProcessState(false);
-    // Emergency unlock is available during startup; watchdogs are deliberately not started here.
-    if (!globalShortcut.register('Control+Alt+F12', () => emergencyUnlockDesktop('Ctrl+Alt+F12'))) console.error('Hotkey darurat Ctrl+Alt+F12 tidak tersedia.');
-    createWindow();
-});"""
-main=once(main,oldboot,newboot,'Deferred watchdog boot')
+'''
+main=once(main,old_watchdogs,"    // Watchdogs are deferred until the live Billing renderer reports READY.\n","Remove early watchdog activation")
 
-oldready="""  writeMainProcessState(true);if(active)applyActiveTimerWindowMode(mainWindow);else applyLoginKioskMode(mainWindow);
-});"""
-newready="""  writeMainProcessState(true);
+main=once(main,
+"""  writeMainProcessState(true);if(active)applyActiveTimerWindowMode(mainWindow);else applyLoginKioskMode(mainWindow);
+});""",
+"""  writeMainProcessState(true);
   startBillingWatchdogsAfterReady();
   if(active)applyActiveTimerWindowMode(mainWindow);else applyLoginKioskMode(mainWindow);
-});"""
-main=once(main,oldready,newready,'Start watchdog after renderer READY')
+});""",
+"Start watchdog after renderer READY")
 
 index=once(index,"const APP_VERSION = 'V12.4.1-LOCK-STATE-RECOVERY';","const APP_VERSION = 'V12.4.2-WATCHDOG-AFTER-READY';","App version")
 index=once(index,'<span id="app-version-code">V12.4.1-LOCK-STATE-RECOVERY</span>','<span id="app-version-code">V12.4.2-WATCHDOG-AFTER-READY</span>','Visible version')
@@ -98,10 +84,10 @@ mp.write_text(main,encoding='utf-8');ip.write_text(index,encoding='utf-8');rp.wr
 pkgp.write_text(json.dumps(pkg,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
 lockp.write_text(json.dumps(lock,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
 
-boot=main[main.index("app.whenReady().then(() => {"):main.index("});",main.index("app.whenReady().then(() => {"))+3]
+boot=main[main.index("app.whenReady().then(() => {"):main.index("createWindow();",main.index("app.whenReady().then(() => {"))]
 if 'launchWatchdogAgent()' in boot or 'billingTimerWatchdog=setInterval' in boot:
     raise SystemExit('Watchdog still starts before Billing UI READY')
-if "globalShortcut.register('Control+Alt+F12'" not in boot or 'createWindow();' not in boot:
+if "globalShortcut.register('Control+Alt+F12'" not in boot or 'createWindow();' not in main:
     raise SystemExit('Startup emergency shortcut or createWindow missing')
 helper=main[main.index('function startBillingWatchdogsAfterReady'):main.index("app.whenReady().then(() => {",main.index('function startBillingWatchdogsAfterReady'))]
 if 'launchWatchdogAgent();' not in helper or 'billingTimerWatchdog=setInterval' not in helper:
@@ -109,5 +95,7 @@ if 'launchWatchdogAgent();' not in helper or 'billingTimerWatchdog=setInterval' 
 ready=main[main.index("ipcMain.on('billing-renderer-ready'"):main.index("ipcMain.on('set-lock-mode'",main.index("ipcMain.on('billing-renderer-ready'"))]
 if 'startBillingWatchdogsAfterReady();' not in ready or 'writeMainProcessState(true)' not in ready:
     raise SystemExit('Renderer READY handler does not arm watchdog after publishing ready state')
+if ready.index('writeMainProcessState(true)') > ready.index('startBillingWatchdogsAfterReady();'):
+    raise SystemExit('Watchdog start must follow main-process READY state write')
 if pkg.get('version')!='12.4.2' or lock.get('version')!='12.4.2': raise SystemExit('V12.4.2 package version mismatch')
 print('PASS: V12.4.2 watchdogs start once after renderer READY; startup has no watchdog launch/interval; emergency unlock and app creation remain available.')
