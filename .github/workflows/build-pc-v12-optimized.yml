@@ -272,7 +272,7 @@ jobs:
           $failsafeTokens = @("globalShortcut.register('Control+Alt+F12'", 'function releaseDesktopLock(', "protectedWindow.webContents.on('did-fail-load'", "ipcMain.on('billing-renderer-ready'", 'Recovery limit reached')
           foreach ($token in $failsafeTokens) { if (!$main.Contains($token)) { throw "V12.3.9 kiosk fail-safe token missing: $token" } }
           foreach ($token in @('reportAppReady:', 'billing-renderer-ready')) { if (!$preload.Contains($token)) { throw "V12.3.9 preload bridge missing: $token" } }
-          foreach ($token in @('reportAppReady?.({', 'functionsReady', 'domReady', 'V12.4.2-WATCHDOG-AFTER-READY')) { if (!$index.Contains($token)) { throw "V12.3.9 active renderer readiness token missing: $token" } }
+          foreach ($token in @('reportAppReady?.({', 'functionsReady', 'domReady', 'V12.4.3-EMERGENCY-NO-SHUTDOWN')) { if (!$index.Contains($token)) { throw "V12.3.9 active renderer readiness token missing: $token" } }
           if (!$main.Contains('fullscreen: false,') -or !$main.Contains('kiosk: false,')) { throw 'V12.3.9 startup still locks kiosk before renderer readiness.' }
           $timerPositionFile = 'ani-games-timer-window-position.json'
           if (!$main.Contains($timerPositionFile) -or !$main.Contains('screen.getDisplayNearestPoint') -or !$main.Contains("protectedWindow.on('move'")) { throw 'V12.4.0 timer position persistence/display clamp is incomplete.' }
@@ -358,7 +358,7 @@ jobs:
           name: AniGames-PC-V12.4.3-EMERGENCY-NO-SHUTDOWN
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.4.2-WATCHDOG-AFTER-READY-SOURCE.zip
+            AniGames-PC-V12.4.3-EMERGENCY-NO-SHUTDOWN-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
             docs/PC-HEARTBEAT-SESSION-PERFORMANCE-AUDIT.md
             docs/PC-SINGLE-INSTANCE-AUDIT-V12.3.7.md
