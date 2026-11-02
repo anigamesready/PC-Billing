@@ -1,0 +1,49 @@
+name: Audit PC Billing Windows Commands
+on:
+  push:
+    branches:
+      - "audit/**"
+    paths:
+      - ".github/workflows/inspect-source.yml"
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and inventory PC source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip"
+          test -s "$ZIP"
+          unzip -t "$ZIP"
+          mkdir -p inspect
+          unzip -oq "$ZIP" -d inspect
+          find inspect -type f -printf '%s  %P\n' | sort > inventory.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("inspect")
+          lines=["MATCHES:"]
+          terms=("shutdown","restart_pc","logoff","restart_billing","device_commands","poll","command","execute","poweroff","taskkill","user32","exitwindows")
+          for p in sorted(root.rglob("*")):
+              if not p.is_file() or p.suffix.lower() not in (".js",".html",".json",".sql",".ts",".ps1",".bat"): continue
+              try: data=p.read_text(errors="replace")
+              except Exception: continue
+              for n,line in enumerate(data.splitlines(),1):
+                  if any(t in line.lower() for t in terms):
+                      lines.append(f"{p}:{n}:{line.strip()[:260]}")
+          Path("source-analysis.txt").write_text("\n".join(lines))
+          PY
+          tar -czf extracted-pc-source.tar.gz -C inspect .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-windows-command-source-inspection
+          path: |
+            extracted-pc-source.tar.gz
+            inventory.txt
+            source-analysis.txt
+          if-no-files-found: error
+          retention-days: 7
