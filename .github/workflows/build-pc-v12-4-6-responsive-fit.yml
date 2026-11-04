@@ -121,7 +121,7 @@ jobs:
           if ($index.Contains('max-width:440px')) { throw 'Old 440px login width cap remains.' }
 
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json
+          $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
           if ($package.version -ne '12.4.6' -or $lock.version -ne '12.4.6') { throw 'PC version is not V12.4.6.' }
           if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Persistent Electron app identity changed.' }
 
