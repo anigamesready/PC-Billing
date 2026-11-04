@@ -144,8 +144,10 @@ jobs:
           foreach ($token in @('ANI_GAMES_V12_4_3_PURGE_LEGACY_SHUTDOWN_TIMER', 'SHUTDOWN_TIMER_DISABLED')) {
             if (!$index.Contains($token)) { throw "Shutdown timer removal guard missing: $token" }
           }
-          python -m py_compile patch_pc_*.py
-          if ($LASTEXITCODE -ne 0) { throw 'Python patch syntax failed.' }
+          Get-ChildItem -Path 'patch_pc_*.py' -File | ForEach-Object {
+            python -m py_compile $_.Name
+            if ($LASTEXITCODE -ne 0) { throw "Python patch syntax failed: $($_.Name)" }
+          }
           Remove-Item 'index-runtime-check.js' -Force
           Write-Host 'PASS: V12.4.6 native display fit, responsive Login, timer/recovery work-area clamp, Admin controls, rental/session, pairing, WOL, and shutdown policy.'
 
