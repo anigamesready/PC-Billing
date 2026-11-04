@@ -1,0 +1,106 @@
+name: Export Fully Patched PC V12.4.5 Source for Audit
+
+on:
+  push:
+    branches:
+      - audit/v12.4.5-export-source-2026-11-04
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Extract baseline and apply exact V12.4.5 patch chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -q AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip -d source-bundle
+          RENDERER="$(find source-bundle -type f -name renderer.js -print -quit)"
+          test -n "$RENDERER"
+          PROJECT="${RENDERER%/*}"
+          test -s "$PROJECT/main.js"
+          test -s "$PROJECT/index.html"
+          cp scripts/*.py "$PROJECT/"
+          mkdir -p "$PROJECT/supabase/functions/ani-games-api" "$PROJECT/supabase/migrations"
+          cp supabase/functions/ani-games-api/* "$PROJECT/supabase/functions/ani-games-api/"
+          cp supabase/migrations/*.sql "$PROJECT/supabase/migrations/"
+          cd "$PROJECT"
+          set -x
+          python patch_pc_log_optimization.py
+          python patch_pc_token_preservation.py
+          python patch_pc_live_alert_runtime.py
+          python patch_pc_dual_db_routing.py
+          python patch_pc_shared_gateway.py
+          python patch_pc_v12_2_3_route_refresh.py
+          python patch_pc_v13_shutdown_timer.py
+          python patch_pc_v13_free_test_gate.py
+          python patch_pc_v13_1_heartbeat_performance.py
+          python patch_pc_v13_2_app_exit_protection.py
+          python patch_pc_v13_3_resilience_watchdog.py
+          python patch_pc_v12_3_4_global_rentals.py
+          python patch_pc_v12_3_5_global_rental_gateway.py
+          python patch_pc_v12_3_6_wol_relay.py
+          python patch_pc_v12_3_7_single_instance.py
+          python patch_pc_v12_3_8_auto_wol_mac.py
+          python patch_pc_v12_3_9_kiosk_failsafe.py
+          python patch_pc_v12_4_0_timer_window_stability.py
+          python patch_pc_v12_4_1_lock_state_recovery.py
+          python patch_pc_v12_4_2_watchdog_after_ready.py
+          python patch_pc_v12_4_3_emergency_no_shutdown.py
+          python patch_pc_v12_4_4_restore_direct_windows_shutdown.py
+          python patch_pc_v12_4_5_admin_logout_responsive_login.py
+          set +x
+          node --check main.js
+          node --check preload.js
+          node --check renderer.js
+          node --check v11-cloud.js
+          python -m py_compile patch_pc_*.py
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          p=json.loads(Path('package.json').read_text())
+          assert p['version']=='12.4.5', p['version']
+          html=Path('index.html').read_text()
+          assert 'V12.4.5-ADMIN-LOGOUT-RESPONSIVE-LOGIN' in html
+          scripts=re.findall(r'<script(?:\\s[^>]*)?>(.*?)</script>', html, re.S|re.I)
+          live=next((s for s in scripts if 'function pauseSession' in s), None)
+          assert live, 'live inline billing script not found'
+          Path('index-runtime-check.js').write_text(live)
+          print('PASS: V12.4.5 source version and live inline script located')
+          PY
+          node --check index-runtime-check.js
+          rm -f index-runtime-check.js
+          printf 'source_version=%s\\n' "$(node -p "require('./package.json').version")" > SOURCE-AUDIT-METADATA.txt
+          printf 'branch=%s\\n' "$GITHUB_REF_NAME" >> SOURCE-AUDIT-METADATA.txt
+          printf 'commit=%s\\n' "$GITHUB_SHA" >> SOURCE-AUDIT-METADATA.txt
+          cd "$GITHUB_WORKSPACE"
+          python - <<'PY'
+          import os, zipfile
+          from pathlib import Path
+          root=Path('source-bundle')
+          with zipfile.ZipFile('PC-V12.4.5-FULLY-PATCHED-SOURCE.zip','w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for p in root.rglob('*'):
+                  if not p.is_file() or any(x in {'node_modules','dist','.git','__pycache__'} for x in p.parts):
+                      continue
+                  z.write(p,p.as_posix())
+          print('Source ZIP bytes:',Path('PC-V12.4.5-FULLY-PATCHED-SOURCE.zip').stat().st_size)
+          PY
+      - name: Upload exact patched source for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: PC-V12.4.5-FULLY-PATCHED-SOURCE-AUDIT
+          path: |
+            PC-V12.4.5-FULLY-PATCHED-SOURCE.zip
+            source-bundle/**/SOURCE-AUDIT-METADATA.txt
+          if-no-files-found: error
+          retention-days: 7
