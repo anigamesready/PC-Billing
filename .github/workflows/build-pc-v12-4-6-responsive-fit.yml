@@ -131,6 +131,7 @@ jobs:
           foreach ($token in @('hideBilling: () => ipcRenderer.invoke', 'showBilling: () => ipcRenderer.invoke')) {
             if (!$preload.Contains($token)) { throw "Admin Logout/Login bridge missing: $token" }
           }
+          if (!$preload.Contains('onBillingDisplayMetricsChanged') -or !$index.Contains('onBillingDisplayMetricsChanged')) { throw 'Native DPI/display event-to-renderer bridge missing.' }
           foreach ($token in @('ani_games_billing_ui_state', 'fitLoginBoxToViewport', 'window.v11ApplyRemoteCommand = async')) {
             if (!$index.Contains($token)) { throw "Existing Login/command feature missing: $token" }
           }
