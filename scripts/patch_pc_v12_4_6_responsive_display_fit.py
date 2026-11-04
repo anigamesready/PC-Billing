@@ -81,11 +81,9 @@ function fitRecoveryWindowToDisplay(w=mainWindow,d=null){
   if(!w||w.isDestroyed())return;
   if(!d){try{d=screen.getDisplayMatching(w.getBounds());}catch(_){}}
   d=d||screen.getPrimaryDisplay();const a=d.workArea||d.bounds,b=w.getBounds();
-  const mw=Math.max(1,Math.floor(a.width-24)),mh=Math.max(1,Math.floor(a.height-24));
-  const width=Math.max(Math.min(800,mw),Math.min(960,mw,Math.round(b.width||800)));
-  const height=Math.max(Math.min(520,mh),Math.min(680,mh,Math.round(b.height||520)));
-  const minX=a.x+12,minY=a.y+12,maxX=Math.max(minX,a.x+a.width-width-12),maxY=Math.max(minY,a.y+a.height-height-12);
-  w.setBounds({x:Math.min(maxX,Math.max(minX,Math.round(b.x))),y:Math.min(maxY,Math.max(minY,Math.round(b.y))),width,height});
+  // Fill the client work area while preserving the fail-open, non-kiosk desktop state.
+  const width=Math.max(1,Math.floor(a.width-16)),height=Math.max(1,Math.floor(a.height-16));
+  w.setBounds({x:Math.round(a.x+8),y:Math.round(a.y+8),width,height});
 }
 function applyLoginKioskMode(w=mainWindow,targetDisplay=null,reveal=true){
   if(!w||w.isDestroyed())return;
