@@ -228,7 +228,7 @@ oldfit='''        function fitLoginBoxToViewport(){
         }
         window.addEventListener('resize',()=>requestAnimationFrame(fitLoginBoxToViewport),{passive:true});
         window.addEventListener('orientationchange',()=>setTimeout(fitLoginBoxToViewport,150),{passive:true});
-        if(window.electronAPI?.onBillingDisplayMetricsChanged){window.electronAPI.onBillingDisplayMetricsChanged(()=>queueLoginViewportFit());}\n        requestAnimationFrame(fitLoginBoxToViewport);'''
+        requestAnimationFrame(fitLoginBoxToViewport);'''
 newfit='''        let loginFitAnimationFrame=0;
         function fitLoginBoxToViewport(){
             const lock=document.getElementById('lock-screen'),card=lock?.querySelector('.login-box');
@@ -257,6 +257,7 @@ newfit='''        let loginFitAnimationFrame=0;
             const lockForResize=document.getElementById('lock-screen');
             if(lockForResize)loginViewportObserver.observe(lockForResize);
         }
+        if(window.electronAPI?.onBillingDisplayMetricsChanged){window.electronAPI.onBillingDisplayMetricsChanged(()=>queueLoginViewportFit());}
         requestAnimationFrame(fitLoginBoxToViewport);'''
 html=once(html,oldfit,newfit,'Viewport fit runtime')
 if 'setTimeout(() => { fitLoginBoxToViewport(); focusLoginInput(); }, 120);' not in html:
