@@ -21,7 +21,7 @@ def once(s,a,b,label):
 
 preload=once(preload,
 "    onBillingCloseAttempt: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = () => callback(); ipcRenderer.on('billing-close-attempt', listener); return () => ipcRenderer.removeListener('billing-close-attempt', listener); },",
-"    onBillingDisplayMetricsChanged: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = (_event, metrics) => callback(metrics); ipcRenderer.on('billing-display-metrics-changed', listener); return () => ipcRenderer.removeListener('billing-display-metrics-changed', listener); },\\n    onBillingCloseAttempt: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = () => callback(); ipcRenderer.on('billing-close-attempt', listener); return () => ipcRenderer.removeListener('billing-close-attempt', listener); },",
+"    onBillingDisplayMetricsChanged: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = (_event, metrics) => callback(metrics); ipcRenderer.on('billing-display-metrics-changed', listener); return () => ipcRenderer.removeListener('billing-display-metrics-changed', listener); },\n    onBillingCloseAttempt: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = () => callback(); ipcRenderer.on('billing-close-attempt', listener); return () => ipcRenderer.removeListener('billing-close-attempt', listener); },",
 'Display metrics preload bridge')
 
 main=once(main,
