@@ -2,10 +2,10 @@ from pathlib import Path
 import json
 
 R=Path('.')
-mainp,htmlp,renderp,pkgp,lockp,verp=[R/x for x in ('main.js','index.html','renderer.js','package.json','package-lock.json','VERSION.txt')]
-for p in (mainp,htmlp,renderp,pkgp,lockp,verp):
+mainp,preloadp,htmlp,renderp,pkgp,lockp,verp=[R/x for x in ('main.js','preload.js','index.html','renderer.js','package.json','package-lock.json','VERSION.txt')]
+for p in (mainp,preloadp,htmlp,renderp,pkgp,lockp,verp):
     if not p.is_file(): raise SystemExit('Required V12.4.5 source missing: '+str(p))
-main,html,renderer=mainp.read_text(encoding='utf-8'),htmlp.read_text(encoding='utf-8'),renderp.read_text(encoding='utf-8')
+main,preload,html,renderer=mainp.read_text(encoding='utf-8'),preloadp.read_text(encoding='utf-8'),htmlp.read_text(encoding='utf-8'),renderp.read_text(encoding='utf-8')
 pkg,lock=json.loads(pkgp.read_text()),json.loads(lockp.read_text())
 OLD,NEW='V12.4.5-ADMIN-LOGOUT-RESPONSIVE-LOGIN','V12.4.6-RESPONSIVE-DISPLAY-FIT'
 if NEW in html and 'function handleBillingDisplayLayoutChange' in main:
@@ -18,6 +18,11 @@ def once(s,a,b,label):
     n=s.count(a)
     if n!=1: raise SystemExit(f'{label} anchor mismatch: expected 1, found {n}')
     return s.replace(a,b,1)
+
+preload=once(preload,
+"    onBillingCloseAttempt: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = () => callback(); ipcRenderer.on('billing-close-attempt', listener); return () => ipcRenderer.removeListener('billing-close-attempt', listener); },",
+"    onBillingDisplayMetricsChanged: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = (_event, metrics) => callback(metrics); ipcRenderer.on('billing-display-metrics-changed', listener); return () => ipcRenderer.removeListener('billing-display-metrics-changed', listener); },\\n    onBillingCloseAttempt: (callback) => { if (typeof callback !== 'function') return () => {}; const listener = () => callback(); ipcRenderer.on('billing-close-attempt', listener); return () => ipcRenderer.removeListener('billing-close-attempt', listener); },",
+'Display metrics preload bridge')
 
 main=once(main,
 '''let timerWindowPositionSaveTimer = null;
@@ -223,7 +228,7 @@ oldfit='''        function fitLoginBoxToViewport(){
         }
         window.addEventListener('resize',()=>requestAnimationFrame(fitLoginBoxToViewport),{passive:true});
         window.addEventListener('orientationchange',()=>setTimeout(fitLoginBoxToViewport,150),{passive:true});
-        requestAnimationFrame(fitLoginBoxToViewport);'''
+        if(window.electronAPI?.onBillingDisplayMetricsChanged){window.electronAPI.onBillingDisplayMetricsChanged(()=>queueLoginViewportFit());}\n        requestAnimationFrame(fitLoginBoxToViewport);'''
 newfit='''        let loginFitAnimationFrame=0;
         function fitLoginBoxToViewport(){
             const lock=document.getElementById('lock-screen'),card=lock?.querySelector('.login-box');
@@ -262,7 +267,7 @@ pkg['description']='AniGames Billing V12.4.6: responsive fullscreen display sync
 lock['version']='12.4.6'
 if isinstance(lock.get('packages'),dict) and isinstance(lock['packages'].get(''),dict): lock['packages']['']['version']='12.4.6'
 html=html.replace(OLD,NEW);renderer=renderer.replace(OLD,NEW)
-mainp.write_text(main,encoding='utf-8');htmlp.write_text(html,encoding='utf-8');renderp.write_text(renderer,encoding='utf-8')
+mainp.write_text(main,encoding='utf-8');preloadp.write_text(preload,encoding='utf-8');htmlp.write_text(html,encoding='utf-8');renderp.write_text(renderer,encoding='utf-8')
 pkgp.write_text(json.dumps(pkg,indent=2,ensure_ascii=False)+'\n',encoding='utf-8');lockp.write_text(json.dumps(lock,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
 verp.write_text(NEW+'\nResponsive monitor/DPI/fullscreen bounds, work-area-clamped timer and recovery windows, and adaptive Login viewport. Rental/session, pairing, WOL, Admin commands, and shutdown policy preserved.\n',encoding='utf-8')
 (R/'RESPONSIVE-DISPLAY-FIT-V12.4.6-AUDIT.md').write_text('''# AniGames Billing PC V12.4.6 — Responsive Display Fit Audit
@@ -289,9 +294,10 @@ verp.write_text(NEW+'\nResponsive monitor/DPI/fullscreen bounds, work-area-clamp
 ''',encoding='utf-8')
 for t in ['function resolveTimerWindowGeometry(','function fitRecoveryWindowToDisplay(','function handleBillingDisplayLayoutChange(','billingDisplayHooksRegistered','display-metrics-changed','display-removed','display-added','applyLoginKioskMode(w,d,false)','fitRecoveryWindowToDisplay(w)']:
     if t not in main: raise SystemExit('V12.4.6 main assertion missing: '+t)
-for t in ['overflow:auto!important','max-width:calc(100vw - 32px)','ResizeObserver',"visualViewport.addEventListener('resize'","card.style.transform='none'",NEW]:
+for t in ['overflow:auto!important','max-width:calc(100vw - 32px)','ResizeObserver','onBillingDisplayMetricsChanged',"visualViewport.addEventListener('resize'","card.style.transform='none'",NEW]:
     if t not in html: raise SystemExit('V12.4.6 renderer assertion missing: '+t)
 if 'Math.max(0.55' in html: raise SystemExit('Old 0.55 scale floor remains.')
+if 'onBillingDisplayMetricsChanged' not in preload: raise SystemExit('Display metrics preload bridge missing.')
 if pkg.get('version')!='12.4.6' or lock.get('version')!='12.4.6': raise SystemExit('Package version mismatch.')
 if pkg.get('build',{}).get('appId')!='com.anigames.billing.v12test' or pkg.get('build',{}).get('productName')!='AniGames Billing V12.3.3':
     raise SystemExit('Persistent Electron app identity changed.')
