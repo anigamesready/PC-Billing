@@ -78,6 +78,17 @@ release_old = """      if(w.isMinimized())w.restore();w.show();w.focus();"""
 release_new = """      if(typeof w.showInactive==='function')w.showInactive();else w.show();"""
 main = once(main, release_old, release_new, "Non-activating renderer recovery")
 
+# Keep the login-kiosk transition non-activating when it is only completing recovery.
+login_visibility_old = """    if(!reveal&&!wasVisible)w.hide();
+    if(reveal||wasVisible){if(wasMinimized)w.restore();w.show();if(reveal)w.focus();}"""
+login_visibility_new = """    if(!reveal&&!wasVisible)w.hide();
+    if(reveal||wasVisible){
+      if(wasMinimized&&reveal)w.restore();
+      if(reveal){w.show();w.focus();}
+      else if(typeof w.showInactive==='function')w.showInactive();else w.show();
+    }"""
+main = once(main, login_visibility_old, login_visibility_new, "Non-activating recovered Login visibility")
+
 active_old = """function applyActiveTimerWindowMode(w=mainWindow){if(!w||w.isDestroyed())return;timerWindowModeActive=true;w.setKiosk(false);w.setFullScreen(false);w.setIgnoreMouseEvents(false);w.setAlwaysOnTop(true,'floating');w.setResizable(false);w.setMinimizable(false);if(w.isMinimized())w.restore();applyTimerWindowGeometry(w,500,76);w.show();}"""
 active_new = """function applyActiveTimerWindowMode(w=mainWindow){if(!w||w.isDestroyed())return;timerWindowModeActive=true;w.setKiosk(false);w.setFullScreen(false);w.setIgnoreMouseEvents(false);w.setAlwaysOnTop(true,'floating');w.setResizable(false);w.setMinimizable(false);applyTimerWindowGeometry(w,500,76);if(typeof w.showInactive==='function')w.showInactive();else w.show();}"""
 main = once(main, active_old, active_new, "Non-activating floating timer")
@@ -125,6 +136,12 @@ release_end = main.index("function armRendererReadyTimeout", release_start)
 release = main[release_start:release_end]
 if "showInactive" not in release or ".focus()" in release:
     raise SystemExit("Recovery still activates Billing or lacks showInactive().")
+
+login_start = main.index("function applyLoginKioskMode")
+login_end = main.index("function applyActiveTimerWindowMode", login_start)
+login_mode = main[login_start:login_end]
+if "else if(typeof w.showInactive" not in login_mode:
+    raise SystemExit("Recovered Login mode may still activate the Billing window.")
 
 active_start = main.index("function applyActiveTimerWindowMode")
 active_end = main.index("function releaseDesktopLock", active_start)
