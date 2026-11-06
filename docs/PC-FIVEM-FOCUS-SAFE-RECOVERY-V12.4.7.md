@@ -19,6 +19,7 @@ That meant a false-positive timer-health recovery during an active game could ac
 - Re-check a deferred stale/mismatch condition when Billing receives focus. A real stuck renderer can still be recovered when the user returns to Billing.
 - Use Electron showInactive() during renderer recovery and active timer restoration so Billing does not activate itself over a running game.
 - Preserve foreground ownership during the renderer READY transition. Normal first launch / intentional Login behavior is unchanged.
+- Patch only the live Electron `index.html` runtime. The legacy `renderer.js` sidecar is deliberately left untouched because the build/runtime checks confirm Electron does not load it.
 - Keep the timer-health pulse interval, rental deadline calculation, cloud heartbeat, global rental DB flow, offline queue, pairing, watchdog-agent supervision, WOL, and direct Windows controls unchanged.
 - Preserve the existing Electron appId, productName, and userData directory so installed pairing tokens and rental/session storage stay in place.
 
