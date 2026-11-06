@@ -1,4 +1,4 @@
-name: Build AniGames PC V12.4.5 Admin Logout + Responsive Login
+name: Build AniGames PC V12.4.7 FiveM Focus-Safe Recovery
 
 on:
   push:
@@ -18,6 +18,8 @@ on:
       - fix/pc-v12.4.2-watchdog-after-ready
       - release/pc-v12.4.4-admin-windows-controls
       - release/pc-v12.4.5-admin-logout-responsive-fit
+      - fix/pc-v12.4.6-responsive-display-fit
+      - fix/pc-v12.4.7-fivem-focus-safe
     paths:
       - 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
       - 'scripts/patch_pc_log_optimization.py'
@@ -43,6 +45,8 @@ on:
       - 'scripts/patch_pc_v12_4_3_emergency_no_shutdown.py'
       - 'scripts/patch_pc_v12_4_4_restore_direct_windows_shutdown.py'
       - 'scripts/patch_pc_v12_4_5_admin_logout_responsive_login.py'
+      - 'scripts/patch_pc_v12_4_6_responsive_display_fit.py'
+      - 'scripts/patch_pc_v12_4_7_fivem_focus_safe_recovery.py'
       - 'supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql'
       - 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql'
       - 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql'
@@ -58,6 +62,7 @@ on:
       - 'docs/PC-TIMER-WINDOW-STABILITY-V12.4.0.md'
       - 'docs/PC-LOCK-STATE-RECOVERY-V12.4.1.md'
       - 'docs/PC-WATCHDOG-AFTER-READY-V12.4.2.md'
+      - 'docs/PC-FIVEM-FOCUS-SAFE-RECOVERY-V12.4.7.md'
       - '.github/workflows/build-pc-v12-optimized.yml'
   workflow_dispatch:
 
@@ -109,6 +114,8 @@ jobs:
           Copy-Item 'scripts/patch_pc_v12_4_3_emergency_no_shutdown.py' (Join-Path $project.FullName 'patch_pc_v12_4_3_emergency_no_shutdown.py')
           Copy-Item 'scripts/patch_pc_v12_4_4_restore_direct_windows_shutdown.py' (Join-Path $project.FullName 'patch_pc_v12_4_4_restore_direct_windows_shutdown.py')
           Copy-Item 'scripts/patch_pc_v12_4_5_admin_logout_responsive_login.py' (Join-Path $project.FullName 'patch_pc_v12_4_5_admin_logout_responsive_login.py')
+          Copy-Item 'scripts/patch_pc_v12_4_6_responsive_display_fit.py' (Join-Path $project.FullName 'patch_pc_v12_4_6_responsive_display_fit.py')
+          Copy-Item 'scripts/patch_pc_v12_4_7_fivem_focus_safe_recovery.py' (Join-Path $project.FullName 'patch_pc_v12_4_7_fivem_focus_safe_recovery.py')
           New-Item -ItemType Directory -Path (Join-Path $project.FullName 'supabase/migrations') -Force | Out-Null
           Copy-Item 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql' (Join-Path $project.FullName 'supabase/migrations/20261027120000_free_test_policy_and_server_gate.sql') -Force
           Copy-Item 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql' (Join-Path $project.FullName 'supabase/migrations/20261028120000_heartbeat_event_write_optimization.sql') -Force
@@ -182,8 +189,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.3 emergency shutdown removal patch failed.' }
           python patch_pc_v12_4_4_restore_direct_windows_shutdown.py
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.4 direct Admin Windows controls patch failed.' }
-          python patch_pc_v12_4_5_admin_logout_responsive_login.py
+          python patch_pc_v12_4_5_admin_logout_responsive_login.py patch_pc_v12_4_6_responsive_display_fit.py patch_pc_v12_4_7_fivem_focus_safe_recovery.py
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.5 Admin Logout/responsive Login patch failed.' }
+          python patch_pc_v12_4_6_responsive_display_fit.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.6 responsive display fit patch failed.' }
+          python patch_pc_v12_4_7_fivem_focus_safe_recovery.py
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.7 FiveM focus-safe recovery patch failed.' }
 
       - name: JavaScript and API static regression
         shell: pwsh
@@ -239,7 +250,7 @@ jobs:
           if (!$main.Contains("ipcMain.handle('get-wol-network-info'") -or !$preload.Contains("getWolNetworkInfo: () => ipcRenderer.invoke('get-wol-network-info')") -or !$cloud.Contains('wolLanMac:wolNetworkInfo.lanMac') -or !$cloud.Contains('wolLanObservedAt')) { throw 'Automatic wired LAN MAC heartbeat pipeline is incomplete.' }
           if ($index.Contains('targetMac:mac')) { throw 'Old client-provided MAC WoL payload remains in the PC relay.' }
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($package.version -ne '12.4.5') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
+          if ($package.version -ne '12.4.7') { throw "Unexpected PC automatic WOL patched version: $($package.version)" }
           if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Persistent Electron appId/productName changed; refusing build.' }
           foreach ($token in @('resolveDbRoute(attempt>0)', 'auth_parity_optional===true', 'active route is not finalized on both projects', "Coordinated global route finalized: '+r.active_target+' epoch '+epoch+' switch '+switchId")) {
             if (!$cloud.Contains($token)) { throw "Global route regression token missing: $token" }
@@ -259,7 +270,7 @@ jobs:
           if ($main.Contains('SHUTDOWN_DISABLED') -or $index.Contains('SHUTDOWN_DISABLED')) { throw 'Direct Shutdown is still rejected by the V12.4.3 emergency guard.' }
           foreach ($token in @("ipcMain.handle('hide-billing'", "ipcMain.handle('show-billing'", 'screen.getDisplayMatching(w.getBounds())')) { if (!$main.Contains($token)) { throw "V12.4.5 main Logout/Login assertion missing: $token" } }
           foreach ($token in @('hideBilling: () => ipcRenderer.invoke', 'showBilling: () => ipcRenderer.invoke')) { if (!$preload.Contains($token)) { throw "V12.4.5 preload assertion missing: $token" } }
-          foreach ($token in @('fitLoginBoxToViewport', 'ani_games_billing_ui_state', "if (cmd === 'logout')", "if (cmd === 'refresh')", 'V12.4.5-ADMIN-LOGOUT-RESPONSIVE-LOGIN')) { if (!$index.Contains($token)) { throw "V12.4.5 responsive-login assertion missing: $token" } }
+          foreach ($token in @('fitLoginBoxToViewport', 'ani_games_billing_ui_state', "if (cmd === 'logout')", "if (cmd === 'refresh')", 'ANI_GAMES_V12_4_6_RESPONSIVE_DISPLAY_FIT')) { if (!$index.Contains($token)) { throw "V12.4.5 responsive-login assertion missing: $token" } }
           if (!$cloud.Contains('billingUiState:String(localStorage.getItem')) { throw 'Billing UI visibility state is missing from cloud heartbeat.' }
           if (!$main.Contains("const powerCommands = { logoff: ['/l'], restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'] }") -or !$main.Contains("execFile('shutdown.exe', args")) { throw 'Direct Windows power-action whitelist/executor missing.' }
           if (!$index.Contains("if (cmd === 'schedule_shutdown')") -or !$index.Contains('SHUTDOWN_TIMER_DISABLED')) { throw 'Scheduled shutdown countdown must remain disabled.' }
@@ -325,6 +336,19 @@ jobs:
           if ($readyAt -lt 0 -or $readyUntil -le $readyAt -or $main.Substring($readyAt, $readyUntil - $readyAt).IndexOf('writeMainProcessState(true)') -gt $main.Substring($readyAt, $readyUntil - $readyAt).IndexOf('startBillingWatchdogsAfterReady();')) { throw 'V12.4.2 main READY state must be written before watchdog starts.' }
           if (!$bootBody.Contains("globalShortcut.register('Control+Alt+F12'")) { throw 'Emergency unlock shortcut must stay active during startup.' }
           Write-Host 'PASS: V12.4.2 detached + in-process watchdogs start once after live renderer READY; no watchdog interval/spawn during startup; emergency unlock remains active.'
+          if (!$main.Contains('mainWindow.isFocused()') -or !$main.Contains("if((stale||stuck)&&!billingHasForegroundFocus)return;") -or !$main.Contains("protectedWindow.on('focus'") -or !$main.Contains('FIVEM_FOCUS_SAFE_RECOVERY')) { throw 'V12.4.7 foreground-safe watchdog guard or deferred focus recovery is missing.' }
+          $recoveryStart = $main.IndexOf('function releaseDesktopLock')
+          $recoveryEnd = $main.IndexOf('function armRendererReadyTimeout', $recoveryStart)
+          if ($recoveryStart -lt 0 -or $recoveryEnd -le $recoveryStart) { throw 'V12.4.7 recovery function boundaries missing.' }
+          $recoveryBody = $main.Substring($recoveryStart, $recoveryEnd - $recoveryStart)
+          if (!$recoveryBody.Contains('showInactive') -or $recoveryBody.Contains('.focus()')) { throw 'V12.4.7 recovery still steals foreground focus.' }
+          $activeStart = $main.IndexOf('function applyActiveTimerWindowMode')
+          $activeEnd = $main.IndexOf('function releaseDesktopLock', $activeStart)
+          if ($activeStart -lt 0 -or $activeEnd -le $activeStart -or !$main.Substring($activeStart, $activeEnd - $activeStart).Contains('showInactive')) { throw 'V12.4.7 active timer window is not non-activating.' }
+          $readyStart = $main.IndexOf("ipcMain.on('billing-renderer-ready'")
+          $readyEnd = $main.IndexOf("ipcMain.on('set-lock-mode'", $readyStart)
+          if ($readyStart -lt 0 -or $readyEnd -le $readyStart -or !$main.Substring($readyStart, $readyEnd - $readyStart).Contains('preserveForeground')) { throw 'V12.4.7 READY transition does not preserve foreground ownership.' }
+          Write-Host 'PASS: V12.4.7 timer watchdog defers recovery during external foreground apps and Billing recovery uses non-activating windows.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -348,7 +372,7 @@ jobs:
         run: |
           $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$exe) { throw 'No portable EXE produced.' }
-          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.5.exe'
+          $canonicalExePath = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.7.exe'
           if ($exe.FullName -ne $canonicalExePath) {
             Move-Item -LiteralPath $exe.FullName -Destination $canonicalExePath -Force
             $exe = Get-Item -LiteralPath $canonicalExePath
@@ -358,7 +382,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root = Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output = Path("AniGames-PC-V12.4.5-ADMIN-LOGOUT-RESPONSIVE-LOGIN-SOURCE.zip")
+          output = Path("AniGames-PC-V12.4.7-FIVEM-FOCUS-SAFE-RECOVERY-SOURCE.zip")
           excluded = {"node_modules", "dist", ".git", ".cache", "__pycache__", "index-runtime-check.js"}
           with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
               for item in root.rglob("*"):
@@ -373,16 +397,17 @@ jobs:
       - name: Upload EXE, patched source, and audit report
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.4.5-ADMIN-LOGOUT-RESPONSIVE-LOGIN
+          name: AniGames-PC-V12.4.7-FIVEM-FOCUS-SAFE-RECOVERY
           path: |
             ${{ env.PC_PROJECT_DIR }}/dist/*.exe
-            AniGames-PC-V12.4.4-ADMIN-WINDOWS-CONTROLS-SOURCE.zip
+            AniGames-PC-V12.4.7-FIVEM-FOCUS-SAFE-RECOVERY-SOURCE.zip
             docs/PC-LOG-OPTIMIZATION-AUDIT.md
             docs/PC-HEARTBEAT-SESSION-PERFORMANCE-AUDIT.md
             docs/PC-SINGLE-INSTANCE-AUDIT-V12.3.7.md
             docs/PC-TIMER-WINDOW-STABILITY-V12.4.0.md
             docs/PC-LOCK-STATE-RECOVERY-V12.4.1.md
             docs/PC-WATCHDOG-AFTER-READY-V12.4.2.md
+            docs/PC-FIVEM-FOCUS-SAFE-RECOVERY-V12.4.7.md
             ${{ env.PC_PROJECT_DIR }}/EMERGENCY-SHUTDOWN-REMOVAL-AUDIT.md
             ${{ env.PC_PROJECT_DIR }}/ADMIN-LOGOUT-RESPONSIVE-LOGIN-V12.4.5-AUDIT.md
             supabase/migrations/20261101090000_secure_wol_target_mac_resolution.sql
