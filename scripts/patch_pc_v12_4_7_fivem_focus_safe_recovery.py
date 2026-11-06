@@ -4,18 +4,16 @@ import json
 ROOT = Path(".")
 main_path = ROOT / "main.js"
 index_path = ROOT / "index.html"
-renderer_path = ROOT / "renderer.js"
 package_path = ROOT / "package.json"
 lock_path = ROOT / "package-lock.json"
 version_path = ROOT / "VERSION.txt"
 
-for path in (main_path, index_path, renderer_path, package_path, lock_path, version_path):
+for path in (main_path, index_path, package_path, lock_path, version_path):
     if not path.is_file():
         raise SystemExit("Required V12.4.6 source missing: " + str(path))
 
 main = main_path.read_text(encoding="utf-8")
 index = index_path.read_text(encoding="utf-8")
-renderer = renderer_path.read_text(encoding="utf-8")
 package = json.loads(package_path.read_text(encoding="utf-8"))
 lock = json.loads(lock_path.read_text(encoding="utf-8"))
 
@@ -102,10 +100,7 @@ main = once(main, "if(active)applyActiveTimerWindowMode(mainWindow);else applyLo
 
 if index.count(OLD) < 2:
     raise SystemExit("Expected V12.4.6 runtime and visible version markers in index.html.")
-if OLD not in renderer:
-    raise SystemExit("Expected V12.4.6 marker in renderer.js.")
 index = index.replace(OLD, NEW)
-renderer = renderer.replace(OLD, NEW)
 package["version"] = "12.4.7"
 package["description"] = "AniGames Billing V12.4.7: focus-safe renderer watchdog and non-activating timer/recovery windows; preserves V12.4.6 responsive display fit, rental data and pairing."
 lock["version"] = "12.4.7"
@@ -114,7 +109,6 @@ if isinstance(lock.get("packages"), dict) and isinstance(lock.get("packages").ge
 
 main_path.write_text(main, encoding="utf-8")
 index_path.write_text(index, encoding="utf-8")
-renderer_path.write_text(renderer, encoding="utf-8")
 package_path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 version_path.write_text(
@@ -166,7 +160,7 @@ if package.get("build", {}).get("appId") != "com.anigames.billing.v12test":
     raise SystemExit("Electron appId was changed.")
 if package.get("build", {}).get("productName") != "AniGames Billing V12.3.3":
     raise SystemExit("Electron productName was changed.")
-if NEW not in index or NEW not in renderer:
-    raise SystemExit("Visible/runtime version markers are inconsistent.")
+if NEW not in index:
+    raise SystemExit("Live Electron index.html runtime version marker is inconsistent.")
 
 print("PASS: V12.4.7 focus-safe recovery; stale watchdog recovery waits until Billing is foreground; focus return re-checks stale state; renderer recovery and active timer use showInactive; package identity, pairing, and rental data paths preserved.")
