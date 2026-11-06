@@ -1,0 +1,208 @@
+name: Build AniGames PC V12.4.6 Responsive Display Fit
+
+on:
+  push:
+    branches:
+      - fix/pc-v12.4.6-responsive-display-fit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pc:
+    name: Patch, regression-check, and build Windows portable EXE
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact V12.4.5 release base plus V12.4.6 patch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract source and stage the exact patch chain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+          if (!(Test-Path $zip)) { throw 'PC source ZIP missing.' }
+          Expand-Archive -LiteralPath $zip -DestinationPath 'source-bundle' -Force
+          $project = Get-ChildItem 'source-bundle' -Directory -Recurse | Where-Object { $_.Name -eq 'Ani-Games-Billing-PC-V12.1.0' } | Select-Object -First 1
+          if (!$project) { throw 'PC project folder missing in source ZIP.' }
+          foreach ($required in @('main.js','preload.js','renderer.js','index.html','v11-cloud.js','package.json','package-lock.json')) {
+            if (!(Test-Path (Join-Path $project.FullName $required))) { throw "Required PC source file missing: $required" }
+          }
+          Copy-Item 'scripts/*.py' $project.FullName -Force
+          $edgeTarget = Join-Path $project.FullName 'supabase/functions/ani-games-api'
+          New-Item -ItemType Directory -Path $edgeTarget -Force | Out-Null
+          Copy-Item 'supabase/functions/ani-games-api/index.ts' (Join-Path $edgeTarget 'index.ts') -Force
+          Copy-Item 'supabase/functions/ani-games-api/deno.json' (Join-Path $edgeTarget 'deno.json') -Force
+          $migrationTarget = Join-Path $project.FullName 'supabase/migrations'
+          New-Item -ItemType Directory -Path $migrationTarget -Force | Out-Null
+          Get-ChildItem 'supabase/migrations' -File -Filter '*.sql' | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $migrationTarget $_.Name) -Force
+          }
+          "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Source project: $($project.FullName)"
+
+      - name: Apply the verified V12.4.5 patch chain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          $patches = @(
+            'patch_pc_log_optimization.py',
+            'patch_pc_token_preservation.py',
+            'patch_pc_live_alert_runtime.py',
+            'patch_pc_dual_db_routing.py',
+            'patch_pc_shared_gateway.py',
+            'patch_pc_v12_2_3_route_refresh.py',
+            'patch_pc_v13_shutdown_timer.py',
+            'patch_pc_v13_free_test_gate.py',
+            'patch_pc_v13_1_heartbeat_performance.py',
+            'patch_pc_v13_2_app_exit_protection.py',
+            'patch_pc_v13_3_resilience_watchdog.py',
+            'patch_pc_v12_3_4_global_rentals.py',
+            'patch_pc_v12_3_5_global_rental_gateway.py',
+            'patch_pc_v12_3_6_wol_relay.py',
+            'patch_pc_v12_3_7_single_instance.py',
+            'patch_pc_v12_3_8_auto_wol_mac.py',
+            'patch_pc_v12_3_9_kiosk_failsafe.py',
+            'patch_pc_v12_4_0_timer_window_stability.py',
+            'patch_pc_v12_4_1_lock_state_recovery.py',
+            'patch_pc_v12_4_2_watchdog_after_ready.py',
+            'patch_pc_v12_4_3_emergency_no_shutdown.py',
+            'patch_pc_v12_4_4_restore_direct_windows_shutdown.py',
+            'patch_pc_v12_4_5_admin_logout_responsive_login.py',
+            'patch_pc_v12_4_6_responsive_display_fit.py'
+          )
+          foreach ($patch in $patches) {
+            if (!(Test-Path $patch)) { throw "Patch file missing: $patch" }
+            Write-Host "Applying $patch"
+            python $patch
+            if ($LASTEXITCODE -ne 0) { throw "Patch failed: $patch" }
+          }
+
+      - name: JavaScript, app identity, display fit, and feature regression checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          foreach ($file in @('main.js','preload.js','renderer.js','v11-cloud.js')) {
+            node --check $file
+            if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax failed: $file" }
+          }
+          $main = Get-Content 'main.js' -Raw
+          $preload = Get-Content 'preload.js' -Raw
+          $index = Get-Content 'index.html' -Raw
+          $cloud = Get-Content 'v11-cloud.js' -Raw
+          $edge = Get-Content 'supabase/functions/ani-games-api/index.ts' -Raw
+
+          $runtimeMatches = [regex]::Matches($index, '(?s)<script(?:\s[^>]*)?>(.*?)</script>')
+          $runtimeMatch = $null
+          foreach ($candidate in $runtimeMatches) {
+            if ($candidate.Groups[1].Value.Contains('function pauseSession')) { $runtimeMatch = $candidate; break }
+          }
+          if (!$runtimeMatch) { throw 'Live index.html Billing runtime missing.' }
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'index-runtime-check.js'), $runtimeMatch.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
+          node --check index-runtime-check.js
+          if ($LASTEXITCODE -ne 0) { throw 'Live index.html JavaScript syntax failed.' }
+
+          foreach ($token in @('function resolveTimerWindowGeometry(', 'function fitRecoveryWindowToDisplay(', 'function handleBillingDisplayLayoutChange(', 'billingDisplayHooksRegistered', "screen.on('display-metrics-changed'", "screen.on('display-added'", "screen.on('display-removed'", 'applyLoginKioskMode(w,d,false)', 'if(!reveal&&!wasVisible)w.hide()')) {
+            if (!$main.Contains($token)) { throw "V12.4.6 native display regression token missing: $token" }
+          }
+          foreach ($token in @('ANI_GAMES_V12_4_6_RESPONSIVE_DISPLAY_FIT', 'V12.4.6-RESPONSIVE-DISPLAY-FIT', 'ResizeObserver', "visualViewport.addEventListener('resize'", "visualViewport.addEventListener('scroll'", 'overflow:auto!important', 'width:clamp(340px,min(42vw,70vh),760px)!important', "card.style.transform='none'")) {
+            if (!$index.Contains($token)) { throw "V12.4.6 responsive UI token missing: $token" }
+          }
+          if ($index.Contains('Math.max(0.55')) { throw 'Old fixed minimum scaler remains.' }
+          if ($index.Contains('max-width:440px')) { throw 'Old 440px login width cap remains.' }
+
+          $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
+          $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
+          if ($package.version -ne '12.4.6' -or $lock.version -ne '12.4.6') { throw 'PC version is not V12.4.6.' }
+          if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Persistent Electron app identity changed.' }
+
+          foreach ($token in @("ipcMain.handle('hide-billing'", "ipcMain.handle('show-billing'", "const powerCommands = { logoff: ['/l'], restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'] }", "app.requestSingleInstanceLock({", "globalShortcut.register('Control+Alt+F12'")) {
+            if (!$main.Contains($token)) { throw "Existing Windows/Admin feature missing: $token" }
+          }
+          foreach ($token in @('hideBilling: () => ipcRenderer.invoke', 'showBilling: () => ipcRenderer.invoke')) {
+            if (!$preload.Contains($token)) { throw "Admin Logout/Login bridge missing: $token" }
+          }
+          if (!$preload.Contains('onBillingDisplayMetricsChanged') -or !$index.Contains('onBillingDisplayMetricsChanged')) { throw 'Native DPI/display event-to-renderer bridge missing.' }
+          foreach ($token in @('ani_games_billing_ui_state', 'fitLoginBoxToViewport', 'window.v11ApplyRemoteCommand = async')) {
+            if (!$index.Contains($token)) { throw "Existing Login/command feature missing: $token" }
+          }
+          if (!$cloud.Contains('billingUiState:String(localStorage.getItem')) { throw 'Billing UI state heartbeat missing.' }
+          foreach ($token in @('device_rental_lookup', 'device_start_rental_session', 'device_end_rental_session')) {
+            if (!$edge.Contains($token)) { throw "Shared rental API regression: $token" }
+          }
+          if ($index.Contains('function v12CheckScheduledShutdown()') -or $index.Contains('function v12ShutdownScheduleFromAdmin(')) {
+            throw 'Automatic shutdown countdown was unintentionally reintroduced.'
+          }
+          foreach ($token in @('ANI_GAMES_V12_4_3_PURGE_LEGACY_SHUTDOWN_TIMER', 'SHUTDOWN_TIMER_DISABLED')) {
+            if (!$index.Contains($token)) { throw "Shutdown timer removal guard missing: $token" }
+          }
+          Get-ChildItem -Path 'patch_pc_*.py' -File | ForEach-Object {
+            python -m py_compile $_.Name
+            if ($LASTEXITCODE -ne 0) { throw "Python patch syntax failed: $($_.Name)" }
+          }
+          Remove-Item 'index-runtime-check.js' -Force
+          Write-Host 'PASS: V12.4.6 native display fit, responsive Login, timer/recovery work-area clamp, Admin controls, rental/session, pairing, WOL, and shutdown policy.'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ${{ github.workspace }}/source-bundle/**/package-lock.json
+
+      - name: Install locked dependencies
+        shell: pwsh
+        run: npm ci --no-audit --no-fund
+        working-directory: ${{ env.PC_PROJECT_DIR }}
+
+      - name: Build Windows portable EXE
+        shell: pwsh
+        run: npm run build
+        working-directory: ${{ env.PC_PROJECT_DIR }}
+
+      - name: Verify EXE and package source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
+          if (!$exe) { throw 'No Windows portable EXE produced.' }
+          $canonical = Join-Path $exe.DirectoryName 'AniGames Billing V12.4.6.exe'
+          if ($exe.FullName -ne $canonical) {
+            Move-Item -LiteralPath $exe.FullName -Destination $canonical -Force
+            $exe = Get-Item -LiteralPath $canonical
+          }
+          Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List
+          @'
+          import os, zipfile
+          from pathlib import Path
+          root=Path(os.environ["PC_PROJECT_DIR"]).resolve()
+          output=Path("AniGames-PC-V12.4.6-RESPONSIVE-DISPLAY-FIT-SOURCE.zip")
+          excluded={"node_modules","dist",".git",".cache","__pycache__"}
+          with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for item in root.rglob("*"):
+                  if not item.is_file() or any(part in excluded for part in item.relative_to(root).parts):
+                      continue
+                  z.write(item,(Path(root.name)/item.relative_to(root)).as_posix())
+          print("Patched source archive:",output,output.stat().st_size)
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Patched source ZIP packaging failed.' }
+
+      - name: Upload V12.4.6 EXE, source, and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-PC-V12.4.6-RESPONSIVE-DISPLAY-FIT
+          path: |
+            ${{ env.PC_PROJECT_DIR }}/dist/*.exe
+            AniGames-PC-V12.4.6-RESPONSIVE-DISPLAY-FIT-SOURCE.zip
+            ${{ env.PC_PROJECT_DIR }}/RESPONSIVE-DISPLAY-FIT-V12.4.6-AUDIT.md
+          if-no-files-found: error
+          retention-days: 14
