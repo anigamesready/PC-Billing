@@ -351,7 +351,7 @@ if "w.setAlwaysOnTop(true,'floating')" in m: raise SystemExit('Legacy floating a
 if pkg.get('version')!='12.4.7' or lock.get('version')!='12.4.7': raise SystemExit('Package version mismatch.')
 if pkg.get('build',{}).get('appId')!='com.anigames.billing.v12test' or pkg.get('build',{}).get('productName')!='AniGames Billing V12.3.3': raise SystemExit('Persistent app identity changed.')
 
-P['main.js'].write_text(m,encoding='utf-8');P['index.html'].write_text(html,encoding='utf-8');P['renderer.js'].write_text(renderer,encoding='utf-8')
+P['main.js'].write_text(m,encoding='utf-8');P['index.html'].write_text(h,encoding='utf-8');P['renderer.js'].write_text(renderer,encoding='utf-8')
 P['package.json'].write_text(json.dumps(pkg,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
 P['package-lock.json'].write_text(json.dumps(lock,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
 P['VERSION.txt'].write_text(NEW+'\nActive timer Billing is non-topmost and non-activating. Geometry changes and renderer recovery defer while another application owns foreground focus. Only initial launch or an intentional return to Billing may activate Login.\n',encoding='utf-8')
