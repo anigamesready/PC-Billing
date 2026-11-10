@@ -15,7 +15,7 @@ async function serverRpc(n:string,b:Record<string,unknown>){
  const t=await r.text();let d:any;try{d=JSON.parse(t)}catch{d={message:t}}
  if(!r.ok){
   const m=String(d?.message||d?.hint||"");
-  const known=m.match(/^(INVALID_ENROLLMENT|CLIENT_ID_REQUIRED|RECOVERY_DEVICE_NOT_FOUND|RECOVERY_DEVICE_ID_MISMATCH|INVALID_DEVICE_TOKEN)(?:$|[:\\s])/);
+  const known=m.match(/^(INVALID_ENROLLMENT|CLIENT_ID_REQUIRED|RECOVERY_DEVICE_NOT_FOUND|RECOVERY_DEVICE_ID_MISMATCH|INVALID_DEVICE_TOKEN|WOL_RELAY_ENROLLMENT_INVALID|INVALID_WOL_RELAY_TOKEN|WOL_RELAY_ACK_REJECTED|INVALID_WOL_RELAY_ACK_STATUS|WOL_RELAY_COMMAND_NOT_FOUND)(?:$|[:\\s])/);
   if(known)throw Error(known[1]);
   throw Error("PAIRING_BACKEND_UNAVAILABLE");
  }return d;
@@ -49,7 +49,86 @@ async function blynkWrite(token:string,pin:string,value:"0"|"1"){
  return {ok:r.ok&&!/error|invalid token|wrong pin|no datastream|not found/i.test(body),status:r.status,body};
 }
 function pathOf(r:Request){return new URL(r.url).pathname.replace(/^\/+|\/+$/g,"").replace(/^functions\/v1\/ani-games-api\/?/,"").replace(/^ani-games-api\/?/,"")}
+
+const ROUTE_DB1_URL="https://wzkjpycjizexxcxrfdvr.supabase.co";
+const ROUTE_DB1_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6a2pweWNqaXpleHhjeHJmZHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc0OTUsImV4cCI6MjEwNjYxMzQ5NX0.lxjSt7CqWDJhKItPi1ckVRIcc-kM7etMzxTu3txANaI";
+const ROUTE_DB2_URL="https://xcdbipgsvohesxhxydep.supabase.co";
+const ROUTE_DB2_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZGJpcGdzdm9oZXN4aHh5ZGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNjI5ODUsImV4cCI6MjEwNzYzODk4NX0.kHymS-T8a_PcKk-oQBYMGhHy3SSW1kAKStOBJVzMoSI";
+const ROUTE_DB1_REF="wzkjpycjizexxcxrfdvr";
+const ROUTE_DB2_REF="xcdbipgsvohesxhxydep";
+const GATEWAY_PATHS=new Set(["device/alert","device/disconnect","device/enroll","device/heartbeat","device/ack","device/sync","device/pull","device/rentals","device/test-policy","device/rental/lookup","device/session/start","device/session/end","device/rental/release","device/sync-cursor","wol/relay/register","wol/relay/heartbeat","wol/relay/poll","wol/relay/ack"]);
+let routeCache:{at:number;target:"primary"|"backup"|"pending";reason?:string;epoch?:number;switchId?:string}|null=null;
+async function readRoute(url:string,key:string){
+ const r=await fetch(url+"/functions/v1/db-route-status",{headers:{apikey:key},cache:"no-store",signal:AbortSignal.timeout(7000)}).catch(()=>null);
+ if(!r||!r.ok)throw new Error("ROUTE_STATUS_UNAVAILABLE");
+ const d:any=await r.json().catch(()=>({}));
+ if(d?.ok!==true||d?.readOnly!==true||!d?.route)throw new Error("ROUTE_STATUS_INVALID");
+ return {projectRef:String(d.projectRef||""),route:d.route};
+}
+function expectedFinalizeNote(target:string,epoch:number,switchId:string){
+ return "Coordinated global route finalized: "+target+" epoch "+epoch+" switch "+switchId;
+}
+async function resolveGatewayTarget():Promise<{target:"primary"|"backup"|"pending";reason?:string;epoch?:number;switchId?:string}>{
+ if(routeCache&&Date.now()-routeCache.at<3000)return {target:routeCache.target,reason:routeCache.reason,epoch:routeCache.epoch,switchId:routeCache.switchId};
+ try{
+  const local=await readRoute(ROUTE_DB1_URL,ROUTE_DB1_KEY);
+  if(local.projectRef!==ROUTE_DB1_REF||local.route?.project_ref!==ROUTE_DB1_REF)throw new Error("DB1_PROJECT_REF_MISMATCH");
+  const target=String(local.route.active_target||"");
+  const epoch=Math.trunc(Number(local.route.epoch));
+  const switchId=String(local.route.switch_id||"").toLowerCase();
+  if(target==="primary"&&epoch===1&&!switchId){
+   routeCache={at:Date.now(),target:"primary",epoch,switchId};
+   return {target:"primary",epoch,switchId};
+  }
+  if(!["primary","backup"].includes(target)||!Number.isInteger(epoch)||epoch<2||!switchId){
+   routeCache={at:Date.now(),target:"pending",reason:"ROUTE_STATE_INCOMPLETE",epoch,switchId};
+   return {target:"pending",reason:"ROUTE_STATE_INCOMPLETE",epoch,switchId};
+  }
+  const note=expectedFinalizeNote(target,epoch,switchId);
+  if(String(local.route.cutover_test_note||"")!==note||!local.route.last_cutover_test_at){
+   routeCache={at:Date.now(),target:"pending",reason:"ROUTE_SWITCH_NOT_FINALIZED",epoch,switchId};
+   return {target:"pending",reason:"ROUTE_SWITCH_NOT_FINALIZED",epoch,switchId};
+  }
+  if(target==="backup"){
+   const peer=await readRoute(ROUTE_DB2_URL,ROUTE_DB2_KEY);
+   if(peer.projectRef!==ROUTE_DB2_REF||peer.route?.project_ref!==ROUTE_DB2_REF||
+      peer.route?.active_target!==target||Number(peer.route?.epoch)!==epoch||
+      String(peer.route?.switch_id||"").toLowerCase()!==switchId||
+      String(peer.route?.cutover_test_note||"")!==note||!peer.route?.last_cutover_test_at){
+     routeCache={at:Date.now(),target:"pending",reason:"CROSS_DB_ROUTE_PROOF_MISMATCH",epoch,switchId};
+     return {target:"pending",reason:"CROSS_DB_ROUTE_PROOF_MISMATCH",epoch,switchId};
+   }
+  }
+  routeCache={at:Date.now(),target:target as "primary"|"backup",epoch,switchId};
+  return {target:target as "primary"|"backup",epoch,switchId};
+ }catch(e){
+  routeCache={at:Date.now(),target:"pending",reason:e instanceof Error?e.message:"ROUTE_STATUS_UNAVAILABLE"};
+  return {target:"pending",reason:routeCache.reason};
+ }
+}
+async function forwardBusinessRequestToDb2(req:Request,path:string){
+ const url=ROUTE_DB2_URL+"/functions/v1/ani-games-api/"+path;
+ const h=new Headers();
+ h.set("apikey",ROUTE_DB2_KEY);
+ for(const name of ["authorization","content-type","x-client-info","accept"]){
+  const value=req.headers.get(name);if(value)h.set(name,value);
+ }
+ const init:RequestInit={method:req.method,headers:h,redirect:"manual",signal:AbortSignal.timeout(15000)};
+ if(req.method!=="GET"&&req.method!=="HEAD")init.body=await req.clone().arrayBuffer();
+ const remote=await fetch(url,init).catch(()=>null);
+ if(!remote)return out(503,{ok:false,error:"ACTIVE_DB2_GATEWAY_UNAVAILABLE",activeTarget:"backup"});
+ const headers=new Headers(remote.headers);
+ headers.set("cache-control","no-store");
+ return new Response(remote.body,{status:remote.status,statusText:remote.statusText,headers});
+}
+
 async function handler(r:Request){if(r.method==="OPTIONS")return new Response(null,{status:204,headers:H});const p=pathOf(r);try{
+if(GATEWAY_PATHS.has(p)){
+ const route=await resolveGatewayTarget();
+ if(route.target==="pending")return out(503,{ok:false,error:route.reason||"GLOBAL_ROUTE_NOT_FINALIZED",activeTarget:"unknown",epoch:route.epoch||null});
+ if(route.target==="backup")return await forwardBusinessRequestToDb2(r,p);
+}
+
 if(r.method==="GET"&&p==="health")return out(200,{ok:true,service:"ani-games-billing-supabase",apiVersion:"v1"});
 if(r.method==="GET"&&p==="auth/me"){const t=(r.headers.get("authorization")||"").replace(/^Bearer /,"");const u=await user(t);return u?out(200,{ok:true,user:{id:u.id,email:u.email}}):out(401,{ok:false,error:"invalid_or_expired_token"})}
 if(p==="iot/status"){
@@ -83,6 +162,54 @@ if(p==="iot/power"){
  if(!low.ok)return out(502,{ok:false,error:"blynk_release_failed",detail:low.body||("HTTP "+low.status),releaseRecovered:false,pin});
  return out(200,{ok:true,message:"power_pulse_sent",pin,pulse_ms:500,deviceId,releaseRecovered});
 }
+
+if(p.startsWith("wol/relay/")){
+ if(r.method!=="POST")return out(405,{ok:false,error:"method_not_allowed"});
+ const b:any=await r.json().catch(()=>({}));
+ const relayId=String(b.relayId||"").trim(),rawToken=String(b.token||"").trim();
+ const tokenHash=rawToken?await hashBucket(rawToken):"";
+ if(p==="wol/relay/register"){
+  const code=String(b.code||"").trim().toUpperCase();
+  const installationId=String(b.installationId||"").trim();
+  const relayName=String(b.relayName||"Ani WoL Relay").trim().slice(0,100);
+  const appVersion=String(b.appVersion||"").trim().slice(0,64);
+  const model=String(b.model||"").trim().slice(0,100);
+  if(!/^[0-9A-F]{12}$/.test(code)||installationId.length<8||installationId.length>128)return out(400,{ok:false,error:"INVALID_WOL_RELAY_REGISTRATION"});
+  const sk=serviceKey();if(!sk)return out(503,{ok:false,error:"PAIRING_SERVICE_UNAVAILABLE"});
+  const ip=(r.headers.get("cf-connecting-ip")||"").trim().slice(0,128);
+  if(ip){
+   const key=await hashBucket(sk+"|wol-relay-register|"+ip);
+   const limit=await serverRpc("device_pairing_rate_limit_consume",{p_key_hash:key,p_max_attempts:30}).catch(()=>null);
+   if(!limit)return out(503,{ok:false,error:"PAIRING_SERVICE_UNAVAILABLE"});
+   if(limit.allowed!==true)return new Response(JSON.stringify({ok:false,error:"WOL_RELAY_RATE_LIMITED"}),{status:429,headers:{...H,"retry-after":"60"}});
+  }
+  const tokenBytes=crypto.getRandomValues(new Uint8Array(32));
+  const relayToken=Array.from(tokenBytes,x=>x.toString(16).padStart(2,"0")).join("");
+  const data=await serverRpc("wol_relay_register",{
+   p_code_hash:await hashBucket(code),p_token_hash:await hashBucket(relayToken),
+   p_relay_name:relayName,p_installation_id:installationId,p_app_version:appVersion,p_model:model
+  });
+  return out(200,{ok:true,relayId:String(data.relay_id),relayToken});
+ }
+ if(!/^[0-9a-fA-F-]{36}$/.test(relayId)||rawToken.length<32||rawToken.length>128)return out(401,{ok:false,error:"INVALID_WOL_RELAY_TOKEN"});
+ if(p==="wol/relay/heartbeat"){
+  const metrics=b.metrics&&typeof b.metrics==="object"?b.metrics:{};
+  return out(200,{ok:true,...await serverRpc("wol_relay_heartbeat",{p_relay_id:relayId,p_token_hash:tokenHash,p_metrics:metrics})});
+ }
+ if(p==="wol/relay/poll"){
+  return out(200,{ok:true,...await serverRpc("wol_relay_poll",{p_relay_id:relayId,p_token_hash:tokenHash})});
+ }
+ if(p==="wol/relay/ack"){
+  const commandId=String(b.commandId||"").trim(),status=String(b.status||"");
+  if(!/^[0-9a-fA-F-]{36}$/.test(commandId))return out(400,{ok:false,error:"INVALID_WOL_COMMAND_ID"});
+  return out(200,{ok:true,...await serverRpc("wol_relay_ack",{
+   p_relay_id:relayId,p_token_hash:tokenHash,p_command_id:commandId,
+   p_status:status,p_result:b.result&&typeof b.result==="object"?b.result:{}
+  })});
+ }
+ return out(404,{ok:false,error:"not_found",path:p});
+}
+
 if(r.method!=="POST")return out(404,{ok:false,error:"not_found",path:p});const b:any=await r.json().catch(()=>({}));
 if(p==="device/alert"){
  const token=String(b.token||""),eventId=String(b.eventId||""),eventType=String(b.eventType||""),message=String(b.message||"").slice(0,240);
@@ -118,16 +245,18 @@ if(p==="device/enroll"){
  return out(200,{ok:true,...data});
 }
 if(p==="device/test-policy")return out(200,await rpc("device_free_test_policy",{p_token:String(b.token||"")}));
-if(p==="device/heartbeat")return out(200,{ok:true,...await rpc("device_heartbeat",{p_token:String(b.token||""),p_app_version:String(b.appVersion||""),p_metadata:b.metadata||{}})});
 if(p==="device/rental/lookup")return out(200,await rpc("device_rental_lookup",{p_token:String(b.token||""),p_code:String(b.code||"")}));
-if(p==="device/session/start")return out(200,await rpc("device_start_rental_session",{p_token:String(b.token||""),p_code:String(b.code||""),p_source_event_id:String(b.sourceEventId||"")||null}));
-if(p==="device/session/end")return out(200,await rpc("device_end_rental_session",{p_token:String(b.token||""),p_code:String(b.code||""),p_remaining_seconds:Math.max(0,Number(b.remainingSeconds)||0),p_source_event_id:String(b.sourceEventId||"")||null}));
+if(p==="device/session/start")return out(200,await rpc("device_start_rental_session",{p_token:String(b.token||""),p_code:String(b.code||""),p_source_event_id:b.sourceEventId?String(b.sourceEventId):null}));
+if(p==="device/session/end")return out(200,await rpc("device_end_rental_session",{p_token:String(b.token||""),p_code:String(b.code||""),p_remaining_seconds:Math.max(0,Math.trunc(Number(b.remainingSeconds)||0)),p_source_event_id:b.sourceEventId?String(b.sourceEventId):null}));
 if(p==="device/rental/release")return out(200,await rpc("device_release_rental_lease",{p_token:String(b.token||""),p_code:String(b.code||"")}));
 if(p==="device/sync-cursor")return out(200,await rpc("device_sync_cursor",{p_token:String(b.token||"")}));
+if(p==="device/heartbeat")return out(200,{ok:true,...await rpc("device_heartbeat",{p_token:String(b.token||""),p_app_version:String(b.appVersion||""),p_metadata:b.metadata||{}})});
+if(p==="device/watchdog")return out(200,{ok:true,...await rpc("device_watchdog_poll",{p_token:String(b.token||"")})});
 if(p==="device/ack"){const t=String(b.token||""),id=String(b.commandId||""),s=String(b.status||"acknowledged"),v=b.result||{};const a=await rpc("device_ack",{p_token:t,p_command_id:id,p_status:s,p_result:v});let trial:unknown=null;if(["completed","failed","expired"].includes(s))trial=await rpc("device_finalize_trial",{p_token:t,p_command_id:id,p_status:s,p_result:v});return out(200,{ok:true,...a,...(trial?{trial}:{})})}
 if(p==="device/sync")return out(200,{ok:true,...await rpc("device_sync",{p_token:String(b.token||""),p_events:Array.isArray(b.events)?b.events:[]})});
 if(p==="device/pull")return out(200,{ok:true,...await rpc("device_pull_sync",{p_token:String(b.token||""),p_cursor:b.cursor?String(b.cursor):null})});
 if(p==="device/rentals")return out(200,await rpc("device_rentals_snapshot",{p_token:String(b.token||"")}));
 return out(404,{ok:false,error:"not_found",path:p})
-}catch(e){const m=e instanceof Error?e.message:"request_failed";const s=/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|invalid_or_expired_token/.test(m)?401:/RENTAL_NOT_FOUND/.test(m)?404:/RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|RENTAL_HAS_OFFLINE_LEASE|RENTAL_ACTIVE_TIMER_LOCKED|ACTIVE_SESSION_EXISTS|CODE_ALREADY_EXISTS/.test(m)?409:/RENTAL_NOT_ACTIVE|RENTAL_EXPIRED|RENTAL_TIME_EXHAUSTED|RENTAL_TIME_EXHAUSTED|RENTAL_CODE_INVALID/.test(m)?403:/owner_only|ADMIN_ROLE_REQUIRED|ADMIN_ORG_ACCESS_DENIED/.test(m)?403:/BLYNK_DEVICE_MAPPING_REQUIRED|BLYNK_DEVICE_MAPPING_MISMATCH|BLYNK_DEVICE_MAPPING_CONFLICT|DEVICE_NOT_ACCESSIBLE/.test(m)?409:/BLYNK_AUTH_TOKEN_NOT_CONFIGURED_IN_SUPABASE|BLYNK_DEVICE_OFFLINE|blynk_device_offline|DEVICE_MAPPING_LOOKUP_FAILED/.test(m)?503:400;return out(s,{ok:false,error:m})}}
+}catch(e){const m=e instanceof Error?e.message:"request_failed";const s=/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|invalid_or_expired_token/.test(m)?401:/RENTAL_NOT_FOUND/.test(m)?404:/owner_only|ADMIN_ROLE_REQUIRED|ADMIN_ORG_ACCESS_DENIED|RENTAL_NOT_ACTIVE|RENTAL_EXPIRED|RENTAL_TIME_EXHAUSTED|RENTAL_CODE_INVALID/.test(m)?403:/RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|RENTAL_HAS_OFFLINE_LEASE|ACTIVE_SESSION_EXISTS|CODE_ALREADY_EXISTS/.test(m)?409:/BLYNK_DEVICE_MAPPING_REQUIRED|BLYNK_DEVICE_MAPPING_MISMATCH|BLYNK_DEVICE_MAPPING_CONFLICT|DEVICE_NOT_ACCESSIBLE/.test(m)?409:/BLYNK_AUTH_TOKEN_NOT_CONFIGURED_IN_SUPABASE|BLYNK_DEVICE_OFFLINE|blynk_device_offline|DEVICE_MAPPING_LOOKUP_FAILED/.test(m)?503:400;return out(s,{ok:false,error:m})}}
+// ANI-WOL-RELAY-API-V1: authenticated relay-token endpoints; PC billing routes remain unchanged.
 Deno.serve(handler);
