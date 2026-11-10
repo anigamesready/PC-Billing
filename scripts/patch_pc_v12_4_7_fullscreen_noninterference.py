@@ -330,8 +330,8 @@ m=once(m,
             if((stale||stuck)&&!billingHasForegroundFocus)return;
             if((stale||stuck)&&billingHasForegroundFocus&&Date.now()-lastTimerRecoveryAt>20000){''','Timer watchdog foreground-only')
 
-if html.count(OLD)<2: raise SystemExit('Expected V12.4.6 visible/runtime version markers.')
-html=html.replace(OLD,NEW)
+if h.count(OLD)<2: raise SystemExit('Expected V12.4.6 visible/runtime version markers.')
+h=h.replace(OLD,NEW)
 renderer=renderer.replace("const APP_VERSION = 'V12.4.2-WATCHDOG-AFTER-READY';","const APP_VERSION = 'V12.4.7-FULLSCREEN-NONINTERFERENCE';")
 pkg['version']='12.4.7';pkg['description']='AniGames Billing V12.4.7: fullscreen-safe non-topmost timer, non-activating renderer recovery and foreground-preserving display synchronization.'
 lock['version']='12.4.7'
