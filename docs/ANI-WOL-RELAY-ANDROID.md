@@ -20,6 +20,9 @@
 - Existing billing command queue, PC pairing, rental accounts, sessions and report tables are unchanged.
 - DB1 and DB2 receive the same additive migration. DB1 gateway path allowlist includes relay routes; DB2 runs the local handler without forwarding to itself.
 
+## DB1/DB2 failover limitation
+The additive schema and API handlers are deployed to both DB1 and DB2, and the DB1 gateway routes relay requests to the active target. Relay enrollment/device/command rows are currently written to the active database only; no dual-write replication for these new rows has been enabled yet. The live route state currently reports `active_target=primary`, `backup_ready=false`, and `sync_ready=false`. Do not switch the active database expecting an existing relay pairing or pending WoL command to appear on the other database. Before enabling DB2 failover, include all three `wol_relay_*` tables in the approved DB sync/replication procedure or add authenticated peer replication and verify parity.
+
 ## Required field tests
 1. Pair Redmi from Admin-generated code.
 2. Confirm relay heartbeat and battery/temperature in Admin.
