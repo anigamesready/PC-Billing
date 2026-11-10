@@ -99,6 +99,7 @@ jobs:
           $main = Get-Content 'main.js' -Raw
           $preload = Get-Content 'preload.js' -Raw
           $index = Get-Content 'index.html' -Raw
+          $renderer = Get-Content 'renderer.js' -Raw
           $cloud = Get-Content 'v11-cloud.js' -Raw
           $edge = Get-Content 'supabase/functions/ani-games-api/index.ts' -Raw
 
