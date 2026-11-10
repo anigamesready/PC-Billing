@@ -8,7 +8,7 @@ for p in P.values():
     if not p.is_file(): raise SystemExit('V12.4.6 source missing: '+str(p))
 m=P['main.js'].read_text(encoding='utf-8')
 h=P['index.html'].read_text(encoding='utf-8')
-r=P['renderer.js'].read_text(encoding='utf-8')
+renderer=P['renderer.js'].read_text(encoding='utf-8')
 pkg=json.loads(P['package.json'].read_text(encoding='utf-8'))
 lock=json.loads(P['package-lock.json'].read_text(encoding='utf-8'))
 OLD='V12.4.6-RESPONSIVE-DISPLAY-FIT'; NEW='V12.4.7-FULLSCREEN-NONINTERFERENCE'
