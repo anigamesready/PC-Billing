@@ -74,7 +74,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_create_enrollment()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'api', 'extensions', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   a public.admin_accounts%ROWTYPE;
@@ -100,7 +100,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_status()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'api', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   a public.admin_accounts%ROWTYPE;
@@ -143,7 +143,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_enqueue(p_target_device_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'api', 'private', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   a public.admin_accounts%ROWTYPE;
@@ -227,7 +227,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_command_status(p_command_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'api', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   a public.admin_accounts%ROWTYPE;
@@ -264,7 +264,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_register(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path TO 'public', 'api', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   v_org uuid;
@@ -306,7 +306,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_heartbeat(p_relay_id uuid, p_token_hash
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path TO 'public', 'api', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   n integer;
@@ -334,7 +334,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_poll(p_relay_id uuid, p_token_hash text
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path TO 'public', 'api', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   c public.wol_relay_commands%ROWTYPE;
@@ -377,7 +377,7 @@ CREATE OR REPLACE FUNCTION api.wol_relay_ack(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path TO 'public', 'api', 'pg_catalog'
+SET search_path TO 'public', 'pg_catalog'
 AS $function$
 DECLARE
   n integer;
