@@ -232,13 +232,13 @@ jobs:
           '@ | python -
           if ($LASTEXITCODE -ne 0) { throw 'Patched source ZIP packaging failed.' }
 
-      - name: Upload V12.4.7 EXE, source, and audit
+      - name: Upload V12.4.8 EXE, source, and audit
         uses: actions/upload-artifact@v4
         with:
           name: AniGames-PC-V12.4.8-TIMER-SIZE-SYNC
           path: |
             source-bundle/Ani-Games-Billing-PC-V12.1.0/dist/*.exe
-            AniGames-PC-V12.4.7-FULLSCREEN-NONINTERFERENCE-SOURCE.zip
+            AniGames-PC-V12.4.8-TIMER-SIZE-SYNC-SOURCE.zip
             source-bundle/Ani-Games-Billing-PC-V12.1.0/TIMER-SIZE-SYNC-V12.4.8-AUDIT.md
           if-no-files-found: error
           retention-days: 14
