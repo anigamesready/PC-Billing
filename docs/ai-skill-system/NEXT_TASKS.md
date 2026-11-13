@@ -1,31 +1,33 @@
 # Next Tasks
 
-## Priority 0 — Activate BOTH workflow (documentation only)
-- [ ] User creates a ChatGPT Project named "ANI GAMES READY — Engineering & Operations", if Projects is available.
-- [ ] Paste Project Instructions from `CHATGPT_SETUP.md`; otherwise use the start prompt in each new chat.
-- [ ] Run the manual activation test in a fresh chat and record the actual result.
-- [ ] Verify the connected GitHub repository can be read and that the AI does not claim access when unavailable.
-- [ ] Confirm the AI can update only the documentation branch when asked; do not merge it.
-- [ ] Do not change runtime source as part of activation.
+## Priority 0 — Activate BOTH workflow
+- [x] Read current `AGENTS.md`, Master Skill, project state/registry/decisions/backlog/changelog/version ledger and relevant modular Skills from GitHub in this chat.
+- [x] Verify connected GitHub repository read access for this conversation.
+- [x] Verify documentation updates can be committed to the dedicated Skill System branch without merging or touching runtime source.
+- [ ] User confirms ChatGPT Project creation and Project Instructions installation, if Projects is available.
+- [ ] Run and record a fresh-chat activation test from inside that Project. Current chat activation does not independently prove Project-level instructions were installed.
 
-## Priority 1 — DB Android server/API contract
-- [ ] Re-audit the latest Redmi 6 Pro Termux server project and exact working directory/source.
-- [ ] Inventory current server endpoints, database schema, auth, backup/restore, startup/restart behavior, logs, and network exposure.
-- [ ] Design versioned API contract for PC Billing, Admin, and Reseller separately.
-- [ ] Map every required existing RPC/API behavior; identify missing endpoints and authorization boundaries.
-- [ ] Define PostgreSQL schema/migrations, indexes, constraints, transaction boundaries, idempotency keys, audit events and conflict strategy.
-- [ ] Define automated backup plus tested restore and off-device backup strategy.
-- [ ] Create staging-only endpoint tests and role-isolation tests.
+## Priority 1 — Redmi DB Android server/API contract
+- [ ] Obtain current sanitized read-only inventory/source of Termux project `~/ani-games-server`; do not include .env, passwords, tokens, private keys, database dumps or backups.
+- [ ] Revalidate current Termux working directory, Node version, PostgreSQL/API process state, port 8787, health response, control script and startup behavior.
+- [ ] Inventory every API route, request/response shape, authentication middleware, role/org checks, rate limit and error behavior.
+- [ ] Inspect actual database schema and compare it to the 24-table core business schema; identify applied migrations and schema version without changing the live DB.
+- [ ] Audit backup automation, checksum verification, retention, off-device copy and a demonstrated restore to a separate staging database.
+- [ ] Map PC Billing routes: enrollment/recovery, device token, heartbeat/watchdog, command poll/ack, sync cursor/pull, rental lookup, session start/end/release, offline leases and conflict queue.
+- [ ] Map Admin routes: login/context/session revoke, PC status/recovery, alerts, global rental CRUD, command dispatch/ack, daily/monthly/yearly/per-PC reports and Excel/PDF exports.
+- [ ] Map Reseller routes: token login/session expiry, reseller-only rental CRUD, ACTIVE/DISABLE/EXPIRED states and active-session/offline-lease delete guards.
+- [ ] Define versioned API contract, idempotency rules, transaction boundaries, audit events, role isolation and staging test matrix.
+- [ ] Do not port client apps or apply schema to the existing Redmi DB until server/API/auth/backup/restore contract is accepted.
 
-## Priority 2 — Client migration planning
+## Priority 2 — Client DB Android migration planning
 - [ ] PC Billing: map pairing, heartbeat, commands, rental sync, session lifecycle, offline leases, conflict queue, timer and WoL/Blynk behavior.
-- [ ] Admin: map admin login/context, PC status/recovery, alerts, rental CRUD, commands, reports and Excel/PDF exports.
-- [ ] Reseller: map reseller login/session, own-rental CRUD, status lifecycle and active-session delete protection.
-- [ ] Resolve remembered-password storage security issue in Reseller.
-- [ ] Create a fresh-install test matrix for each client.
+- [ ] Admin V12.1.50: map login/context, role gates, PC status/recovery, alerts, rental CRUD, command lifecycle, reports/exports and separate WoL relay behavior.
+- [ ] Reseller V1.0.6: map login/session, own-rental CRUD, status lifecycle and active-session/offline-lease delete safeguards.
+- [ ] Replace remembered-password plaintext localStorage behavior with revocable short-lived session handling and Android secure storage where feasible.
+- [ ] Create a fresh-install/upgrade regression matrix for each client.
 
 ## Priority 3 — Build and release discipline
-- [ ] Confirm dedicated DB Android build workflows and branch push filters; do not reuse Supabase workflows as DB Android proof.
+- [ ] Confirm dedicated DB Android build workflows and push filters; do not reuse Supabase workflows as DB Android proof.
 - [ ] Add artifact provenance: commit SHA, source archive SHA-256, patch list, app version, package ID, workflow run, artifact SHA-256.
 - [ ] Run syntax/build/regression tests before producing each candidate.
 - [ ] Test clean install and upgrade/replace path before release.
