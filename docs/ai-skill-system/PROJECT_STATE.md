@@ -1,7 +1,11 @@
 # Project State — 2026-11-14
 
 ## Current system status
-- AI Skill System: documentation created in an isolated GitHub branch; no runtime project source changed.
+- AI Skill System: documentation and modular Skills are stored in isolated GitHub branch `docs/ani-games-ready-ai-skill-system`.
+- Hybrid mode selected: GitHub is the permanent source of instructions/state; ChatGPT is the execution workspace and must re-read GitHub at task start.
+- ChatGPT integration guide and copy-ready Project Instructions are documented in `CHATGPT_SETUP.md`.
+- Manual activation test has not yet been run in a fresh ChatGPT Project/chat. Do not claim the ChatGPT side is fully configured until the user completes that step and the test passes.
+- No runtime project source changed during Skill System setup.
 - Main focus carried forward: Ani Games Ready DB Android development using Redmi 6 Pro as intended local server, with PC Billing, Admin APK, and Reseller APK as separate client tracks.
 - Existing Supabase DB1/DB2 dual-database system remains a separate development/production track. Do not merge these designs or alter production routing as part of DB Android work.
 
@@ -28,4 +32,4 @@
 - Preserve PC timer, fullscreen, pairing, offline queue, rental session and WoL/Blynk behaviors.
 
 ## Next step
-Before implementation on Redmi DB Android, inspect current Redmi server repository/files and the latest three client branch audit documents; then map all required endpoints and RPC equivalents into a versioned API contract and test plan. Do not start client porting until server-side authentication, authorization, data model, backup/restore, and endpoint contracts are defined.
+First finish the manual ChatGPT activation test using `CHATGPT_SETUP.md`. After that, continue Priority 1: inspect the current Redmi server source/workdir and latest three client branch audit documents; map required endpoints and RPC equivalents into a versioned API contract and test plan. Do not start client porting until server-side authentication, authorization, data model, backup/restore, and endpoint contracts are defined.
