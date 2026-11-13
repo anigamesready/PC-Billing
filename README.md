@@ -7,11 +7,12 @@ Dokumentasi kerja permanen lintas proyek Ani Games Ready. Tujuan: menjaga kontek
 2. Baca `PROJECT_REGISTRY.md`, `PROJECT_STATE.md`, `DECISIONS.md`, dan `NEXT_TASKS.md`.
 3. Pilih Skill turunan di `.agents/skills/` sesuai jenis tugas.
 4. Audit repository/branch/commit terbaru pada saat tugas dimulai. Registry adalah snapshot, bukan izin untuk menganggapnya selalu terbaru.
-5. Sebelum berhenti, perbarui state, changelog, dan handover.
+5. Untuk penggunaan bersama ChatGPT, ikuti `docs/ai-skill-system/CHATGPT_SETUP.md`.
+6. Sebelum berhenti, perbarui state, changelog, dan handover.
 
 ## Struktur
 - `.agents/skills/`: Skill modular dengan format `SKILL.md`.
-- `docs/ai-skill-system/`: aturan induk, registry, state, keputusan, changelog, backlog, template handover.
+- `docs/ai-skill-system/`: aturan induk, registry, state, keputusan, changelog, backlog, template handover, dan panduan integrasi ChatGPT.
 - `AGENTS.md`: entry point agar agen membaca aturan sebelum bekerja.
 
 ## Batas penting
