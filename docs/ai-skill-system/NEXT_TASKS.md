@@ -1,5 +1,13 @@
 # Next Tasks
 
+## Priority 0 — Activate BOTH workflow (documentation only)
+- [ ] User creates a ChatGPT Project named "ANI GAMES READY — Engineering & Operations", if Projects is available.
+- [ ] Paste Project Instructions from `CHATGPT_SETUP.md`; otherwise use the start prompt in each new chat.
+- [ ] Run the manual activation test in a fresh chat and record the actual result.
+- [ ] Verify the connected GitHub repository can be read and that the AI does not claim access when unavailable.
+- [ ] Confirm the AI can update only the documentation branch when asked; do not merge it.
+- [ ] Do not change runtime source as part of activation.
+
 ## Priority 1 — DB Android server/API contract
 - [ ] Re-audit the latest Redmi 6 Pro Termux server project and exact working directory/source.
 - [ ] Inventory current server endpoints, database schema, auth, backup/restore, startup/restart behavior, logs, and network exposure.
