@@ -24,6 +24,7 @@ Apply only these schema files to a fresh, empty local database:
 8. `schema/008_local_business_triggers.sql`
 9. `schema/009_admin_db1_business_routines.sql`
 10. `schema/010_billing_reseller_refresh_and_devices.sql`
+11. `schema/011_billing_control_android_rpcs.sql`
 
 Do **not** apply `schema/001_db1_catalog_snapshot.sql`; it is a catalog/reference snapshot, not a migration. Do not import DB1/DB2 routing, route-quiesce/before-image triggers, Telegram outbox, or shutdown scheduler sidecars.
 
@@ -40,7 +41,7 @@ bash start.sh
 
 What each step does:
 
-- `migrate-local.sh`: creates a separate `ani_games_ready` database if needed; refuses to apply the schema if any public/auth/private application tables already exist; applies the ten approved migrations only.
+- `migrate-local.sh`: creates a separate `ani_games_ready` database if needed; refuses to apply the schema if any public/auth/private application tables already exist; applies the eleven approved migrations only.
 - `provision-runtime-role.sh`: creates a restricted `ani_api_login` role, grants only the approved API role, generates random API/bootstrap secrets, writes a mode-600 `.env`, and stores only the SHA-256 bootstrap-token hash in the local database.
 - `install-deps.sh`: installs the pinned `pg` Node dependency and runs a syntax check.
 - `start.sh`: loads the protected `.env` and starts the local API.
