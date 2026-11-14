@@ -32,7 +32,7 @@ assert.ok(login.refresh_token);
 const context = await readJson(await post("/rest/v1/rpc/admin_context_v2", {}, login.access_token));
 assert.equal(context.role, "SUPER_ADMIN");
 
-const adminOrgId = context.orgs?.[0]?.id;
+const adminOrgId = context.org_id;
 assert.ok(adminOrgId);
 const devices = await readJson(await post("/rest/v1/rpc/admin_devices", { p_org_id: adminOrgId }, login.access_token));
 assert.ok(Array.isArray(devices));
