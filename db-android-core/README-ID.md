@@ -1,18 +1,22 @@
-# Ani Games Ready — Redmi DB Android Local API
+# Ani Games Ready — DB Android Local API
 
 ## Status
-This folder is the isolated DB Android implementation branch. It is not a production cutover and it does not modify Supabase DB1/DB2.
+Cabang ini adalah backend DB Android terpisah. Bukan cutover produksi dan tidak mengubah Supabase DB1/DB2.
 
-- PostgreSQL core schema: 24 DB1 operational tables, plus local Admin session storage.
-- SQL API ports: PC device/pairing/session/sync, Billing Control, Reseller auth/rental CRUD and rotating refresh tokens, and local Admin auth/RPC wrappers.
-- Node API: local HTTP adapter for the existing PC device routes, Admin auth/RPC, and Reseller auth/RPC.
-- Default network binding: `127.0.0.1:8787` only.
-- Blynk/WoL relay: deliberately separate; this service does not start, stop, proxy, or reconfigure it.
-- Admin APK and Reseller APK client-side source adaptation/build: still pending source-package and integration audit.
-- Redmi installation/runtime regression: not yet run on the actual device.
+- Skema lokal: 24 tabel operasional DB1 tanpa data akun, hash password, token, atau secret produksi.
+- Migrasi yang diizinkan: `000` dan `002–011`; snapshot katalog `001` bukan migrasi.
+- API Node: protokol perangkat PC, pairing, heartbeat, sesi, delta sync, Admin, Billing Control dan Reseller.
+- Hak akses runtime minimum: Node memakai `ani_api_login` atau `ani_api_stage_login`; tidak mendapat akses langsung ke tabel bisnis.
+- Endpoint bawaan server dasar: loopback `127.0.0.1:8787`.
+- Paket STAGING terpisah: database `ani_games_ready_stage`, role `ani_api_stage_login`, API `127.0.0.1:8788`.
+- Blynk/WoL relay tetap service terpisah dan tidak diproxy, dihentikan, atau diubah oleh API database.
+- Source adapter/build PC Billing V12.4.8, Admin V12.1.50 dan Reseller V1.0.6 telah disiapkan di branch DB Android masing-masing.
+- CI PostgreSQL berhasil: migrasi lengkap, role/API allowlist, uji PC/Billing/Reseller/Admin, backup–restore, setup staging, Owner bootstrap, login dan context.
+- Instalasi dan uji perangkat nyata di Redmi belum dilakukan pada saat catatan ini dibuat.
+- Data Supabase DB1 belum diimpor. Database staging baru kosong dan bukan salinan produksi.
 
-## Important source rule
-Apply only these schema files to a fresh, empty local database:
+## Aturan migrasi
+Hanya jalankan pada database BARU dan kosong. Urutan file:
 
 1. `schema/000_prerequisites.sql`
 2. `schema/002_core_business_schema.sql`
@@ -26,35 +30,22 @@ Apply only these schema files to a fresh, empty local database:
 10. `schema/010_billing_reseller_refresh_and_devices.sql`
 11. `schema/011_billing_control_android_rpcs.sql`
 
-Do **not** apply `schema/001_db1_catalog_snapshot.sql`; it is a catalog/reference snapshot, not a migration. Do not import DB1/DB2 routing, route-quiesce/before-image triggers, Telegram outbox, or shutdown scheduler sidecars.
+JANGAN menerapkan `schema/001_db1_catalog_snapshot.sql`. Jangan memasukkan tabel kontrol DB1/DB2, route-quiesce/before-image, Telegram outbox, atau shutdown scheduler sidecar.
 
-## Termux first-time setup
-
-Run the scripts from this folder after PostgreSQL and Node.js are installed and running:
-
+## Instalasi
+Untuk server dasar setelah PostgreSQL dan Node.js siap:
 ```bash
 bash migrate-local.sh
 bash provision-runtime-role.sh
 bash install-deps.sh
 bash start.sh
 ```
+Server dasar menggunakan port 8787. Jangan jalankan migrasi pada database yang sudah berisi tabel aplikasi.
 
-What each step does:
+Paket Redmi STAGING menggunakan file `setup-stage.sh` dan membuat database/role/API terpisah pada port 8788. Petunjuk lengkap ada di `README-STAGE-ID.txt`. Setup staging berhenti bila database, role, folder, atau port 8788 sudah digunakan. Layanan lama port 8787 tidak ditargetkan.
 
-- `migrate-local.sh`: creates a separate `ani_games_ready` database if needed; refuses to apply the schema if any public/auth/private application tables already exist; applies the eleven approved migrations only.
-- `provision-runtime-role.sh`: creates a restricted `ani_api_login` role, grants only the approved API role, generates random API/bootstrap secrets, writes a mode-600 `.env`, and stores only the SHA-256 bootstrap-token hash in the local database.
-- `install-deps.sh`: installs the pinned `pg` Node dependency and runs a syntax check.
-- `start.sh`: loads the protected `.env` and starts the local API.
-
-Then open this address in the Redmi browser:
-
-`http://127.0.0.1:8787/setup`
-
-Create the first local Owner account there. The setup page is available only from localhost and the bootstrap token is never sent to the browser. The database consumes the bootstrap token after the first successful Owner creation.
-
-## API compatibility routes
-
-### PC Billing device API
+## API
+### PC Billing
 - `POST /device/enroll`
 - `POST /device/heartbeat`
 - `POST /device/disconnect`
@@ -71,47 +62,39 @@ Create the first local Owner account there. The setup page is available only fro
 - `POST /device/session/end`
 - `POST /device/rental/release`
 
-The same device routes are also available under `/functions/v1/ani-games-api/` for the existing Edge Function path shape.
+Jalur yang sama tersedia di bawah `/functions/v1/ani-games-api/` untuk kompatibilitas bentuk URL Edge Function lama.
 
-### Admin local authentication
-- `POST /auth/v1/token?grant_type=password`
-- `POST /auth/v1/token?grant_type=refresh_token`
-- `GET /auth/v1/user`
-- `POST /auth/v1/logout`
-- `POST /rest/v1/rpc/admin_context`
-- `POST /rest/v1/rpc/admin_context_v2`
-- Admin login lookup, device list/state/rename/disconnect, active sessions/activity, free-test policy/trial, global rental CRUD, alerts, selected sessions, commands, recovery enrollment and period report RPCs from the allowlist in `server.mjs`.
+### Admin
+Login lokal, refresh session, context, daftar perangkat, state, pairing recovery, alerts, policy free test, perintah PC, global rental CRUD, dan laporan periodik tersedia melalui allowlist `/rest/v1/rpc/*`.
 
-### Billing Control / Reseller
-- `POST /rest/v1/rpc/billing_login`
-- `POST /rest/v1/rpc/billing_context`
-- `POST /rest/v1/rpc/billing_change_password`
-- Reseller rental list/create/edit/delete RPCs.
-- Billing Control PC command/status RPCs. Reseller role is denied Windows/PC control.
+### Billing Control pada Admin APK
+Login Billing Control, context, ganti password, daftar perangkat/sesi/rental per PC, tambah/edit/hapus rental, pause/resume/stop, restart Billing, trial, status command, serta putus pairing memakai token Billing Control terpisah. Reseller tidak diberi izin Windows/PC Control.
+
+### Reseller
+List/create/edit/delete global rental, status rental, refresh token dan session API memakai token yang dibatasi ke organisasi reseller. Reseller tidak memiliki akses tabel langsung dan tidak dapat mengirim Windows/PC command.
 
 ### Health
 - `GET /health`
 
-The API does not expose direct PostgREST table reads. It only exposes the explicit function allowlist. If the current Admin/Reseller UI uses direct `.from(...)` queries, the app adapter must be audited and updated before those screens can be connected.
+API tidak menyediakan akses tabel PostgREST langsung. Hanya fungsi yang ada di allowlist yang dapat dipanggil oleh role runtime.
 
-## Security boundaries
-- Never put a PostgreSQL password, service-role key, DB secret or bootstrap token in an APK/EXE.
-- Node connects as `ani_api_login`, not as the PostgreSQL owner.
-- Runtime role has function execution only; it has no direct SELECT/INSERT/UPDATE/DELETE on business tables.
-- Local Admin and Billing Control sessions are distinct token families. Tokens are random; only SHA-256 hashes are stored.
-- Admin access tokens last 12 hours and refresh tokens rotate with a 30-day expiry.
-- Reseller sessions remain separate and are scoped by their own organization.
-- Default binding is loopback. Do not set `ANI_BIND=0.0.0.0` until LAN origins, network access, TLS/reverse-proxy and firewall rules are reviewed.
-- Request logs exclude passwords, tokens, bootstrap secrets and request bodies.
+## Batas keamanan
+- Jangan pernah memasukkan password PostgreSQL, service-role key, bootstrap token atau API secret ke APK/EXE.
+- Simpan kredensial runtime hanya pada `.env` lokal dengan izin file terbatas.
+- Admin, Billing Control, Reseller dan PC Device memakai keluarga token terpisah; token disimpan sebagai hash di database.
+- Refresh token Admin/Billing/Reseller di Android menggunakan Android Keystore-backed storage.
+- Binding default hanya loopback. Jangan membuka `0.0.0.0` atau menggunakan HTTP melalui LAN.
+- Sebelum PC Windows/HP lain dihubungkan, siapkan HTTPS tunnel/reverse proxy dan CORS/origin yang tepat. PC Billing menolak URL non-HTTPS selain loopback.
+- Log tidak boleh merekam password, token, bootstrap secret atau body request.
+- Blynk/WoL relay tidak dikelola oleh API database ini.
 
-## Relay separation
-Blynk and WoL relay are not part of this local DB server. The Node API returns `RELAY_IS_SEPARATE_SERVICE` for relay routes. Do not use DB start/stop controls to manage the relay service.
+## Verifikasi dan batas hasil
+CI berjalan pada PostgreSQL disposable dengan data sintetis. CI sukses membuktikan skema, API dan installer staging lulus pengujian otomatis; tidak membuktikan Redmi telah diperbarui, akses HTTPS antar-perangkat tersedia, APK sudah diuji pada perangkat nyata, atau PC sudah dipairing ke Redmi.
 
-## Verification
-PostgreSQL CI runs against a disposable PostgreSQL 16 database and synthetic data. A passing CI run does not mean the Redmi phone has been updated, that APKs have been rebuilt, or that Admin/Reseller clients are already connected. Check the current GitHub Actions result before calling a revision tested.
+Tidak ada data Supabase yang dipindahkan dan belum ada cutover produksi.
 
 ## Rollback
-- This work is on `backend/db-android-core-v1`; master and Supabase branches are untouched.
-- Before applying schema on Redmi, create and checksum a PostgreSQL backup.
-- If the new API is not yet activated, stop only the new Node API process; do not stop PostgreSQL or the separate Blynk/WoL relay.
-- Do not drop the local database to roll back. Restore only from a verified backup after reviewing the exact target database.
+- Pekerjaan ada di `backend/db-android-core-v1`; master/Supabase tetap tidak berubah.
+- Sebelum instalasi staging di Redmi, buat dan verifikasi backup PostgreSQL.
+- Hentikan hanya proses Node staging jika perlu rollback. Jangan hentikan PostgreSQL atau relay Blynk/WoL.
+- Jangan drop database lokal untuk rollback. Ekspor data staging sebelum tindakan yang menghapus.
