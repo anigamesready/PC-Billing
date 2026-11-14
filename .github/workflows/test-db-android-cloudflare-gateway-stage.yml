@@ -47,7 +47,6 @@ jobs:
           OUT="$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
           mkdir -p "$OUT"
           cp db-android-core/cloudflare-gateway-stage/worker.mjs "$OUT/"
-          cp db-android-core/cloudflare-gateway-stage/worker.test.mjs "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/configure-online.sh "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/start-online.sh "$OUT/"
