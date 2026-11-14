@@ -31,7 +31,7 @@ local_config=r"""
   function getApiBaseUrl(){
     const saved=localStorage.getItem(API_URL_KEY)||'';
     if(!saved)return '';
-    try{return normalizeApiBaseUrl(saved)}catch(_){return 'http://127.0.0.1:8787'}
+    try{return normalizeApiBaseUrl(saved)}catch(_){return ''}
   }
   function setApiBaseUrl(value){
     const base=normalizeApiBaseUrl(value);
