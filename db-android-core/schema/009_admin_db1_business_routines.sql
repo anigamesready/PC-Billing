@@ -1163,6 +1163,312 @@ AS $function$
   LIMIT 1;
 $function$;
 
+CREATE OR REPLACE FUNCTION api.create_enrollment(p_org_id uuid, p_label text, p_minutes bigint DEFAULT 30)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+declare
+  uid uuid := auth.uid();
+  raw text;
+  hash text;
+  eid uuid;
+  exp timestamptz;
+  mins bigint;
+begin
+  if uid is null then raise exception 'AUTH_REQUIRED'; end if;
+  if not private.is_owner_access(p_org_id) then raise exception 'OWNER_ONLY'; end if;
+
+  raw := upper(substr(md5(random()::text || clock_timestamp()::text || uid::text), 1, 8));
+  hash := encode(extensions.digest(raw, 'sha256'), 'hex');
+
+  mins := greatest(1::bigint, least(coalesce(p_minutes,30::bigint), 1440::bigint));
+  exp := now() + (mins * interval '1 minute');
+
+  insert into public.device_enrollments(org_id,code_hash,label,expires_at)
+  values(p_org_id,hash,coalesce(nullif(trim(p_label),''),'PC'),exp)
+  returning id into eid;
+
+  insert into public.audit_logs(org_id,actor_user_id,action,target_type,target_id,payload)
+  values(p_org_id,uid,'create_device_enrollment','device_enrollment',eid,
+         jsonb_build_object('label',p_label));
+
+  return jsonb_build_object('id',eid,'code',raw,'expires_at',exp);
+end
+$function$;
+
+CREATE OR REPLACE FUNCTION api.create_reseller(p_name text, p_slug text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+declare uid uuid:=auth.uid(); parent_id uuid; org_id uuid; clean_slug text:=lower(regexp_replace(coalesce(nullif(trim(p_slug),''),trim(p_name)),'[^a-zA-Z0-9]+','-','g'));
+begin
+ if uid is null then raise exception 'AUTH_REQUIRED'; end if;
+ select om.org_id into parent_id from public.org_members om join public.organizations o on o.id=om.org_id where om.auth_user_id=uid and om.role='owner' and o.kind='owner' order by om.created_at limit 1;
+ if parent_id is null then raise exception 'OWNER_REQUIRED'; end if;
+ insert into public.organizations(parent_org_id,name,slug,kind) values(parent_id,coalesce(nullif(trim(p_name),''),'Reseller'),clean_slug,'reseller') returning id into org_id;
+ insert into public.org_members(org_id,auth_user_id,role) values(org_id,uid,'owner');
+ insert into public.audit_logs(org_id,actor_user_id,action,target_type,target_id,payload) values(org_id,uid,'create_reseller','organization',org_id,jsonb_build_object('name',p_name));
+ return jsonb_build_object('org_id',org_id,'parent_org_id',parent_id,'name',p_name,'slug',clean_slug);
+end $function$;
+
+CREATE OR REPLACE FUNCTION api.dashboard_billing_user(p_action text, p_username text, p_password text DEFAULT NULL::text, p_status text DEFAULT 'active'::text, p_role text DEFAULT 'RESELLER_ADMIN'::text, p_org_id uuid DEFAULT NULL::uuid, p_display_name text DEFAULT NULL::text, p_user_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$ declare me public.admin_accounts%rowtype; b public.billing_control_accounts%rowtype; uname text:=lower(trim(coalesce(p_username,''))); begin select * into me from public.admin_accounts where auth_user_id=auth.uid() and role='SUPER_ADMIN' and status='active' limit 1; if not found then raise exception 'SUPER_ADMIN_REQUIRED'; end if; if p_action <> 'delete' and uname='' then raise exception 'USERNAME_REQUIRED'; end if; if p_action <> 'delete' and p_role not in ('SUPER_ADMIN','RESELLER_ADMIN') then raise exception 'INVALID_ROLE'; end if; if p_action <> 'delete' and p_status not in ('active','disabled') then raise exception 'INVALID_STATUS'; end if; if p_action='create' then if length(coalesce(p_password,''))<8 then raise exception 'PASSWORD_TOO_SHORT'; end if; if exists(select 1 from public.billing_control_accounts where lower(username)=uname) then raise exception 'USERNAME_EXISTS'; end if; insert into public.billing_control_accounts(auth_user_id,username,role,org_id,status,display_name,must_change_password,password_hash) values(null,uname,p_role,coalesce(p_org_id,me.org_id),p_status,nullif(trim(p_display_name),''),true,extensions.crypt(p_password,extensions.gen_salt('bf'))) returning * into b; elsif p_action='update' then select * into b from public.billing_control_accounts where id=p_user_id for update; if not found then raise exception 'BILLING_ACCOUNT_NOT_FOUND'; end if; if exists(select 1 from public.billing_control_accounts where lower(username)=uname and id<>b.id) then raise exception 'USERNAME_EXISTS'; end if; update public.billing_control_accounts set username=uname,role=p_role,org_id=coalesce(p_org_id,org_id),status=p_status,display_name=nullif(trim(p_display_name),''),updated_at=now() where id=b.id; if p_password is not null and p_password<>'' then if length(p_password)<8 then raise exception 'PASSWORD_TOO_SHORT'; end if; update public.billing_control_accounts set password_hash=extensions.crypt(p_password,extensions.gen_salt('bf')),must_change_password=true,failed_attempts=0,locked_until=null where id=b.id; update public.billing_control_sessions set revoked_at=now() where billing_account_id=b.id and revoked_at is null; end if; if p_status='disabled' then update public.billing_control_sessions set revoked_at=now() where billing_account_id=b.id and revoked_at is null; end if; select * into b from public.billing_control_accounts where id=b.id; elsif p_action='delete' then select * into b from public.billing_control_accounts where id=p_user_id for update; if not found then raise exception 'BILLING_ACCOUNT_NOT_FOUND'; end if; update public.billing_control_sessions set revoked_at=now() where billing_account_id=b.id and revoked_at is null; delete from public.billing_control_accounts where id=b.id; insert into public.audit_logs(org_id,actor_user_id,action,target_type,target_id,payload) values(coalesce(b.org_id,me.org_id),auth.uid(),'billing_user_admin_delete','billing_control_account',b.id,jsonb_build_object('action','delete','username',b.username,'role',b.role,'status',b.status)); return jsonb_build_object('ok',true,'deleted',true,'id',b.id,'username',b.username); else raise exception 'UNKNOWN_ACTION'; end if; insert into public.audit_logs(org_id,actor_user_id,action,target_type,target_id,payload) values(coalesce(b.org_id,me.org_id),auth.uid(),'billing_user_admin_action','billing_control_account',b.id,jsonb_build_object('action',p_action,'username',b.username,'role',b.role,'status',b.status)); return jsonb_build_object('ok',true,'id',b.id,'username',b.username,'role',b.role,'org_id',b.org_id,'status',b.status); end $function$;
+
+CREATE OR REPLACE FUNCTION api.dashboard_billing_users()
+ RETURNS TABLE(id uuid, username text, role text, org_id uuid, org_name text, status text, display_name text, must_change_password boolean, last_login_at timestamp with time zone, created_at timestamp with time zone)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+declare
+  me public.admin_accounts%rowtype;
+begin
+  select a.* into me
+  from public.admin_accounts as a
+  where a.auth_user_id = auth.uid()
+    and a.role = 'SUPER_ADMIN'
+    and a.status = 'active'
+  limit 1;
+
+  if not found then
+    raise exception 'SUPER_ADMIN_REQUIRED';
+  end if;
+
+  return query
+  select
+    b.id,
+    b.username,
+    b.role,
+    b.org_id,
+    o.name as org_name,
+    b.status,
+    b.display_name,
+    b.must_change_password,
+    b.last_login_at,
+    b.created_at
+  from public.billing_control_accounts as b
+  left join public.organizations as o on o.id = b.org_id
+  order by b.username;
+end
+$function$;
+
+CREATE OR REPLACE FUNCTION api.report_detailed_usage_page(p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_limit integer DEFAULT 200, p_before_started_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_before_session_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE v_limit integer:=least(greatest(coalesce(p_limit,200),1),500); v_rows jsonb:='[]'::jsonb; v_has_more boolean:=false; v_next_started_at timestamptz; v_next_session_id uuid;
+BEGIN
+ IF auth.uid() IS NULL THEN RAISE EXCEPTION 'AUTH_REQUIRED'; END IF;
+ IF NOT private.user_has_org_access(p_org_id) THEN RAISE EXCEPTION 'ORG_ACCESS_DENIED'; END IF;
+ IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from THEN RAISE EXCEPTION 'INVALID_REPORT_RANGE'; END IF;
+ IF (p_before_started_at IS NULL)<>(p_before_session_id IS NULL) THEN RAISE EXCEPTION 'INVALID_REPORT_CURSOR'; END IF;
+ WITH candidates AS MATERIALIZED (
+  SELECT rs.id,rs.rental_account_id,rs.device_id,rs.code,rs.started_at,rs.deadline_at,rs.ended_at,rs.status
+  FROM public.rental_sessions rs
+  WHERE rs.org_id=p_org_id AND rs.started_at<p_to AND coalesce(rs.ended_at,rs.deadline_at,now())>p_from
+   AND (p_before_started_at IS NULL OR rs.started_at<p_before_started_at OR (rs.started_at=p_before_started_at AND rs.id<p_before_session_id))
+  ORDER BY rs.started_at DESC,rs.id DESC LIMIT (v_limit+1)
+ ), page AS MATERIALIZED (SELECT * FROM candidates ORDER BY started_at DESC,id DESC LIMIT v_limit)
+ SELECT coalesce((SELECT jsonb_agg(jsonb_build_object(
+   'session_id',p.id,'code',coalesce(ra.code,p.code,'-'),'pc_name',coalesce(d.device_name,d.client_id,'-'),
+   'play_date',(p.started_at AT TIME ZONE 'Asia/Jakarta')::date,
+   'started_at',p.started_at,'ended_at',p.ended_at,'deadline_at',p.deadline_at,'status',p.status,
+   'seconds_played',CASE WHEN lower(p.status)='paused' THEN 0::bigint ELSE greatest(0,floor(extract(epoch FROM (least(coalesce(p.ended_at,p.deadline_at,now()),p_to,now())-greatest(p.started_at,p_from)))))::bigint END
+  ) ORDER BY p.started_at DESC,p.id DESC)
+  FROM page p LEFT JOIN public.rental_accounts ra ON ra.id=p.rental_account_id LEFT JOIN public.devices d ON d.id=p.device_id),'[]'::jsonb),
+  (SELECT count(*)>v_limit FROM candidates),
+  (SELECT p.started_at FROM page p ORDER BY p.started_at ASC,p.id ASC LIMIT 1),
+  (SELECT p.id FROM page p ORDER BY p.started_at ASC,p.id ASC LIMIT 1)
+ INTO v_rows,v_has_more,v_next_started_at,v_next_session_id;
+ RETURN jsonb_build_object('rows',v_rows,'has_more',v_has_more,'next_cursor',CASE WHEN v_has_more AND v_next_started_at IS NOT NULL AND v_next_session_id IS NOT NULL THEN jsonb_build_object('started_at',v_next_started_at,'session_id',v_next_session_id) ELSE NULL END);
+END; $function$;
+
+CREATE OR REPLACE FUNCTION api.report_monthly_rental_summary(p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  v_rows jsonb := '[]'::jsonb;
+  v_daily jsonb := '[]'::jsonb;
+  v_total_sessions bigint := 0;
+  v_total_seconds bigint := 0;
+  v_rental_count bigint := 0;
+  v_from_date date;
+  v_to_date date;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'AUTH_REQUIRED'; END IF;
+  IF p_org_id IS NULL OR NOT private.user_has_org_access(p_org_id) THEN RAISE EXCEPTION 'ORG_ACCESS_DENIED'; END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to <= p_from THEN RAISE EXCEPTION 'INVALID_REPORT_RANGE'; END IF;
+  IF p_to - p_from > interval '32 days' THEN RAISE EXCEPTION 'MONTH_REPORT_RANGE_TOO_LARGE'; END IF;
+  v_from_date := (p_from AT TIME ZONE 'Asia/Jakarta')::date;
+  v_to_date := ((p_to - interval '1 microsecond') AT TIME ZONE 'Asia/Jakarta')::date;
+
+  WITH sessions_in_month AS MATERIALIZED (
+    SELECT s.id, s.rental_account_id,
+      COALESCE(r.code, s.code, '-') AS rental_code,
+      COALESCE(NULLIF(BTRIM(r.client_label), ''), NULLIF(BTRIM(s.metadata->>'clientLabel'), ''), '-') AS rental_name,
+      s.started_at, s.ended_at, s.deadline_at, s.status,
+      CASE WHEN LOWER(COALESCE(s.status, '')) = 'paused' THEN 0::bigint
+        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (
+          LEAST(COALESCE(s.ended_at, s.deadline_at, NOW()), p_to, NOW())
+          - GREATEST(s.started_at, p_from)
+        )))::bigint) END AS played_seconds
+    FROM public.rental_sessions s
+    LEFT JOIN public.rental_accounts r ON r.id = s.rental_account_id
+    WHERE s.org_id = p_org_id
+      AND COALESCE(s.session_type, 'rental') <> 'free_test'
+      AND s.started_at < p_to
+      AND COALESCE(s.ended_at, s.deadline_at, NOW()) > p_from
+  ), grouped AS (
+    SELECT COALESCE(rental_account_id::text, 'legacy:' || UPPER(rental_code)) AS rental_key,
+      MAX(rental_code) AS rental_id, MAX(rental_name) AS rental_name,
+      SUM(played_seconds)::bigint AS total_play_seconds, COUNT(*)::bigint AS total_sessions
+    FROM sessions_in_month
+    GROUP BY COALESCE(rental_account_id::text, 'legacy:' || UPPER(rental_code))
+  )
+  SELECT COALESCE(JSONB_AGG(JSONB_BUILD_OBJECT(
+      'rental_id', rental_id, 'rental_name', rental_name,
+      'total_play_seconds', total_play_seconds, 'total_sessions', total_sessions
+    ) ORDER BY total_play_seconds DESC, rental_id), '[]'::jsonb),
+    COALESCE(SUM(total_sessions), 0), COALESCE(SUM(total_play_seconds), 0), COUNT(*)
+  INTO v_rows, v_total_sessions, v_total_seconds, v_rental_count FROM grouped;
+
+  WITH days AS (
+    SELECT gs::date AS day
+    FROM GENERATE_SERIES(v_from_date::timestamp, v_to_date::timestamp, interval '1 day') gs
+  ), daily AS (
+    SELECT d.day,
+      COUNT(s.id) FILTER (
+        WHERE s.started_at >= (d.day::timestamp AT TIME ZONE 'Asia/Jakarta')
+          AND s.started_at < ((d.day + 1)::timestamp AT TIME ZONE 'Asia/Jakarta')
+      )::bigint AS sessions_started,
+      COALESCE(SUM(
+        CASE WHEN s.id IS NULL OR LOWER(COALESCE(s.status, '')) = 'paused' THEN 0::bigint
+        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (
+          LEAST(COALESCE(s.ended_at, s.deadline_at, NOW()), p_to, NOW(),
+            ((d.day + 1)::timestamp AT TIME ZONE 'Asia/Jakarta'))
+          - GREATEST(s.started_at, p_from, (d.day::timestamp AT TIME ZONE 'Asia/Jakarta'))
+        )))::bigint) END
+      ), 0)::bigint AS active_seconds
+    FROM days d
+    LEFT JOIN public.rental_sessions s
+      ON s.org_id = p_org_id
+     AND COALESCE(s.session_type, 'rental') <> 'free_test'
+     AND s.started_at < ((d.day + 1)::timestamp AT TIME ZONE 'Asia/Jakarta')
+     AND COALESCE(s.ended_at, s.deadline_at, NOW()) > (d.day::timestamp AT TIME ZONE 'Asia/Jakarta')
+    GROUP BY d.day
+  )
+  SELECT COALESCE(JSONB_AGG(JSONB_BUILD_OBJECT(
+      'date', day, 'sessions_started', sessions_started, 'active_seconds', active_seconds
+    ) ORDER BY day), '[]'::jsonb)
+  INTO v_daily FROM daily;
+
+  RETURN JSONB_BUILD_OBJECT('from', p_from, 'to', p_to, 'timezone', 'Asia/Jakarta',
+    'rental_count', v_rental_count, 'total_sessions', v_total_sessions,
+    'total_play_seconds', v_total_seconds, 'rows', v_rows, 'daily', v_daily);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION api.report_summary_compact(p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE result jsonb;
+BEGIN
+ IF auth.uid() IS NULL THEN RAISE EXCEPTION 'AUTH_REQUIRED'; END IF;
+ IF NOT private.user_has_org_access(p_org_id) THEN RAISE EXCEPTION 'ORG_ACCESS_DENIED'; END IF;
+ IF p_from IS NULL OR p_to IS NULL OR p_to<=p_from THEN RAISE EXCEPTION 'INVALID_REPORT_RANGE'; END IF;
+ SELECT jsonb_build_object(
+  'sessions',(SELECT count(*) FROM public.rental_sessions WHERE org_id=p_org_id AND started_at<p_to AND coalesce(ended_at,deadline_at,now())>p_from),
+  'active_sessions',(SELECT count(*) FROM public.rental_sessions WHERE org_id=p_org_id AND status='active'),
+  'transactions',(SELECT count(*) FROM public.billing_transactions WHERE org_id=p_org_id AND occurred_at>=p_from AND occurred_at<p_to),
+  'free_tests',(SELECT count(*) FROM public.rental_sessions WHERE org_id=p_org_id AND session_type='free_test' AND started_at<p_to AND coalesce(ended_at,deadline_at,now())>p_from)
+ ) INTO result;
+ RETURN result;
+END; $function$;
+
+CREATE OR REPLACE FUNCTION api.save_theme(p_org_id uuid, p_name text, p_brand_title text, p_brand_subtitle text, p_primary_color text, p_secondary_color text, p_card_color text DEFAULT NULL::text, p_media_url text DEFAULT NULL::text, p_wallpaper_url text DEFAULT NULL::text, p_logo_url text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+declare tid uuid;
+begin
+ if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
+ if not (private.is_owner_access(p_org_id) or private.is_reseller_admin(p_org_id)) then raise exception 'ORG_ACCESS_DENIED'; end if;
+ insert into public.themes(org_id,name,brand_title,brand_subtitle,primary_color,secondary_color,card_color,media_url,wallpaper_url,logo_url,is_active,updated_at)
+ values(p_org_id,coalesce(nullif(trim(p_name),''),'Theme'),nullif(trim(p_brand_title),''),nullif(trim(p_brand_subtitle),''),p_primary_color,p_secondary_color,p_card_color,p_media_url,p_wallpaper_url,p_logo_url,true,now()) returning id into tid;
+ update public.themes set is_active=false,updated_at=now() where org_id=p_org_id and id<>tid and is_active=true;
+ update public.organizations set theme_id=tid where id=p_org_id;
+ update public.rental_accounts set theme_id=tid,updated_at=now() where org_id=p_org_id and theme_id is null;
+ insert into public.audit_logs(org_id,actor_user_id,action,target_type,target_id,payload) values(p_org_id,auth.uid(),'save_theme','theme',tid,jsonb_build_object('name',p_name));
+ return jsonb_build_object('ok',true,'theme_id',tid);
+end $function$;
+
+-- Token-bound wrappers for the existing Admin UI RPCs.
+CREATE OR REPLACE FUNCTION api.create_enrollment(p_session_token text,p_org_id uuid,p_label text,p_minutes bigint DEFAULT 30)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN api.create_enrollment(p_org_id,p_label,p_minutes); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.create_reseller(p_session_token text,p_name text,p_slug text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN api.create_reseller(p_name,p_slug); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.dashboard_billing_user(p_session_token text,p_action text,p_username text,p_password text,p_status text,p_role text,p_org_id uuid,p_display_name text,p_user_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN api.dashboard_billing_user(p_action,p_username,p_password,p_status,p_role,p_org_id,p_display_name,p_user_id); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.dashboard_billing_users(p_session_token text)
+RETURNS TABLE(id uuid,username text,role text,org_id uuid,org_name text,status text,display_name text,must_change_password boolean,last_login_at timestamptz,created_at timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN QUERY SELECT * FROM api.dashboard_billing_users(); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.report_detailed_usage_page(p_session_token text,p_org_id uuid,p_from timestamptz,p_to timestamptz,p_limit integer DEFAULT 200,p_before_started_at timestamptz DEFAULT NULL,p_before_session_id uuid DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN api.report_detailed_usage_page(p_org_id,p_from,p_to,p_limit,p_before_started_at,p_before_session_id); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.report_monthly_rental_summary(p_session_token text,p_org_id uuid,p_from timestamptz,p_to timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN api.report_monthly_rental_summary(p_org_id,p_from,p_to); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.report_summary_compact(p_session_token text,p_org_id uuid,p_from timestamptz,p_to timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN api.report_summary_compact(p_org_id,p_from,p_to); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.save_theme(p_session_token text,p_org_id uuid,p_name text,p_brand_title text,p_brand_subtitle text,p_primary_color text,p_secondary_color text,p_card_color text,p_media_url text,p_wallpaper_url text,p_logo_url text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$ BEGIN PERFORM private.set_admin_actor(p_session_token); RETURN api.save_theme(p_org_id,p_name,p_brand_title,p_brand_subtitle,p_primary_color,p_secondary_color,p_card_color,p_media_url,p_wallpaper_url,p_logo_url); END; $function$;
+
+CREATE OR REPLACE FUNCTION api.admin_command_status(p_session_token text,p_org_id uuid,p_command_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$
+DECLARE v_command public.device_commands%ROWTYPE;
+BEGIN
+  PERFORM private.set_admin_actor(p_session_token);
+  SELECT * INTO v_command FROM public.device_commands
+  WHERE id=p_command_id AND org_id=p_org_id LIMIT 1;
+  IF NOT FOUND THEN RAISE EXCEPTION 'COMMAND_NOT_FOUND'; END IF;
+  IF NOT private.admin_can_access_device(v_command.device_id,p_org_id) THEN RAISE EXCEPTION 'DEVICE_ACCESS_DENIED'; END IF;
+  RETURN jsonb_build_object('id',v_command.id,'status',v_command.status,'result',coalesce(v_command.result,'{}'::jsonb),
+    'delivered_at',v_command.delivered_at,'completed_at',v_command.completed_at);
+END;
+$function$;
+
 -- Token-bound wrappers for the remaining Admin screens and controls.
 CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_session_token text,p_org_id uuid)
 RETURNS SETOF public.rental_sessions LANGUAGE plpgsql SECURITY DEFINER
@@ -1222,6 +1528,14 @@ REVOKE EXECUTE ON FUNCTION private.user_has_org_access(uuid) FROM PUBLIC,ani_api
 REVOKE EXECUTE ON FUNCTION private.user_role(uuid) FROM PUBLIC,ani_api_runtime;
 
 REVOKE EXECUTE ON FUNCTION api.admin_login_lookup(text) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.create_enrollment(uuid,text,bigint) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.create_reseller(text,text) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.dashboard_billing_user(text,text,text,text,text,uuid,text,uuid) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.dashboard_billing_users() FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.report_detailed_usage_page(uuid,timestamptz,timestamptz,integer,timestamptz,uuid) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.report_monthly_rental_summary(uuid,timestamptz,timestamptz) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.report_summary_compact(uuid,timestamptz,timestamptz) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.save_theme(uuid,text,text,text,text,text,text,text,text,text) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_active_sessions(uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_activity(uuid,timestamptz,timestamptz,integer) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_command(uuid,uuid,text,jsonb) FROM PUBLIC,ani_api_runtime;
@@ -1246,6 +1560,15 @@ REVOKE EXECUTE ON FUNCTION api.create_device_recovery_enrollment(uuid,bigint) FR
 REVOKE EXECUTE ON FUNCTION api.report_rental_period_breakdown(uuid,timestamptz,timestamptz) FROM PUBLIC,ani_api_runtime;
 
 GRANT EXECUTE ON FUNCTION api.admin_login_lookup(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.create_enrollment(text,uuid,text,bigint) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.create_reseller(text,text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.dashboard_billing_user(text,text,text,text,text,text,uuid,text,uuid) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.dashboard_billing_users(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.report_detailed_usage_page(text,uuid,timestamptz,timestamptz,integer,timestamptz,uuid) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.report_monthly_rental_summary(text,uuid,timestamptz,timestamptz) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.report_summary_compact(text,uuid,timestamptz,timestamptz) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.save_theme(text,uuid,text,text,text,text,text,text,text,text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.admin_command_status(text,uuid,uuid) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_active_sessions(text,uuid) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_activity(text,uuid,timestamptz,timestamptz,integer) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_device_state(text,uuid,uuid) TO ani_api_runtime;
