@@ -4,7 +4,7 @@
 This folder is the isolated DB Android implementation branch. It is not a production cutover and it does not modify Supabase DB1/DB2.
 
 - PostgreSQL core schema: 24 DB1 operational tables, plus local Admin session storage.
-- SQL API ports: PC device/pairing/session/sync, Billing Control, Reseller auth/rental CRUD, and local Admin auth/RPC wrappers.
+- SQL API ports: PC device/pairing/session/sync, Billing Control, Reseller auth/rental CRUD and rotating refresh tokens, and local Admin auth/RPC wrappers.
 - Node API: local HTTP adapter for the existing PC device routes, Admin auth/RPC, and Reseller auth/RPC.
 - Default network binding: `127.0.0.1:8787` only.
 - Blynk/WoL relay: deliberately separate; this service does not start, stop, proxy, or reconfigure it.
@@ -23,6 +23,7 @@ Apply only these schema files to a fresh, empty local database:
 7. `schema/007_billing_control_commands.sql`
 8. `schema/008_local_business_triggers.sql`
 9. `schema/009_admin_db1_business_routines.sql`
+10. `schema/010_billing_reseller_refresh_and_devices.sql`
 
 Do **not** apply `schema/001_db1_catalog_snapshot.sql`; it is a catalog/reference snapshot, not a migration. Do not import DB1/DB2 routing, route-quiesce/before-image triggers, Telegram outbox, or shutdown scheduler sidecars.
 
