@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           bash -n db-android-core/cloudflare-gateway-stage/configure-online.sh
           bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
-          OUT="/tmp/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
+          OUT="$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
           mkdir -p "$OUT"
           cp db-android-core/cloudflare-gateway-stage/worker.mjs "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/worker.test.mjs "$OUT/"
@@ -64,6 +64,21 @@ jobs:
             echo "Potential secret found in gateway source package."
             exit 1
           fi
-          cd /tmp
+          cat > "$OUT/online-secrets.env.example" <<'EOF'
+          # Copy to online-secrets.env on the Redmi only; fill values privately.
+          GATEWAY_BASE_URL=https://ani-games-db-android-stage-gateway.anigamesready.workers.dev
+          GATEWAY_REGISTER_TOKEN=PASTE_PRIVATE_REGISTER_TOKEN
+          EDGE_PROXY_SECRET=PASTE_PRIVATE_EDGE_SECRET
+          EOF
+          mkdir -p "$GITHUB_WORKSPACE/output"
+          cd "$GITHUB_WORKSPACE/output"
           zip -qr ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE
-          sha256sum ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip
+          sha256sum ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip | tee SHA256SUMS.txt
+          unzip -t ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip
+      - name: Upload Termux online gateway package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE
+          path: output/*
+          if-no-files-found: error
+          retention-days: 30
