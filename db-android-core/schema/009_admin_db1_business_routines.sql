@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION private.admin_can_access_device(p_device_id uuid, p_o
  SET search_path TO 'public', 'pg_catalog'
 AS $function$
  select exists(select 1 from public.devices d join public.admin_accounts a on a.auth_user_id=auth.uid() and a.status='active' where d.id=p_device_id and (p_org_id is null or d.org_id=p_org_id) and (a.role='SUPER_ADMIN' or (a.org_id=d.org_id and exists(select 1 from public.admin_pc_access x where x.admin_account_id=a.id and x.device_id=d.id))));
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.is_owner_access(target_org uuid)
  RETURNS boolean
@@ -22,14 +22,14 @@ CREATE OR REPLACE FUNCTION private.is_owner_access(target_org uuid)
  SET search_path TO 'public', 'pg_catalog'
 AS $function$
   SELECT COALESCE(private.user_role(target_org) = 'owner', false)
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.is_reseller_admin(target_org uuid)
  RETURNS boolean
  LANGUAGE sql
  SECURITY DEFINER
  SET search_path TO 'public', 'pg_catalog'
-AS $function$ select exists(select 1 from public.org_members where org_id=target_org and auth_user_id=auth.uid() and role='reseller_admin') $function$
+AS $function$ select exists(select 1 from public.org_members where org_id=target_org and auth_user_id=auth.uid() and role='reseller_admin') $function$;
 
 CREATE OR REPLACE FUNCTION private.user_has_org_access(target_org uuid)
  RETURNS boolean
@@ -47,7 +47,7 @@ begin
   exit when current_org is null;
  end loop;
  return false;
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION private.user_role(target_org uuid)
  RETURNS text
@@ -65,7 +65,7 @@ begin
   exit when cur is null;
  end loop;
  return null;
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_org_id uuid)
  RETURNS SETOF rental_sessions
@@ -74,7 +74,7 @@ CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_org_id uuid)
  SET search_path TO 'public', 'pg_catalog'
 AS $function$
  select s.* from public.rental_sessions s where s.org_id=p_org_id and s.status in ('active','paused') and private.admin_can_access_device(s.device_id,p_org_id) order by s.started_at desc;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_activity(p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone, p_limit integer DEFAULT 100)
  RETURNS jsonb
@@ -104,7 +104,7 @@ begin
     ) x),'[]'::jsonb)
   ) into result;
   return result;
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_command(p_org_id uuid, p_device_id uuid, p_command text, p_payload jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
@@ -275,7 +275,7 @@ BEGIN
     'target_device_id',CASE WHEN p_command = 'wake' THEN target_device_id ELSE NULL END
   );
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_context()
  RETURNS jsonb
@@ -294,14 +294,14 @@ begin
   select jsonb_agg(to_jsonb(o) order by o.created_at) into result from public.organizations o where exists(select 1 from public.org_members m where m.org_id=o.id and m.auth_user_id=uid and m.role='reseller_admin');
  end if;
  return jsonb_build_object('role',role_name,'orgs',coalesce(result,'[]'::jsonb),'user_id',uid);
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_context_v2()
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$ declare a public.admin_accounts%rowtype; orgs jsonb; begin if auth.uid() is null then raise exception 'UNAUTHENTICATED'; end if; select * into a from public.admin_accounts where auth_user_id=auth.uid() and status='active' limit 1; if not found then raise exception 'ADMIN_ACCOUNT_NOT_CONFIGURED'; end if; update public.admin_accounts set last_login_at=now(),updated_at=now() where id=a.id; if a.role='SUPER_ADMIN' then select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'slug',o.slug,'kind',o.kind) order by o.name),'[]'::jsonb) into orgs from public.organizations o where o.status='active'; else select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'slug',o.slug,'kind',o.kind) order by o.name),'[]'::jsonb) into orgs from public.organizations o where o.id=a.org_id and o.status='active'; end if; return jsonb_build_object('id',a.id,'username',a.username,'role',a.role,'org_id',a.org_id,'must_change_password',a.must_change_password,'orgs',orgs); end; $function$
+AS $function$ declare a public.admin_accounts%rowtype; orgs jsonb; begin if auth.uid() is null then raise exception 'UNAUTHENTICATED'; end if; select * into a from public.admin_accounts where auth_user_id=auth.uid() and status='active' limit 1; if not found then raise exception 'ADMIN_ACCOUNT_NOT_CONFIGURED'; end if; update public.admin_accounts set last_login_at=now(),updated_at=now() where id=a.id; if a.role='SUPER_ADMIN' then select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'slug',o.slug,'kind',o.kind) order by o.name),'[]'::jsonb) into orgs from public.organizations o where o.status='active'; else select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'slug',o.slug,'kind',o.kind) order by o.name),'[]'::jsonb) into orgs from public.organizations o where o.id=a.org_id and o.status='active'; end if; return jsonb_build_object('id',a.id,'username',a.username,'role',a.role,'org_id',a.org_id,'must_change_password',a.must_change_password,'orgs',orgs); end; $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_create_rental_global(p_org_id uuid, p_code text, p_category text DEFAULT 'reguler'::text, p_minutes bigint DEFAULT 60, p_client_label text DEFAULT NULL::text, p_expiry_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
  RETURNS jsonb
@@ -350,7 +350,7 @@ BEGIN
   RETURN jsonb_build_object('ok',true,'id',rid,'org_id',p_org_id,'code',c,'category',cat,
     'remaining_seconds',secs,'expiry_at',expiry,'device_id',NULL);
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_delete_rental_global(p_org_id uuid, p_rental_id uuid)
  RETURNS jsonb
@@ -415,7 +415,7 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'id', r.id, 'org_id', p_org_id, 'code', r.code,
     'device_id', r.device_id, 'command_id', cid, 'history_preserved', true);
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_device_state(p_org_id uuid, p_device_id uuid)
  RETURNS jsonb
@@ -435,7 +435,7 @@ begin
  case when not online then 'OFFLINE' when s.status='active' then 'RENTAL_ACTIVE' when s.status='paused' then 'RENTAL_PAUSED' else 'STANDBY' end,
  'session',case when s.id is null then null else jsonb_build_object('id',s.id,'code',s.code,'status',s.status,'session_type',s.session_type,'deadline_at',s.deadline_at,'remaining_seconds',greatest(0,extract(epoch from (s.deadline_at-now()))::bigint),'client_label',m->>'activeClientLabel','category',m->>'activeCategory','expiry_at',m->>'activeExpiryDate') end,
  'device',jsonb_build_object('id',d.id,'name',d.device_name,'client_id',d.client_id,'power_state',d.power_state,'last_heartbeat_at',d.last_heartbeat_at));
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_devices(p_org_id uuid)
  RETURNS SETOF devices
@@ -447,7 +447,7 @@ begin
  update public.devices set status='offline',power_state=case when power_state='online' then 'unknown' else power_state end
  where org_id=p_org_id and status='online' and (coalesce(last_heartbeat_at,last_seen_at) is null or coalesce(last_heartbeat_at,last_seen_at)<now()-interval '45 seconds');
  return query select d.* from public.devices d where d.org_id=p_org_id and private.admin_can_access_device(d.id,p_org_id) order by d.device_name,d.client_id;
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_disable_rental_global(p_org_id uuid, p_rental_id uuid)
  RETURNS jsonb
@@ -517,7 +517,7 @@ BEGIN
     'lease_device_id',v_lease_device_id
   );
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_disconnect_device(p_org_id uuid, p_device_id uuid)
  RETURNS jsonb
@@ -535,7 +535,37 @@ begin
  update public.devices set status='offline',power_state='unknown',metadata=coalesce(metadata,'{}'::jsonb)||jsonb_build_object('pairingDisconnectedAt',now()) where id=p_device_id and org_id=p_org_id;
  insert into public.audit_logs(org_id,actor_user_id,action,target_type,target_id,payload) values(p_org_id,auth.uid(),'device_pairing_disconnected','device',p_device_id::text,jsonb_build_object('revoked_tokens',n));
  return jsonb_build_object('ok',true,'device_id',p_device_id,'revoked_tokens',n);
-end $function$
+end $function$;
+
+CREATE OR REPLACE FUNCTION api.admin_get_free_test_policy()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'private', 'pg_catalog'
+AS $function$
+DECLARE
+  setting_row private.admin_feature_settings%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'UNAUTHENTICATED'; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.org_members m
+    WHERE m.auth_user_id = auth.uid() AND m.role = 'owner'
+  ) THEN
+    RAISE EXCEPTION 'OWNER_ONLY';
+  END IF;
+
+  SELECT * INTO setting_row
+  FROM private.admin_feature_settings
+  WHERE feature_key = 'free_test_10m_enabled';
+
+  RETURN jsonb_build_object(
+    'enabled', COALESCE(setting_row.enabled, false),
+    'contact_phone', '082298316902',
+    'updated_at', setting_row.updated_at,
+    'updated_by', setting_row.updated_by
+  );
+END;
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_recent_alerts(p_org_id uuid, p_since timestamp with time zone DEFAULT (now() - '00:02:00'::interval))
  RETURNS TABLE(id uuid, device_id uuid, device_name text, client_id text, source_event_id text, event_type text, message text, payload jsonb, occurred_at timestamp with time zone, created_at timestamp with time zone)
@@ -561,7 +591,7 @@ BEGIN
     ORDER BY e.created_at ASC
     LIMIT 100;
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_rename_device(p_org_id uuid, p_device_id uuid, p_device_name text)
  RETURNS jsonb
@@ -595,7 +625,16 @@ begin
   return jsonb_build_object('ok', true, 'device_id', d.id, 'device_name', nm,
                             'client_id_unchanged', true, 'pairing_token_unchanged', true);
 end
-$function$
+$function$;
+
+CREATE OR REPLACE FUNCTION api.admin_rental_accounts(p_org_id uuid, p_device_id uuid)
+ RETURNS SETOF rental_accounts
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+ select r.* from public.rental_accounts r where r.org_id=p_org_id and r.device_id=p_device_id and private.admin_can_access_device(r.device_id,p_org_id) order by r.code;
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_rental_accounts_global(p_org_id uuid)
  RETURNS SETOF rental_accounts
@@ -618,14 +657,14 @@ BEGIN
     WHERE r.org_id=p_org_id AND upper(r.code) <> '__TEST10__'
     ORDER BY r.code;
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_selected_sessions(p_org_id uuid, p_device_id uuid)
  RETURNS SETOF rental_sessions
  LANGUAGE sql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$ select rs.* from public.rental_sessions rs where rs.org_id=p_org_id and rs.device_id=p_device_id and rs.status in ('active','paused') and exists(select 1 from public.admin_accounts a where a.auth_user_id=auth.uid() and a.status='active' and (a.role='SUPER_ADMIN' or a.org_id=p_org_id)); $function$
+AS $function$ select rs.* from public.rental_sessions rs where rs.org_id=p_org_id and rs.device_id=p_device_id and rs.status in ('active','paused') and exists(select 1 from public.admin_accounts a where a.auth_user_id=auth.uid() and a.status='active' and (a.role='SUPER_ADMIN' or a.org_id=p_org_id)); $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_set_free_test_policy(p_enabled boolean)
  RETURNS jsonb
@@ -668,7 +707,7 @@ BEGIN
     'updated_by', setting_row.updated_by
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.admin_start_trial(p_org_id uuid, p_device_id uuid)
  RETURNS jsonb
@@ -693,7 +732,7 @@ begin
  insert into public.audit_logs(org_id,actor_user_id,action,target_type,target_id,payload) values(p_org_id,auth.uid(),'start_trial_requested','device',p_device_id::text,jsonb_build_object('trial_request_id',rid,'command_id',cid));
  return jsonb_build_object('ok',true,'trial_request_id',rid,'command_id',cid,'duration_seconds',600);
 exception when unique_violation then raise exception 'SESSION_ALREADY_ACTIVE';
-end; $function$
+end; $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_update_rental_global(p_org_id uuid, p_rental_id uuid, p_code text, p_category text, p_minutes bigint, p_client_label text, p_expiry_at timestamp with time zone, p_status text)
  RETURNS jsonb
@@ -826,7 +865,7 @@ BEGIN
     'time_command_id',time_command_id,'seconds_added',added_seconds,'pending_add_seconds',pending_add_seconds,
     'lease_preserved',v_lease_until>NOW(),'lease_until',v_lease_until,'lease_device_id',v_lease_device_id);
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.create_device_recovery_enrollment(p_device_id uuid, p_minutes bigint DEFAULT 30)
  RETURNS jsonb
@@ -880,7 +919,7 @@ BEGIN
     'target_client_id', d.client_id
   );
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION api.report_rental_period_breakdown(p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
  RETURNS jsonb
@@ -1101,46 +1140,8 @@ BEGIN
     'pc_rows', v_per_pc
   );
 END;
-$function$
-
-CREATE OR REPLACE FUNCTION api.admin_get_free_test_policy()
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'private', 'pg_catalog'
-AS $function$
-DECLARE
-  setting_row private.admin_feature_settings%ROWTYPE;
-BEGIN
-  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'UNAUTHENTICATED'; END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM public.org_members m
-    WHERE m.auth_user_id = auth.uid() AND m.role = 'owner'
-  ) THEN
-    RAISE EXCEPTION 'OWNER_ONLY';
-  END IF;
-
-  SELECT * INTO setting_row
-  FROM private.admin_feature_settings
-  WHERE feature_key = 'free_test_10m_enabled';
-
-  RETURN jsonb_build_object(
-    'enabled', COALESCE(setting_row.enabled, false),
-    'contact_phone', '082298316902',
-    'updated_at', setting_row.updated_at,
-    'updated_by', setting_row.updated_by
-  );
-END;
 $function$;
 
-CREATE OR REPLACE FUNCTION api.admin_rental_accounts(p_org_id uuid, p_device_id uuid)
- RETURNS SETOF rental_accounts
- LANGUAGE sql
- SECURITY DEFINER
- SET search_path TO 'public', 'pg_catalog'
-AS $function$
- select r.* from public.rental_accounts r where r.org_id=p_org_id and r.device_id=p_device_id and private.admin_can_access_device(r.device_id,p_org_id) order by r.code;
-$function$;
 
 -- Token-bound wrappers for the remaining Admin screens and controls.
 CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_session_token text,p_org_id uuid)
@@ -1211,6 +1212,7 @@ REVOKE EXECUTE ON FUNCTION api.admin_device_state(uuid,uuid) FROM PUBLIC,ani_api
 REVOKE EXECUTE ON FUNCTION api.admin_devices(uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_disable_rental_global(uuid,uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_disconnect_device(uuid,uuid) FROM PUBLIC,ani_api_runtime;
+REVOKE EXECUTE ON FUNCTION api.admin_get_free_test_policy() FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_recent_alerts(uuid,timestamptz) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_rename_device(uuid,uuid,text) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_rental_accounts_global(uuid) FROM PUBLIC,ani_api_runtime;
