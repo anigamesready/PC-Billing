@@ -182,6 +182,17 @@ const RPC = {
   report_rental_period_breakdown: { auth: "admin", sql: "SELECT api.report_rental_period_breakdown($1::text,$2::uuid,$3::timestamptz,$4::timestamptz) AS result", args: ["p_org_id","p_from","p_to"] },
   admin_change_password: { auth: "admin", sql: "SELECT api.admin_change_password($1::text,$2::text,$3::text) AS result", args: ["p_current_password","p_new_password"] },
 
+  admin_active_sessions: { auth: "admin", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.started_at DESC),'[]'::jsonb) AS result FROM api.admin_active_sessions($1::text,$2::uuid) x", args: ["p_org_id"] },
+  admin_activity: { auth: "admin", sql: "SELECT api.admin_activity($1::text,$2::uuid,$3::timestamptz,$4::timestamptz,$5::integer) AS result", args: ["p_org_id","p_from","p_to","p_limit"] },
+  admin_device_state: { auth: "admin", sql: "SELECT api.admin_device_state($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
+  admin_devices: { auth: "admin", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.device_name,x.client_id),'[]'::jsonb) AS result FROM api.admin_devices($1::text,$2::uuid) x", args: ["p_org_id"] },
+  admin_disconnect_device: { auth: "admin", sql: "SELECT api.admin_disconnect_device($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
+  admin_get_free_test_policy: { auth: "admin", sql: "SELECT api.admin_get_free_test_policy($1::text) AS result", args: [] },
+  admin_rename_device: { auth: "admin", sql: "SELECT api.admin_rename_device($1::text,$2::uuid,$3::uuid,$4::text) AS result", args: ["p_org_id","p_device_id","p_device_name"] },
+  admin_rental_accounts: { auth: "admin", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.code),'[]'::jsonb) AS result FROM api.admin_rental_accounts($1::text,$2::uuid,$3::uuid) x", args: ["p_org_id","p_device_id"] },
+  admin_set_free_test_policy: { auth: "admin", sql: "SELECT api.admin_set_free_test_policy($1::text,$2::boolean) AS result", args: ["p_enabled"] },
+  admin_start_trial: { auth: "admin", sql: "SELECT api.admin_start_trial($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
+
   billing_context: { auth: "billing", sql: "SELECT api.billing_context($1::text) AS result", args: [] },
   billing_logout: { auth: "billing", sql: "SELECT api.billing_logout($1::text) AS result", args: [] },
   billing_change_password: { auth: "billing", sql: "SELECT api.billing_change_password($1::text,$2::text,$3::text) AS result", args: ["p_current_password","p_new_password"] },
