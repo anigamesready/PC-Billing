@@ -40,7 +40,7 @@ bash start.sh
 
 What each step does:
 
-- `migrate-local.sh`: creates a separate `ani_games_ready` database if needed; refuses to apply the schema if any public/auth/private application tables already exist; applies the eight approved migrations only.
+- `migrate-local.sh`: creates a separate `ani_games_ready` database if needed; refuses to apply the schema if any public/auth/private application tables already exist; applies the ten approved migrations only.
 - `provision-runtime-role.sh`: creates a restricted `ani_api_login` role, grants only the approved API role, generates random API/bootstrap secrets, writes a mode-600 `.env`, and stores only the SHA-256 bootstrap-token hash in the local database.
 - `install-deps.sh`: installs the pinned `pg` Node dependency and runs a syntax check.
 - `start.sh`: loads the protected `.env` and starts the local API.
