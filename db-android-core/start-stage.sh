@@ -26,13 +26,13 @@ if curl -fsS http://127.0.0.1:8788/health >/dev/null 2>&1; then
   echo "[ANI STAGE] STOP: port 8788 dipakai proses lain; tidak akan dihentikan."
   exit 2
 fi
-(
-  cd "$SERVER"
+nohup bash -c '
+  cd "$1"
   set -a
-  . "$ENV_FILE"
+  . "$2"
   set +a
   exec node server.mjs
-) >>"$LOG_FILE" 2>&1 &
+' _ "$SERVER" "$ENV_FILE" >>"$LOG_FILE" 2>&1 </dev/null &
 PID=$!
 echo "$PID" > "$PID_FILE"
 sleep 2
