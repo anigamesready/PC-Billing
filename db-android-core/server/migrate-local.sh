@@ -29,6 +29,7 @@ for file in \
   008_local_business_triggers.sql \
   009_admin_db1_business_routines.sql \
   010_billing_reseller_refresh_and_devices.sql
+  011_billing_control_android_rpcs.sql
 do
   echo "[ANI DB] Menerapkan $file"
   psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCHEMA/$file"
