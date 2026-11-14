@@ -27,8 +27,8 @@ DECLARE
 BEGIN
   -- Verify the expected business schema and PC API functions exist.
   IF (SELECT count(*) FROM information_schema.tables
-      WHERE table_schema='public' AND table_type='BASE TABLE') <> 24 THEN
-    RAISE EXCEPTION 'EXPECTED_24_CORE_TABLES';
+      WHERE table_schema='public' AND table_type='BASE TABLE') <> 25 THEN
+    RAISE EXCEPTION 'EXPECTED_25_CORE_TABLES';
   END IF;
   IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
       WHERE n.nspname='api' AND p.proname IN (
