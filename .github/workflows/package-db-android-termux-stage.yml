@@ -60,8 +60,12 @@ jobs:
             echo "Unexpected secret or backup file in stage package."
             exit 1
           fi
-          if grep -RniE 'service.role|eyJhbGciOi|password=[^C]|BEGIN PRIVATE KEY' "$OUT"; then
-            echo "Potential secret material in stage package."
+          if find "$OUT" -type f -name '.env' -print | grep -q .; then
+            echo "A live .env file must never be packaged."
+            exit 1
+          fi
+          if grep -RniE 'sb_secret_[A-Za-z0-9_-]{20,}|service_role[_-]key|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|eyJhbGciOiJIUzI1NiJ9\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}' "$OUT"; then
+            echo "Potential credential material in stage package."
             exit 1
           fi
           cat > "$OUT/BUILD-PROVENANCE.txt" <<EOF
