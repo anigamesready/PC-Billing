@@ -32,6 +32,11 @@ if ! grep -q '^PORT=8788$' "$ENV_FILE"; then
   exit 1
 fi
 
+umask 077
+STAMP="$(date +%Y%m%d-%H%M%S)"
+cp -p "$ENV_FILE" "$ENV_FILE.pre-online-$STAMP"
+cp -p "$STAGE_HOME/server/server.mjs" "$STAGE_HOME/server/server.mjs.pre-online-$STAMP"
+
 python3 "$PATCH_FILE" "$STAGE_HOME/server"
 
 python3 - "$ENV_FILE" "$EDGE_PROXY_SECRET" "$GATEWAY_REGISTER_TOKEN" "$GATEWAY_BASE_URL" <<'PY'
