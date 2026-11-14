@@ -167,7 +167,7 @@ jobs:
           $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
           if ($package.version -ne '12.4.9' -or $lock.version -ne '12.4.9') { throw 'Package metadata is not V12.4.9.' }
           if ($package.build.appId -ne 'com.anigames.billing.v12test') { throw 'Persistent Electron appId changed.' }
-          if ($package.build.productName -ne 'AniGames Billing V12.4.9') { throw 'Product name does not match V12.4.9.' }
+          if ($package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Legacy Electron productName changed; userData continuity could break.' }
           if (!$html.Contains('V12.4.9-DB1-DIRECT') -or !$renderer.Contains('V12.4.9-DB1-DIRECT')) { throw 'V12.4.9 version labels missing.' }
 
           Get-ChildItem -Path 'patch_pc_*.py' -File | ForEach-Object {
