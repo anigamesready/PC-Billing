@@ -152,10 +152,12 @@ async function adminSessionResponse(data) {
   };
 }
 async function adminLogin(username, password, req) {
-  const key = bucketHash("admin-login", clientIp(req), str(username, 120).toLowerCase());
+  const ip = clientIp(req);
+  const key = bucketHash("admin-login", ip, str(username, 120).toLowerCase());
+  const lookupKey = bucketHash("admin-login-lookup", ip, str(username, 120).toLowerCase());
   await callRateLimit(key, 5);
   const data = await scalar("SELECT api.admin_login($1::text,$2::text) AS result", [str(username, 120), String(password || "")]);
-  await clearRateLimit([key]);
+  await clearRateLimit([key, lookupKey]);
   const user = await scalar("SELECT api.admin_get_user($1::text) AS result", [data.token]);
   return adminSessionResponse({ ...data, email: user?.email });
 }
@@ -205,6 +207,13 @@ const RPC = {
 };
 
 async function rpcRequest(req, res, name, body) {
+  if (name === "admin_login_lookup") {
+    const login = str(val(body,"p_login"),120);
+    const key = bucketHash("admin-login-lookup",clientIp(req),login.toLowerCase());
+    await callRateLimit(key,5);
+    const result = await scalar("SELECT COALESCE(jsonb_agg(to_jsonb(x)),'[]'::jsonb) AS result FROM api.admin_login_lookup($1::text) x",[login]);
+    return send(res,200,result);
+  }
   if (name === "admin_login") {
     const data = await adminLogin(val(body,"p_username",val(body,"username",val(body,"email"))), val(body,"p_password",val(body,"password")), req);
     return send(res, 200, data);
