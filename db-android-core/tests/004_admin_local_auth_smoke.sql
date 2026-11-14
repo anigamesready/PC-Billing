@@ -51,9 +51,11 @@ BEGIN
     IF v_error <> 'ADMIN_BOOTSTRAP_DENIED' THEN RAISE; END IF;
   END;
 
-  -- Invalid credentials are rate-counted and do not disclose account existence.
+  -- Rate-limit write commits before the expected invalid-password exception.
+  PERFORM api.admin_login_rate_limit_consume(repeat('d',64));
+  -- Invalid credentials do not disclose account existence.
   BEGIN
-    PERFORM api.admin_login_rate_limit_consume(repeat('d',64));
+
     PERFORM api.admin_login('CI-OWNER','wrong-password');
     RAISE EXCEPTION 'EXPECTED_INVALID_ADMIN_PASSWORD_NOT_RAISED';
   EXCEPTION WHEN OTHERS THEN
