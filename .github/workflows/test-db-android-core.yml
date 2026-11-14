@@ -50,6 +50,7 @@ jobs:
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/006_admin_local_auth_and_rpc.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/007_billing_control_commands.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/008_local_business_triggers.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/009_admin_db1_business_routines.sql
 
       - name: Run PC pairing, heartbeat, rental, lease, sync and shutdown safety regressions
         env:
