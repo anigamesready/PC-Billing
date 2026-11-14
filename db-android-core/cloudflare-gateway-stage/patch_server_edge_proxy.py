@@ -84,7 +84,7 @@ source = source.replace(old_setup, 'if (!BOOTSTRAP_TOKEN || !localBootstrapReque
 
 if source.count("function clientIp(req)") != 1 or source.count("function localBootstrapRequestAllowed(req)") != 1:
     raise SystemExit("EDGE_HELPERS_NOT_UNIQUE")
-if source.count("localBootstrapRequestAllowed(req)") != 2:
+if source.count("localBootstrapRequestAllowed(req)") != 3:
     raise SystemExit("LOCAL_BOOTSTRAP_GUARD_NOT_APPLIED_TWICE")
 if "0.0.0.0" in source:
     raise SystemExit("UNEXPECTED_PUBLIC_BIND_CHANGE")
