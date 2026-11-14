@@ -190,7 +190,7 @@ main.write_text(m,encoding="utf-8")
 
 # Give the operator a clear server URL field in the existing pairing panel.
 h=index.read_text(encoding="utf-8")
-anchor='''                        <div class="form-group">
+anchor='''                        <div class="form-group" style="grid-column: 1 / -1;">
                             <label>Kode Pairing / Enrollment PC</label>
                             <input type="text" id="v11-enrollment-code" maxlength="8" placeholder="Contoh: A1B2C3D4" autocomplete="off">
                         </div>
