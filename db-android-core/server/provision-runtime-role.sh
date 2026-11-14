@@ -4,6 +4,13 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 DB_NAME="${ANI_DB_NAME:-ani_games_ready}"
 ENV_FILE="$HERE/.env"
 
+if [ -e "$ENV_FILE" ]; then
+  echo "[ANI DB] STOP: $ENV_FILE sudah ada."
+  echo "[ANI DB] Tidak mengganti password runtime, API pepper, atau bootstrap token secara otomatis."
+  echo "[ANI DB] Gunakan prosedur rotasi rahasia khusus setelah backup dan audit."
+  exit 2
+fi
+
 command -v psql >/dev/null 2>&1 || { echo "[ANI DB] psql belum terpasang"; exit 1; }
 command -v openssl >/dev/null 2>&1 || { echo "[ANI DB] openssl belum terpasang"; exit 1; }
 
