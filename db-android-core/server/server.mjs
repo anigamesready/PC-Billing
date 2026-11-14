@@ -204,6 +204,12 @@ const RPC = {
   admin_set_free_test_policy: { auth: "admin", sql: "SELECT api.admin_set_free_test_policy($1::text,$2::boolean) AS result", args: ["p_enabled"] },
   admin_start_trial: { auth: "admin", sql: "SELECT api.admin_start_trial($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
 
+  billing_rental_accounts: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.code),'[]'::jsonb) AS result FROM api.billing_rental_accounts($1::text,$2::uuid,$3::uuid) x", args: ["p_org_id","p_device_id"] },
+  billing_create_rental: { auth: "billing", sql: "SELECT api.billing_create_rental($1::text,$2::uuid,$3::uuid,$4::text,$5::text,$6::bigint,$7::text,$8::timestamptz) AS result", args: ["p_org_id","p_device_id","p_code","p_category","p_minutes","p_client_label","p_expiry_at"] },
+  billing_edit_rental: { auth: "billing", sql: "SELECT api.billing_edit_rental($1::text,$2::uuid,$3::uuid,$4::text,$5::bigint,$6::text,$7::timestamptz) AS result", args: ["p_org_id","p_rental_id","p_category","p_minutes","p_client_label","p_expiry_at"] },
+  billing_delete_rental: { auth: "billing", sql: "SELECT api.billing_delete_rental($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_rental_id"] },
+  billing_start_trial: { auth: "billing", sql: "SELECT api.billing_start_trial($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
+  billing_disconnect_device: { auth: "billing", sql: "SELECT api.billing_disconnect_device($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
   billing_devices: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.device_name,x.client_id),'[]'::jsonb) AS result FROM api.billing_devices($1::text,$2::uuid) x", args: ["p_org_id"] },
   billing_active_sessions: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.started_at DESC),'[]'::jsonb) AS result FROM api.billing_active_sessions($1::text,$2::uuid) x", args: ["p_org_id"] },
   billing_context: { auth: "billing", sql: "SELECT api.billing_context($1::text) AS result", args: [] },
