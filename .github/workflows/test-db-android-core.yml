@@ -131,6 +131,7 @@ jobs:
           bash -n db-android-core/start-stage.sh
           bash -n db-android-core/status-stage.sh
           bash -n db-android-core/stop-stage.sh
+          bash -n db-android-core/start-quick-tunnel-test.sh
           bash -n db-android-core/server/migrate-local.sh
           bash -n db-android-core/server/provision-runtime-role.sh
           bash -n db-android-core/server/install-deps.sh
