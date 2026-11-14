@@ -61,7 +61,7 @@ function clientIp(req) {
 }
 
 function send(res, status, data, headers = {}) {
-  const body = data === undefined ? "" : JSON.stringify(data);
+  const body = status === 204 || data === undefined ? "" : JSON.stringify(data);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
@@ -118,9 +118,9 @@ function httpStatus(error) {
   if (error.status) return error.status;
   const m = String(error.message || "");
   if (/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|ADMIN_NOT_AUTHENTICATED|ADMIN_SESSION_EXPIRED|ADMIN_REFRESH_EXPIRED|ADMIN_ACCOUNT_DISABLED|INVALID_CREDENTIALS|BILLING_NOT_AUTHENTICATED|BILLING_SESSION_EXPIRED|BILLING_ACCOUNT_DISABLED/.test(m)) return 401;
-  if (/OWNER_ONLY|ORG_ACCESS_DENIED|ADMIN_ORG_ACCESS_DENIED|DEVICE_ACCESS_DENIED|DEVICE_DISABLED|RESELLER_FEATURE_NOT_AVAILABLE|COMMAND_NOT_ALLOWED|FREE_TEST_DISABLED/.test(m)) return 403;
+  if (/OWNER_ONLY|ORG_ACCESS_DENIED|ADMIN_ORG_ACCESS_DENIED|DEVICE_ACCESS_DENIED|DEVICE_DISABLED|RESELLER_FEATURE_NOT_AVAILABLE|COMMAND_NOT_ALLOWED|FREE_TEST_DISABLED|ADMIN_BOOTSTRAP_DENIED/.test(m)) return 403;
   if (/NOT_FOUND|RENTAL_NOT_FOUND|COMMAND_NOT_FOUND|RECOVERY_DEVICE_NOT_FOUND/.test(m)) return 404;
-  if (/ACTIVE_TIMER_LOCKED|ACTIVE_OFFLINE_LEASE|OFFLINE_LEASE_HELD|CODE_ALREADY_EXISTS|RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|PC_OFFLINE_COMMAND_BLOCKED|SHUTDOWN_TIMER_DISABLED/.test(m)) return 409;
+  if (/ACTIVE_TIMER_LOCKED|ACTIVE_OFFLINE_LEASE|OFFLINE_LEASE_HELD|CODE_ALREADY_EXISTS|RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|PC_OFFLINE_COMMAND_BLOCKED|SHUTDOWN_TIMER_DISABLED|ADMIN_BOOTSTRAP_ALREADY_CONFIGURED/.test(m)) return 409;
   if (/RATE_LIMITED/.test(m)) return 429;
   if (/ECONNREFUSED|ETIMEDOUT|57P01|08006|08001/.test(m)) return 503;
   return 400;
@@ -312,9 +312,9 @@ async function handler(req, res) {
     if (path.startsWith(prefix)) path = path.slice(prefix.length) || "/";
     if (path === "/health" && req.method === "GET") {
       await query("SELECT 1");
-      return send(res,200,{app:"Ani Games Ready Local Server",api:"online",database:"online",apiVersion:"db-android-v1",safe_remote_access:isLoopback,relay:"separate"});
+      return send(res,200,{app:"Ani Games Ready Local Server",api:"online",database:"online",apiVersion:"db-android-v1",remote_access_enabled:!isLoopback,bind_host:HOST,relay:"separate"});
     }
-    if (path.startsWith("/auth/v1/")) return await authRequest(req,res,{...url,pathname:path});
+    if (path.startsWith("/auth/v1/")) return await authRequest(req,res,url);
     if (path === "/api/admin/bootstrap" && req.method === "POST") {
       if (!BOOTSTRAP_TOKEN || req.headers["x-ani-bootstrap-token"] !== BOOTSTRAP_TOKEN) return send(res,403,{ok:false,error:"ADMIN_BOOTSTRAP_DENIED"});
       const body = await readJson(req);
