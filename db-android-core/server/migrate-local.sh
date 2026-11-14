@@ -26,8 +26,8 @@ for file in \
   005_runtime_privileges.sql \
   006_admin_local_auth_and_rpc.sql \
   007_billing_control_commands.sql \
-  008_local_business_triggers.sql
-  009_admin_db1_business_routines.sql
+  008_local_business_triggers.sql \
+  009_admin_db1_business_routines.sql \
   010_billing_reseller_refresh_and_devices.sql
 do
   echo "[ANI DB] Menerapkan $file"
