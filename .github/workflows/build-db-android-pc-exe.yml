@@ -1,0 +1,257 @@
+name: Build AniGames PC V12.4.8 DB Android Candidate
+
+on:
+  push:
+    branches:
+      - pc-billing-v12.4.8-DB-Android
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pc:
+    name: Patch, regression-check and build isolated Windows DB Android EXE
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout isolated PC DB Android branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract exact V12.4.8 source and stage verified patch chain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+          if (!(Test-Path $zip)) { throw 'PC source ZIP missing.' }
+          Expand-Archive -LiteralPath $zip -DestinationPath 'source-bundle' -Force
+          $project = Get-ChildItem 'source-bundle' -Directory -Recurse | Where-Object { $_.Name -eq 'Ani-Games-Billing-PC-V12.1.0' } | Select-Object -First 1
+          if (!$project) { throw 'PC project folder missing in source ZIP.' }
+          foreach ($required in @('main.js','preload.js','renderer.js','index.html','v11-cloud.js','package.json','package-lock.json')) {
+            if (!(Test-Path (Join-Path $project.FullName $required))) { throw "Required PC source file missing: $required" }
+          }
+          Copy-Item 'scripts/*.py' $project.FullName -Force
+          $edgeTarget = Join-Path $project.FullName 'supabase/functions/ani-games-api'
+          New-Item -ItemType Directory -Path $edgeTarget -Force | Out-Null
+          Copy-Item 'supabase/functions/ani-games-api/index.ts' (Join-Path $edgeTarget 'index.ts') -Force
+          Copy-Item 'supabase/functions/ani-games-api/deno.json' (Join-Path $edgeTarget 'deno.json') -Force
+          $migrationTarget = Join-Path $project.FullName 'supabase/migrations'
+          New-Item -ItemType Directory -Path $migrationTarget -Force | Out-Null
+          Get-ChildItem 'supabase/migrations' -File -Filter '*.sql' | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $migrationTarget $_.Name) -Force
+          }
+          "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Selected V12.4.8 source: $($project.FullName)"
+
+      - name: Apply verified V12.4.5 through V12.4.8 source chain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          $patches = @(
+            'patch_pc_log_optimization.py',
+            'patch_pc_token_preservation.py',
+            'patch_pc_live_alert_runtime.py',
+            'patch_pc_dual_db_routing.py',
+            'patch_pc_shared_gateway.py',
+            'patch_pc_v12_2_3_route_refresh.py',
+            'patch_pc_v13_shutdown_timer.py',
+            'patch_pc_v13_free_test_gate.py',
+            'patch_pc_v13_1_heartbeat_performance.py',
+            'patch_pc_v13_2_app_exit_protection.py',
+            'patch_pc_v13_3_resilience_watchdog.py',
+            'patch_pc_v12_3_4_global_rentals.py',
+            'patch_pc_v12_3_5_global_rental_gateway.py',
+            'patch_pc_v12_3_6_wol_relay.py',
+            'patch_pc_v12_3_7_single_instance.py',
+            'patch_pc_v12_3_8_auto_wol_mac.py',
+            'patch_pc_v12_3_9_kiosk_failsafe.py',
+            'patch_pc_v12_4_0_timer_window_stability.py',
+            'patch_pc_v12_4_1_lock_state_recovery.py',
+            'patch_pc_v12_4_2_watchdog_after_ready.py',
+            'patch_pc_v12_4_3_emergency_no_shutdown.py',
+            'patch_pc_v12_4_4_restore_direct_windows_shutdown.py',
+            'patch_pc_v12_4_5_admin_logout_responsive_login.py',
+            'patch_pc_v12_4_6_responsive_display_fit.py',
+            'patch_pc_v12_4_7_fullscreen_noninterference.py',
+            'patch_pc_v12_4_8_timer_size_sync.py'
+          )
+          foreach ($patch in $patches) {
+            if (!(Test-Path $patch)) { throw "Patch file missing: $patch" }
+            Write-Host "Applying $patch"
+            python $patch
+            if ($LASTEXITCODE -ne 0) { throw "Patch failed: $patch" }
+          }
+
+      - name: Apply isolated Redmi DB Android local API adapter
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_db_android_local_api.py') "$env:PC_PROJECT_DIR"
+          if ($LASTEXITCODE -ne 0) { throw 'PC DB Android local API adapter failed.' }
+
+      - name: JavaScript, local API, Electron identity and existing feature regressions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          foreach ($file in @('main.js','preload.js','renderer.js','v11-cloud.js')) {
+            node --check $file
+            if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax failed: $file" }
+          }
+          $main = Get-Content 'main.js' -Raw
+          $preload = Get-Content 'preload.js' -Raw
+          $renderer = Get-Content 'renderer.js' -Raw
+          $index = Get-Content 'index.html' -Raw
+          $cloud = Get-Content 'v11-cloud.js' -Raw
+          $edge = Get-Content 'supabase/functions/ani-games-api/index.ts' -Raw
+
+          $runtimeMatches = [regex]::Matches($index, '(?s)<script(?:\s[^>]*)?>(.*?)</script>')
+          $runtimeMatch = $null
+          foreach ($candidate in $runtimeMatches) {
+            if ($candidate.Groups[1].Value.Contains('function pauseSession')) { $runtimeMatch = $candidate; break }
+          }
+          if (!$runtimeMatch) { throw 'Live Billing runtime script missing.' }
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'index-runtime-check.js'), $runtimeMatch.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
+          node --check index-runtime-check.js
+          if ($LASTEXITCODE -ne 0) { throw 'Live index.html JavaScript syntax failed.' }
+
+          foreach ($forbidden in @('resolveDbRoute','shared-db-gateway','DB_ENDPOINTS','xcdbipgsvohesxhxydep','x-db-target-key','DB1_API_URL')) {
+            if ($cloud.Contains($forbidden) -or $main.Contains($forbidden)) { throw "Supabase DB routing remains in the PC runtime: $forbidden" }
+          }
+          foreach ($route in @('/device/enroll','/device/heartbeat','/device/ack','/device/sync','/device/pull','/device/test-policy','/device/rental/lookup','/device/session/start','/device/session/end','/device/rental/release','/device/sync-cursor','/device/alert')) {
+            if (!$cloud.Contains("request('$route'")) { throw "Existing PC device API call missing: $route" }
+          }
+          foreach ($token in @('billing_v11_outbox','billing_v11_sync_cursor','billing_v11_sync_dirty','function heartbeatOnce()','function pullNow()','function syncNow()','billing_v11_token_rejected_hold')) {
+            if (!$cloud.Contains($token)) { throw "Existing pairing/offline behavior missing: $token" }
+          }
+
+          if (!$cloud.Contains("function normalizeApiBaseUrl(value)")) { throw 'HTTPS URL validation missing.' }
+          if (!$cloud.Contains("if(!base)throw new Error('SET_REDMi_API_URL_FIRST')")) { throw 'PC must require explicit Redmi server URL before pairing.' }
+          if (!$index.Contains('id="v11-api-base-url"') -or !$index.Contains('v11SetApiBaseUrl')) { throw 'Redmi server URL control missing.' }
+          if (!$main.Contains('normalizeDbAndroidApiBaseUrl') -or !$main.Contains('apiBaseUrl')) { throw 'Watchdog does not use the selected Redmi API URL.' }
+          if ($main.Contains('supabase.co/functions') -or $main.Contains('DB1_ANON_KEY')) { throw 'Watchdog still references Supabase.' }
+
+          $activeStart = $main.IndexOf('function applyActiveTimerWindowMode')
+          $activeEnd = $main.IndexOf('function handleBillingDisplayLayoutChange', $activeStart)
+          if ($activeStart -lt 0 -or $activeEnd -le $activeStart) { throw 'V12.4.7 fullscreen safety boundaries missing.' }
+          $activeBody = $main.Substring($activeStart, $activeEnd - $activeStart)
+          if (!$activeBody.Contains('setAlwaysOnTop(false)') -or !$activeBody.Contains('showInactive') -or $activeBody.Contains('.focus()')) { throw 'Fullscreen non-interference regression.' }
+          if (!$main.Contains('function rememberPendingTimerWindowGeometry(') -or !$main.Contains('function flushPendingTimerWindowGeometry(')) { throw 'V12.4.8 timer geometry helpers missing.' }
+          if (!$main.Contains('flushPendingTimerWindowGeometry(protectedWindow)')) { throw 'Deferred timer size focus sync missing.' }
+          foreach ($token in @('width: 500px;','height: 76px;','#timer-widget.compact','width: 220px;','height: 54px;')) {
+            if (!$index.Contains($token)) { throw "Existing full/compact timer size missing: $token" }
+          }
+
+          foreach ($token in @("ipcMain.handle('hide-billing'","ipcMain.handle('show-billing'","const powerCommands = { logoff: ['/l'], restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'] }","app.requestSingleInstanceLock(","globalShortcut.register('Control+Alt+F12'")) {
+            if (!$main.Contains($token)) { throw "Existing Windows/Admin control missing: $token" }
+          }
+          foreach ($token in @('hideBilling: () => ipcRenderer.invoke','showBilling: () => ipcRenderer.invoke')) {
+            if (!$preload.Contains($token)) { throw "Admin Billing bridge missing: $token" }
+          }
+          foreach ($token in @('ani_games_billing_ui_state','fitLoginBoxToViewport','window.v11ApplyRemoteCommand = async','function openAdminAuth()','async function submitAdminAuth()')) {
+            if (!$index.Contains($token) -and !$renderer.Contains($token)) { throw "Existing Login/remote command/Admin panel behavior missing: $token" }
+          }
+          foreach ($token in @("ipcMain.handle('wake-on-lan'","get-wol-network-info")) {
+            if (!$main.Contains($token)) { throw "Existing WoL IPC missing: $token" }
+          }
+          if ($index.Contains('function v12CheckScheduledShutdown()') -or $index.Contains('function v12ShutdownScheduleFromAdmin(')) {
+            throw 'Automatic shutdown countdown was unintentionally reintroduced.'
+          }
+          foreach ($token in @('ANI_GAMES_V12_4_3_PURGE_LEGACY_SHUTDOWN_TIMER','SHUTDOWN_TIMER_DISABLED')) {
+            if (!$index.Contains($token)) { throw "Shutdown timer removal guard missing: $token" }
+          }
+
+          $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
+          $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
+          if ($package.version -ne '12.4.8' -or $lock.version -ne '12.4.8') { throw 'Package metadata is not V12.4.8.' }
+          if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Electron app identity changed; local userData continuity may break.' }
+          if (!$index.Contains('V12.4.8-TIMER-SIZE-SYNC') -or !$renderer.Contains('V12.4.8-TIMER-SIZE-SYNC')) { throw 'V12.4.8 source version markers missing.' }
+
+          Get-ChildItem -Path 'patch_pc_*.py' -File | ForEach-Object {
+            python -m py_compile $_.Name
+            if ($LASTEXITCODE -ne 0) { throw "Python patch syntax failed: $($_.Name)" }
+          }
+          Remove-Item 'index-runtime-check.js' -Force
+          Write-Host 'PASS: DB Android URL transport, watchdog URL, pairing/heartbeat/offline, timer, fullscreen, Admin PIN, Windows controls, WoL and shutdown policy.'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: source-bundle/**/package-lock.json
+
+      - name: Install locked dependencies
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+
+      - name: Build Windows portable EXE
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw 'Windows portable EXE build failed.' }
+
+      - name: Verify EXE identity and create provenance package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $found = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
+          if (!$found) { throw 'No Windows portable EXE produced.' }
+          $canonical = Join-Path $found.DirectoryName 'AniGames Billing V12.4.8.exe'
+          if ($found.FullName -ne $canonical) {
+            Move-Item -LiteralPath $found.FullName -Destination $canonical -Force
+            $found = Get-Item -LiteralPath $canonical
+          }
+          $exeHash = (Get-FileHash $found.FullName -Algorithm SHA256).Hash
+          $sourceHash = (Get-FileHash 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip' -Algorithm SHA256).Hash
+          $patchSha = $env:GITHUB_SHA
+          @"
+          # Ani Games Ready PC Billing V12.4.8 DB Android Candidate
+
+          - Repository: anigamesready/PC-Billing
+          - Branch: pc-billing-v12.4.8-DB-Android
+          - Source commit: $patchSha
+          - Baseline: fix/pc-v12.4.8-timer-size-sync @ bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19
+          - Input source ZIP SHA-256: $sourceHash
+          - EXE: AniGames Billing V12.4.8.exe
+          - EXE SHA-256: $exeHash
+          - Electron appId: com.anigames.billing.v12test
+          - Electron productName retained: AniGames Billing V12.3.3
+          - Database transport: local DB Android API; explicit HTTPS Redmi URL required
+          - Automatic shutdown countdown: disabled; manual Admin Windows shutdown remains
+          - Blynk/WoL: PC local WoL functions retained; cloud relay remains a separate Admin service
+          - Tests: JS syntax, URL validation/static checks, timer/fullscreen/Admin/WoL regression assertions, Windows portable EXE build
+          - Not tested: live connection to Redmi, fresh Windows install/replace, real PC pairing/session, game fullscreen/minimize, live WoL
+          "@ | Set-Content -Path 'PC-DB-ANDROID-PROVENANCE.md' -Encoding utf8
+          New-Item -ItemType Directory -Path 'output' -Force | Out-Null
+          Copy-Item $found.FullName 'output/AniGames Billing V12.4.8.exe' -Force
+          Copy-Item 'PC-DB-ANDROID-PROVENANCE.md' 'output/PC-DB-ANDROID-PROVENANCE.md' -Force
+          Get-FileHash 'output/AniGames Billing V12.4.8.exe' -Algorithm SHA256 | Format-List
+          @'
+          import zipfile
+          from pathlib import Path
+          output=Path("AniGames-PC-V12.4.8-DB-Android-CANDIDATE.zip")
+          with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for item in Path("output").iterdir():
+                  if item.is_file(): z.write(item,item.name)
+          print("Candidate package:",output,output.stat().st_size)
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'PC DB Android candidate package failed.' }
+
+      - name: Upload isolated PC DB Android candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-PC-V12.4.8-DB-Android-CANDIDATE
+          path: AniGames-PC-V12.4.8-DB-Android-CANDIDATE.zip
+          if-no-files-found: error
+          retention-days: 14
