@@ -156,62 +156,50 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION api.admin_login(
-  p_username text,
-  p_password text,
-  p_rate_key_hash text
-)
+DROP FUNCTION IF EXISTS api.admin_login(text,text,text);
+CREATE OR REPLACE FUNCTION api.admin_login(p_username text,p_password text)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'extensions', 'pg_catalog'
+SET search_path TO 'public','extensions','pg_catalog'
 AS $function$
 DECLARE
   v_account public.admin_accounts%ROWTYPE;
-  v_rate jsonb;
   v_token text;
   v_refresh_token text;
   v_session_id uuid;
 BEGIN
-  IF length(coalesce(p_password,'')) < 1 OR NULLIF(BTRIM(p_username),'') IS NULL
-     OR coalesce(p_rate_key_hash,'') !~ '^[0-9a-f]{64}$' THEN
+  IF length(coalesce(p_password,'')) < 1 OR NULLIF(BTRIM(p_username),'') IS NULL THEN
     RAISE EXCEPTION 'INVALID_CREDENTIALS';
-  END IF;
-
-  v_rate := api.admin_login_rate_limit_consume(p_rate_key_hash);
-  IF coalesce((v_rate->>'allowed')::boolean, false) IS NOT TRUE THEN
-    RAISE EXCEPTION 'ADMIN_LOGIN_RATE_LIMITED';
   END IF;
 
   SELECT a.* INTO v_account
   FROM public.admin_accounts a
-  LEFT JOIN auth.users u ON u.id = a.auth_user_id
-  WHERE lower(a.username) = lower(btrim(p_username))
-     OR lower(coalesce(u.email,'')) = lower(btrim(p_username))
+  LEFT JOIN auth.users u ON u.id=a.auth_user_id
+  WHERE lower(a.username)=lower(btrim(p_username))
+     OR lower(coalesce(u.email,''))=lower(btrim(p_username))
   ORDER BY CASE WHEN lower(a.username)=lower(btrim(p_username)) THEN 0 ELSE 1 END
   LIMIT 1;
 
-  IF NOT FOUND OR v_account.status <> 'active'
+  IF NOT FOUND OR v_account.status<>'active'
      OR v_account.password_hash IS NULL
-     OR extensions.crypt(p_password, v_account.password_hash) <> v_account.password_hash THEN
+     OR extensions.crypt(p_password,v_account.password_hash)<>v_account.password_hash THEN
     RAISE EXCEPTION 'INVALID_CREDENTIALS';
   END IF;
 
-  v_token := encode(extensions.gen_random_bytes(32), 'hex');
-  v_refresh_token := encode(extensions.gen_random_bytes(32), 'hex');
-  INSERT INTO public.admin_local_sessions(admin_account_id, token_hash, expires_at, refresh_token_hash, refresh_expires_at)
-  VALUES (v_account.id, encode(extensions.digest(v_token, 'sha256'), 'hex'), now() + interval '12 hours',
-          encode(extensions.digest(v_refresh_token, 'sha256'), 'hex'), now() + interval '30 days')
+  v_token := encode(extensions.gen_random_bytes(32),'hex');
+  v_refresh_token := encode(extensions.gen_random_bytes(32),'hex');
+  INSERT INTO public.admin_local_sessions(admin_account_id,token_hash,expires_at,refresh_token_hash,refresh_expires_at)
+  VALUES(v_account.id,encode(extensions.digest(v_token,'sha256'),'hex'),now()+interval '12 hours',
+         encode(extensions.digest(v_refresh_token,'sha256'),'hex'),now()+interval '30 days')
   RETURNING id INTO v_session_id;
 
-  UPDATE public.admin_accounts SET last_login_at=now(), updated_at=now() WHERE id=v_account.id;
-  PERFORM api.admin_login_rate_limit_clear(ARRAY[p_rate_key_hash]);
-
+  UPDATE public.admin_accounts SET last_login_at=now(),updated_at=now() WHERE id=v_account.id;
   RETURN jsonb_build_object(
-    'ok', true, 'token', v_token, 'refresh_token', v_refresh_token, 'session_id', v_session_id,
-    'expires_at', now() + interval '12 hours',
-    'id', v_account.id, 'auth_user_id', v_account.auth_user_id, 'username', v_account.username, 'role', v_account.role,
-    'org_id', v_account.org_id, 'must_change_password', v_account.must_change_password
+    'ok',true,'token',v_token,'refresh_token',v_refresh_token,'session_id',v_session_id,
+    'expires_at',now()+interval '12 hours','id',v_account.id,'auth_user_id',v_account.auth_user_id,
+    'username',v_account.username,'role',v_account.role,'org_id',v_account.org_id,
+    'must_change_password',v_account.must_change_password
   );
 END;
 $function$;
@@ -475,7 +463,7 @@ $function$;
 -- The local API runtime can execute only explicitly token-bound API entry points.
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA api FROM ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_bootstrap_owner(text,text,text,text) TO ani_api_runtime;
-GRANT EXECUTE ON FUNCTION api.admin_login(text,text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.admin_login(text,text) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_refresh_session(text) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_get_user(text) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_logout(text) TO ani_api_runtime;
