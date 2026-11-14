@@ -140,9 +140,12 @@ jobs:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
-          pg_dump -h 127.0.0.1 -p 5432 -U postgres -Fc -d ani_games_test -f /tmp/ani-games-ready-ci.backup
+          pg_dump -h 127.0.0.1 -p 5432 -U postgres -Fp -d ani_games_test -f /tmp/ani-games-ready-ci.backup.sql
+          # Runner client may be newer than the PostgreSQL 16 service image. Remove only
+          # the PG17+ transaction_timeout SET emitted by newer pg_dump; no schema/data SQL is altered.
+          sed -i '/^SET transaction_timeout = /d' /tmp/ani-games-ready-ci.backup.sql
           createdb -h 127.0.0.1 -p 5432 -U postgres ani_games_restore_test
-          pg_restore -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test --no-owner /tmp/ani-games-ready-ci.backup
+          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test -f /tmp/ani-games-ready-ci.backup.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" > /tmp/original-table-count
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" > /tmp/restored-table-count
           diff -u /tmp/original-table-count /tmp/restored-table-count
@@ -153,7 +156,7 @@ jobs:
           done
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test -Atqc "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='api'" > /tmp/restored-api-functions
           test "$(cat /tmp/restored-api-functions)" -gt 40
-          sha256sum /tmp/ani-games-ready-ci.backup
+          sha256sum /tmp/ani-games-ready-ci.backup.sql
           echo "PASS: logical backup restored into ani_games_restore_test; table and critical-row counts match."
 
       - name: Install Node.js and verify local API syntax
