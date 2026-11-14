@@ -49,6 +49,7 @@ jobs:
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/005_runtime_privileges.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/006_admin_local_auth_and_rpc.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/007_billing_control_commands.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/008_local_business_triggers.sql
 
       - name: Run PC pairing, heartbeat, rental, lease, sync and shutdown safety regressions
         env:
@@ -84,3 +85,10 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/tests/005_billing_control_commands_smoke.sql
+
+      - name: Verify local rental identity and audit triggers
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/tests/006_local_business_triggers_smoke.sql
