@@ -424,6 +424,40 @@ GRANT EXECUTE ON FUNCTION api.admin_selected_sessions(text,uuid,uuid) TO ani_api
 GRANT EXECUTE ON FUNCTION api.admin_command(text,uuid,uuid,text,jsonb) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.create_device_recovery_enrollment(text,uuid,bigint) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.report_rental_period_breakdown(text,uuid,timestamptz,timestamptz) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.admin_login_rate_limit_consume(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.admin_login_rate_limit_clear(text[]) TO ani_api_runtime;
+
+-- Keep the already-tested device and Reseller token entry points available after
+-- tightening the broad grants inherited from migration 005.
+GRANT EXECUTE ON FUNCTION api.device_pairing_rate_limit_consume(text,integer) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_pairing_rate_limit_clear(text[]) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.redeem_device(text,text,text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_heartbeat(text,text,jsonb) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_disconnect(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_watchdog_poll(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_ack(text,uuid,text,jsonb) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_finalize_trial(text,uuid,text,jsonb) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_sync(text,jsonb) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_pull_sync(text,timestamptz) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_sync_cursor(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_rentals_snapshot(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_free_test_policy(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_rental_lookup(text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_start_rental_session(text,text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_end_rental_session(text,text,bigint,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_release_rental_lease(text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.device_emit_admin_alert(text,text,text,text,jsonb,timestamptz) TO ani_api_runtime;
+
+GRANT EXECUTE ON FUNCTION api.billing_login(text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_context(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_logout(text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_change_password(text,text,text) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_reseller_rental_accounts_global(text,uuid) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_reseller_create_rental_global(text,uuid,text,text,bigint,text,timestamptz) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_reseller_edit_rental_global(text,uuid,uuid,text,bigint,text,text,timestamptz) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_reseller_delete_rental_global(text,uuid,uuid) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_command(text,uuid,uuid,text,jsonb) TO ani_api_runtime;
+GRANT EXECUTE ON FUNCTION api.billing_command_status(text,uuid) TO ani_api_runtime;
 
 REVOKE EXECUTE ON FUNCTION auth.uid() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION auth.uid() FROM ani_api_runtime;
