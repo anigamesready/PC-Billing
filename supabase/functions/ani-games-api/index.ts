@@ -117,11 +117,17 @@ if(p==="device/enroll"){
  try{await serverRpc("device_pairing_rate_limit_clear",{p_key_hashes:keys.filter(k=>k.clear).map(k=>k.key)});}catch(_){}
  return out(200,{ok:true,...data});
 }
+if(p==="device/test-policy")return out(200,await rpc("device_free_test_policy",{p_token:String(b.token||"")}));
 if(p==="device/heartbeat")return out(200,{ok:true,...await rpc("device_heartbeat",{p_token:String(b.token||""),p_app_version:String(b.appVersion||""),p_metadata:b.metadata||{}})});
+if(p==="device/rental/lookup")return out(200,await rpc("device_rental_lookup",{p_token:String(b.token||""),p_code:String(b.code||"")}));
+if(p==="device/session/start")return out(200,await rpc("device_start_rental_session",{p_token:String(b.token||""),p_code:String(b.code||""),p_source_event_id:String(b.sourceEventId||"")||null}));
+if(p==="device/session/end")return out(200,await rpc("device_end_rental_session",{p_token:String(b.token||""),p_code:String(b.code||""),p_remaining_seconds:Math.max(0,Number(b.remainingSeconds)||0),p_source_event_id:String(b.sourceEventId||"")||null}));
+if(p==="device/rental/release")return out(200,await rpc("device_release_rental_lease",{p_token:String(b.token||""),p_code:String(b.code||"")}));
+if(p==="device/sync-cursor")return out(200,await rpc("device_sync_cursor",{p_token:String(b.token||"")}));
 if(p==="device/ack"){const t=String(b.token||""),id=String(b.commandId||""),s=String(b.status||"acknowledged"),v=b.result||{};const a=await rpc("device_ack",{p_token:t,p_command_id:id,p_status:s,p_result:v});let trial:unknown=null;if(["completed","failed","expired"].includes(s))trial=await rpc("device_finalize_trial",{p_token:t,p_command_id:id,p_status:s,p_result:v});return out(200,{ok:true,...a,...(trial?{trial}:{})})}
 if(p==="device/sync")return out(200,{ok:true,...await rpc("device_sync",{p_token:String(b.token||""),p_events:Array.isArray(b.events)?b.events:[]})});
 if(p==="device/pull")return out(200,{ok:true,...await rpc("device_pull_sync",{p_token:String(b.token||""),p_cursor:b.cursor?String(b.cursor):null})});
 if(p==="device/rentals")return out(200,await rpc("device_rentals_snapshot",{p_token:String(b.token||"")}));
 return out(404,{ok:false,error:"not_found",path:p})
-}catch(e){const m=e instanceof Error?e.message:"request_failed";const s=/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|invalid_or_expired_token/.test(m)?401:/owner_only|ADMIN_ROLE_REQUIRED/.test(m)?403:/BLYNK_DEVICE_MAPPING_REQUIRED|BLYNK_DEVICE_MAPPING_MISMATCH|BLYNK_DEVICE_MAPPING_CONFLICT|DEVICE_NOT_ACCESSIBLE/.test(m)?409:/BLYNK_AUTH_TOKEN_NOT_CONFIGURED_IN_SUPABASE|BLYNK_DEVICE_OFFLINE|blynk_device_offline|DEVICE_MAPPING_LOOKUP_FAILED/.test(m)?503:400;return out(s,{ok:false,error:m})}}
+}catch(e){const m=e instanceof Error?e.message:"request_failed";const s=/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|invalid_or_expired_token/.test(m)?401:/RENTAL_NOT_FOUND/.test(m)?404:/RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|RENTAL_HAS_OFFLINE_LEASE|RENTAL_ACTIVE_TIMER_LOCKED|ACTIVE_SESSION_EXISTS|CODE_ALREADY_EXISTS/.test(m)?409:/RENTAL_NOT_ACTIVE|RENTAL_EXPIRED|RENTAL_TIME_EXHAUSTED|RENTAL_TIME_EXHAUSTED|RENTAL_CODE_INVALID/.test(m)?403:/owner_only|ADMIN_ROLE_REQUIRED|ADMIN_ORG_ACCESS_DENIED/.test(m)?403:/BLYNK_DEVICE_MAPPING_REQUIRED|BLYNK_DEVICE_MAPPING_MISMATCH|BLYNK_DEVICE_MAPPING_CONFLICT|DEVICE_NOT_ACCESSIBLE/.test(m)?409:/BLYNK_AUTH_TOKEN_NOT_CONFIGURED_IN_SUPABASE|BLYNK_DEVICE_OFFLINE|blynk_device_offline|DEVICE_MAPPING_LOOKUP_FAILED/.test(m)?503:400;return out(s,{ok:false,error:m})}}
 Deno.serve(handler);
