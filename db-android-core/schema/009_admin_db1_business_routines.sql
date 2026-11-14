@@ -1,10 +1,28 @@
 -- ANI GAMES READY DB ANDROID — DB1 Admin business routines and local token wrappers.
 -- Exact DB1 business routine bodies captured from primary DB1 on 2026-11-14.
--- These routines retain their original auth.uid() authorization rules; the local shim from
--- migration 006 resolves auth.uid() only after a valid Admin session token has been bound.
--- Legacy per-device rental create/edit/delete RPCs are intentionally excluded: use the global
--- rental CRUD routines with offline-lease and active-session guards.
+-- Private helper dependencies are ordered first (user_role precedes is_owner_access).
+-- The local auth.uid() shim in migration 006 resolves only after a valid local Admin token
+-- is bound by the token wrappers below.
+-- Legacy per-device rental create/edit/delete RPCs are excluded; use global CRUD with lease guards.
 BEGIN;
+
+CREATE OR REPLACE FUNCTION private.user_role(target_org uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+declare uid uuid:=auth.uid(); cur uuid:=target_org; r text;
+begin
+ if uid is null or target_org is null then return null; end if;
+ loop
+  select om.role into r from public.org_members om where om.org_id=cur and om.auth_user_id=uid order by case when om.role='owner' then 0 else 1 end,om.created_at limit 1;
+  if r is not null then return r; end if;
+  select o.parent_org_id into cur from public.organizations o where o.id=cur;
+  exit when cur is null;
+ end loop;
+ return null;
+end $function$;
 
 CREATE OR REPLACE FUNCTION private.admin_can_access_device(p_device_id uuid, p_org_id uuid DEFAULT NULL::uuid)
  RETURNS boolean
@@ -47,24 +65,6 @@ begin
   exit when current_org is null;
  end loop;
  return false;
-end $function$;
-
-CREATE OR REPLACE FUNCTION private.user_role(target_org uuid)
- RETURNS text
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'pg_catalog'
-AS $function$
-declare uid uuid:=auth.uid(); cur uuid:=target_org; r text;
-begin
- if uid is null or target_org is null then return null; end if;
- loop
-  select om.role into r from public.org_members om where om.org_id=cur and om.auth_user_id=uid order by case when om.role='owner' then 0 else 1 end,om.created_at limit 1;
-  if r is not null then return r; end if;
-  select o.parent_org_id into cur from public.organizations o where o.id=cur;
-  exit when cur is null;
- end loop;
- return null;
 end $function$;
 
 CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_org_id uuid)
@@ -1140,28 +1140,6 @@ BEGIN
     'pc_rows', v_per_pc
   );
 END;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION api.admin_login_lookup(p_login text)
- RETURNS TABLE(email text, role text, status text)
- LANGUAGE sql
- SECURITY DEFINER
- SET search_path TO 'pg_catalog', 'public', 'auth'
-AS $function$
-  SELECT u.email, a.role, a.status
-  FROM public.admin_accounts a
-  JOIN auth.users u ON u.id = a.auth_user_id
-  WHERE p_login IS NOT NULL
-    AND length(trim(p_login)) BETWEEN 1 AND 120
-    AND a.status = 'active'
-    AND a.role = 'SUPER_ADMIN'
-    AND (
-      lower(trim(a.username)) = lower(trim(p_login))
-      OR lower(trim(u.email)) = lower(trim(p_login))
-    )
-  ORDER BY CASE WHEN lower(trim(a.username)) = lower(trim(p_login)) THEN 0 ELSE 1 END
-  LIMIT 1;
 $function$;
 
 -- Token-bound wrappers for the remaining Admin screens and controls.
