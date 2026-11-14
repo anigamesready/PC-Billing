@@ -1,0 +1,90 @@
+name: Package Ani Games Ready DB Android Termux Staging
+
+on:
+  push:
+    branches:
+      - backend/db-android-core-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-stage:
+    name: Package isolated Termux staging files and verify contents
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout isolated DB Android backend
+        uses: actions/checkout@v4
+
+      - name: Verify shell scripts and server syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in             db-android-core/setup-stage.sh             db-android-core/start-stage.sh             db-android-core/status-stage.sh             db-android-core/stop-stage.sh             db-android-core/server/migrate-local.sh             db-android-core/server/provision-runtime-role.sh             db-android-core/server/install-deps.sh             db-android-core/server/start.sh; do
+            bash -n "$file"
+          done
+          node --check db-android-core/server/server.mjs
+
+      - name: Assemble approved staging-only package
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="Ani-Games-Ready-DB-Android-Termux-STAGE"
+          mkdir -p "$OUT/schema" "$OUT/server" "$OUT/tests"
+          cp db-android-core/README-ID.md "$OUT/README-ID.txt"
+          cp db-android-core/README-STAGE-ID.txt "$OUT/README-STAGE-ID.txt"
+          cp db-android-core/setup-stage.sh "$OUT/setup-stage.sh"
+          cp db-android-core/start-stage.sh "$OUT/start-stage.sh"
+          cp db-android-core/status-stage.sh "$OUT/status-stage.sh"
+          cp db-android-core/stop-stage.sh "$OUT/stop-stage.sh"
+          cp db-android-core/schema/000_prerequisites.sql "$OUT/schema/"
+          for n in 002 003 004 005 006 007 008 009 010; do
+            file=$(find db-android-core/schema -maxdepth 1 -type f -name "${n}_*.sql" -print -quit)
+            test -n "$file"
+            cp "$file" "$OUT/schema/"
+          done
+          cp db-android-core/server/.env.example "$OUT/server/"
+          cp db-android-core/server/.gitignore "$OUT/server/"
+          cp db-android-core/server/package.json "$OUT/server/"
+          cp db-android-core/server/server.mjs "$OUT/server/"
+          cp db-android-core/server/install-deps.sh "$OUT/server/"
+          cp db-android-core/server/migrate-local.sh "$OUT/server/"
+          cp db-android-core/server/start.sh "$OUT/server/"
+          cp db-android-core/server/provision-runtime-role.sh "$OUT/server/"
+          cp db-android-core/tests/*.sql "$OUT/tests/"
+          cp db-android-core/server/api-smoke*.mjs "$OUT/tests/"
+          test ! -e "$OUT/schema/001_db1_catalog_snapshot.sql"
+          if find "$OUT" -type f \( -name '.env' -o -name '*.dump' -o -name '*.backup' -o -name '*.pem' -o -name '*.key' \) | grep -q .; then
+            echo "Unexpected secret or backup file in stage package."
+            exit 1
+          fi
+          if grep -RniE 'service.role|eyJhbGciOi|password=[^C]|BEGIN PRIVATE KEY' "$OUT"; then
+            echo "Potential secret material in stage package."
+            exit 1
+          fi
+          cat > "$OUT/BUILD-PROVENANCE.txt" <<EOF
+          Ani Games Ready DB Android Termux STAGE package
+          Repository: anigamesready/PC-Billing
+          Branch: backend/db-android-core-v1
+          Commit: $GITHUB_SHA
+          Database: ani_games_ready_stage (new staging database only)
+          API: 127.0.0.1:8788 (loopback only)
+          Existing API: port 8787 is not targeted
+          Supabase DB1/DB2: not modified
+          Blynk/WoL relay: not modified
+          Schema: 000 and 002-010 only; catalog snapshot 001 excluded
+          EOF
+          find "$OUT" -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/SHA256SUMS.txt"
+          zip -qr "$OUT.zip" "$OUT"
+          sha256sum "$OUT.zip"
+          unzip -l "$OUT.zip"
+
+      - name: Upload isolated Termux staging package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Ready-DB-Android-Termux-STAGE
+          path: Ani-Games-Ready-DB-Android-Termux-STAGE.zip
+          if-no-files-found: error
+          retention-days: 30
