@@ -456,8 +456,6 @@ GRANT EXECUTE ON FUNCTION api.billing_reseller_rental_accounts_global(text,uuid)
 GRANT EXECUTE ON FUNCTION api.billing_reseller_create_rental_global(text,uuid,text,text,bigint,text,timestamptz) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.billing_reseller_edit_rental_global(text,uuid,uuid,text,bigint,text,text,timestamptz) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.billing_reseller_delete_rental_global(text,uuid,uuid) TO ani_api_runtime;
-GRANT EXECUTE ON FUNCTION api.billing_command(text,uuid,uuid,text,jsonb) TO ani_api_runtime;
-GRANT EXECUTE ON FUNCTION api.billing_command_status(text,uuid) TO ani_api_runtime;
 
 REVOKE EXECUTE ON FUNCTION auth.uid() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION auth.uid() FROM ani_api_runtime;
