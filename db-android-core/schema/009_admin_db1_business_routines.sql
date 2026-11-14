@@ -1143,6 +1143,27 @@ END;
 $function$;
 
 
+CREATE OR REPLACE FUNCTION api.admin_login_lookup(p_login text)
+ RETURNS TABLE(email text, role text, status text)
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'auth'
+AS $function$
+  SELECT u.email, a.role, a.status
+  FROM public.admin_accounts a
+  JOIN auth.users u ON u.id = a.auth_user_id
+  WHERE p_login IS NOT NULL
+    AND length(trim(p_login)) BETWEEN 1 AND 120
+    AND a.status = 'active'
+    AND a.role = 'SUPER_ADMIN'
+    AND (
+      lower(trim(a.username)) = lower(trim(p_login))
+      OR lower(trim(u.email)) = lower(trim(p_login))
+    )
+  ORDER BY CASE WHEN lower(trim(a.username)) = lower(trim(p_login)) THEN 0 ELSE 1 END
+  LIMIT 1;
+$function$;
+
 -- Token-bound wrappers for the remaining Admin screens and controls.
 CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_session_token text,p_org_id uuid)
 RETURNS SETOF public.rental_sessions LANGUAGE plpgsql SECURITY DEFINER
@@ -1201,6 +1222,7 @@ REVOKE EXECUTE ON FUNCTION private.is_reseller_admin(uuid) FROM PUBLIC,ani_api_r
 REVOKE EXECUTE ON FUNCTION private.user_has_org_access(uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION private.user_role(uuid) FROM PUBLIC,ani_api_runtime;
 
+REVOKE EXECUTE ON FUNCTION api.admin_login_lookup(text) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_active_sessions(uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_activity(uuid,timestamptz,timestamptz,integer) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.admin_command(uuid,uuid,text,jsonb) FROM PUBLIC,ani_api_runtime;
@@ -1224,6 +1246,7 @@ REVOKE EXECUTE ON FUNCTION api.admin_update_rental_global(uuid,uuid,text,text,bi
 REVOKE EXECUTE ON FUNCTION api.create_device_recovery_enrollment(uuid,bigint) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.report_rental_period_breakdown(uuid,timestamptz,timestamptz) FROM PUBLIC,ani_api_runtime;
 
+GRANT EXECUTE ON FUNCTION api.admin_login_lookup(text) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_active_sessions(text,uuid) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_activity(text,uuid,timestamptz,timestamptz,integer) TO ani_api_runtime;
 GRANT EXECUTE ON FUNCTION api.admin_device_state(text,uuid,uuid) TO ani_api_runtime;
