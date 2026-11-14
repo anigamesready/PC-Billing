@@ -321,7 +321,6 @@ BEGIN
 END
 $function$;
 
-REVOKE EXECUTE ON FUNCTION api.billing_rental_accounts(uuid,uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.billing_create_rental(uuid,uuid,text,text,bigint,text) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.billing_start_trial(uuid,uuid) FROM PUBLIC,ani_api_runtime;
 
