@@ -152,4 +152,5 @@ jobs:
             sleep 1
           done
           node db-android-core/server/api-smoke.mjs
+          node db-android-core/server/api-smoke-billing-refresh.mjs
           node db-android-core/server/api-smoke-login-lookup.mjs
