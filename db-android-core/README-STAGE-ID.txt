@@ -40,6 +40,15 @@ Perintah berikutnya:
 - Hentikan API staging saja: bash ~/ani-games-db-android-stage/stop-stage.sh
 - Lihat log: tail -n 80 ~/ani-games-db-android-stage/logs/stage-api.log
 
+Uji koneksi PC (sementara saja):
+- Pastikan API 8788 online.
+- Jalankan: bash ~/ani-games-db-android-stage/start-quick-tunnel-test.sh
+- Catat URL HTTPS `https://....trycloudflare.com` yang dicetak.
+- Masukkan URL itu ke kolom Server Rental DB Android di PC Billing V12.4.8 DB Android.
+- Hentikan tunnel dengan CTRL+C setelah tes.
+
+Quick Tunnel bersifat sementara: hostname berubah saat proses dimulai ulang, tidak ada jaminan uptime, dan hanya untuk tes awal. Jangan gunakan sebagai jalur produksi rental 24 jam. Named Tunnel dengan hostname stabil memerlukan domain aktif pada akun Cloudflare.
+
 PENTING:
 - Jangan ubah URL PC ke alamat HTTP LAN. PC Billing hanya menerima HTTPS untuk server di luar PC itu sendiri.
 - Akses antar-perangkat masih perlu HTTPS tunnel/reverse proxy dan konfigurasi CORS/origin. Fitur ini belum diaktifkan.
