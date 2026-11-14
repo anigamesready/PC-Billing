@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-14 — PC Billing V12.4.9 DB1 Direct recovery build
+- Created isolated recovery branch `recovery/pc-v12.4.9-db1-direct-20261114` from the verified V12.4.8 source baseline.
+- Removed client-side `db-route-status`/DB2/shared-gateway route lookup from PC Billing device transport; all device requests now target DB1 `ani-games-api` directly.
+- Preserved device token, local outbox, sync cursor, heartbeat, watchdog, rental/session/sync flows, timer sizing, fullscreen safety and manual Windows controls.
+- Preserved Electron `appId` and legacy `productName` so existing `userData` location is not renamed; build output is V12.4.9.
+- GitHub Actions run `43572350285` completed successfully; artifact `14104807189`; EXE SHA-256 `9B8171EC801229B3C0EE01F763D9037B33ABB7CDCBF38396F3BC8D83C1EB0807`.
+- Clean source ZIP SHA-256 `7BEFCF83D4D542FE0F7FE92866E16B7BA29C1DE05E063927B89FBD43099C75F7`.
+- Static/build tests passed. Live saved-token login, heartbeat and real rental session tests remain pending on a paired customer PC.
+- No master branch, Admin APK, Reseller APK, DB1 data, DB2 project or production database configuration was changed.
+
 ## 2026-11-14 — BOTH activation and live repository re-audit
 - Read the current GitHub entry rules, Master Skill, state, registry, decisions, next tasks, changelog, version ledger, setup guide and relevant project/database/handover/regression Skills.
 - Verified the connected GitHub repository can be read in this chat.
