@@ -53,14 +53,16 @@ BEGIN
 
   -- Invalid credentials are rate-counted and do not disclose account existence.
   BEGIN
-    PERFORM api.admin_login('CI-OWNER','wrong-password',repeat('d',64));
+    PERFORM api.admin_login_rate_limit_consume(repeat('d',64));
+    PERFORM api.admin_login('CI-OWNER','wrong-password');
     RAISE EXCEPTION 'EXPECTED_INVALID_ADMIN_PASSWORD_NOT_RAISED';
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_error = MESSAGE_TEXT;
     IF v_error <> 'INVALID_CREDENTIALS' THEN RAISE; END IF;
   END;
 
-  v_login := api.admin_login('CI-OWNER','CI-Admin-Strong-Password-2026',repeat('d',64));
+  v_login := api.admin_login('CI-OWNER','CI-Admin-Strong-Password-2026');
+  PERFORM api.admin_login_rate_limit_clear(ARRAY[repeat('d',64)]);
   v_token := v_login->>'token';
   v_account := (v_login->>'id')::uuid;
   IF coalesce((v_login->>'ok')::boolean,false) IS NOT TRUE
@@ -203,14 +205,14 @@ BEGIN
   IF v_sessions<>0 THEN RAISE EXCEPTION 'ADMIN_SELECTED_SESSIONS_SHOULD_BE_EMPTY'; END IF;
 
   -- Password rotation revokes other sessions and preserves current one.
-  v_login2 := api.admin_login('CI-OWNER','CI-Admin-Strong-Password-2026',repeat('e',64));
+  v_login2 := api.admin_login('CI-OWNER','CI-Admin-Strong-Password-2026');
   IF coalesce((api.admin_change_password(v_token,'CI-Admin-Strong-Password-2026','CI-Admin-New-Password-2026')->>'ok')::boolean,false) IS NOT TRUE THEN
     RAISE EXCEPTION 'ADMIN_PASSWORD_CHANGE_FAILED';
   END IF;
   IF EXISTS(SELECT 1 FROM public.admin_local_sessions WHERE token_hash=encode(extensions.digest(v_login2->>'token','sha256'),'hex') AND revoked_at IS NULL) THEN
     RAISE EXCEPTION 'ADMIN_PASSWORD_CHANGE_DID_NOT_REVOKE_OTHER_SESSIONS';
   END IF;
-  v_login2 := api.admin_login('CI-OWNER','CI-Admin-New-Password-2026',repeat('e',64));
+  v_login2 := api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
   IF coalesce((v_login2->>'ok')::boolean,false) IS NOT TRUE THEN RAISE EXCEPTION 'ADMIN_NEW_PASSWORD_LOGIN_FAILED'; END IF;
 
   PERFORM api.admin_logout(v_login2->>'token');
