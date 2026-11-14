@@ -45,6 +45,7 @@ jobs:
           bash -n db-android-core/cloudflare-gateway-stage/configure-online.sh
           bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
           OUT="$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
+          rm -rf "$OUT"
           mkdir -p "$OUT"
           cp db-android-core/cloudflare-gateway-stage/worker.mjs "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py "$OUT/"
@@ -70,10 +71,12 @@ jobs:
           EDGE_PROXY_SECRET=PASTE_PRIVATE_EDGE_SECRET
           EOF
           mkdir -p "$GITHUB_WORKSPACE/output"
+          ARCHIVE="$RUNNER_TEMP/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip"
           cd "$GITHUB_WORKSPACE/output"
-          zip -qr ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE
-          sha256sum ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip | tee SHA256SUMS.txt
-          unzip -t ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip
+          zip -qr "$ARCHIVE" ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE
+          sha256sum "$ARCHIVE" | tee "$GITHUB_WORKSPACE/output/SHA256SUMS.txt"
+          cp "$ARCHIVE" "$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip"
+          unzip -t "$ARCHIVE"
       - name: Upload Termux online gateway package
         uses: actions/upload-artifact@v4
         with:
