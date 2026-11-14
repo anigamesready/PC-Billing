@@ -140,9 +140,9 @@ jobs:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
-          pg_dump -X -h 127.0.0.1 -p 5432 -U postgres -Fc -d ani_games_test -f /tmp/ani-games-ready-ci.backup
+          pg_dump -h 127.0.0.1 -p 5432 -U postgres -Fc -d ani_games_test -f /tmp/ani-games-ready-ci.backup
           createdb -h 127.0.0.1 -p 5432 -U postgres ani_games_restore_test
-          pg_restore -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test --no-owner /tmp/ani-games-ready-ci.backup
+          pg_restore -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test --no-owner /tmp/ani-games-ready-ci.backup
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" > /tmp/original-table-count
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" > /tmp/restored-table-count
           diff -u /tmp/original-table-count /tmp/restored-table-count
