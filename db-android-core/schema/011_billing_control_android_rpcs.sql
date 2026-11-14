@@ -323,10 +323,7 @@ $function$;
 
 REVOKE EXECUTE ON FUNCTION api.billing_rental_accounts(uuid,uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.billing_create_rental(uuid,uuid,text,text,bigint,text) FROM PUBLIC,ani_api_runtime;
-REVOKE EXECUTE ON FUNCTION api.billing_edit_rental(uuid,uuid,text,bigint,text) FROM PUBLIC,ani_api_runtime;
-REVOKE EXECUTE ON FUNCTION api.billing_delete_rental(uuid,uuid) FROM PUBLIC,ani_api_runtime;
 REVOKE EXECUTE ON FUNCTION api.billing_start_trial(uuid,uuid) FROM PUBLIC,ani_api_runtime;
-REVOKE EXECUTE ON FUNCTION api.billing_disconnect_device(uuid,uuid) FROM PUBLIC,ani_api_runtime;
 
 REVOKE EXECUTE ON FUNCTION api.billing_rental_accounts(text,uuid,uuid) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION api.billing_create_rental(text,uuid,uuid,text,text,bigint,text,timestamptz) FROM PUBLIC;
