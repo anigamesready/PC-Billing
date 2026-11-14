@@ -7,6 +7,16 @@
 - [ ] User confirms ChatGPT Project creation and Project Instructions installation, if Projects is available.
 - [ ] Run and record a fresh-chat activation test from inside that Project. Current chat activation does not independently prove Project-level instructions were installed.
 
+## Priority 0 — PC Billing V12.4.9 DB1-direct live validation
+- [x] Rebase recovery work on the verified V12.4.8 Windows build source; keep PC DB Android/Redmi adapter separate.
+- [x] Remove PC client DB1/DB2 route resolution and shared-gateway selection from the device request transport.
+- [x] Preserve the Electron appId and legacy productName/userData folder while advancing runtime/package version to V12.4.9.
+- [x] Build and verify the Windows portable EXE and clean source archive from GitHub Actions.
+- [ ] User replaces the running PC Billing executable while keeping the previous EXE as rollback.
+- [ ] Verify saved pairing token is still present, then confirm heartbeat reports ONLINE on DB1.
+- [ ] Test rental lookup, rental session start/end, heartbeat, command ack, sync/pull and local outbox against DB1 using an actual paired PC.
+- [ ] Only after these pass, mark the recovery build operationally accepted; do not merge to master without separate approval.
+
 ## Priority 1 — Redmi DB Android server/API contract
 - [ ] Obtain current sanitized read-only inventory/source of Termux project `~/ani-games-server`; do not include .env, passwords, tokens, private keys, database dumps or backups.
 - [ ] Revalidate current Termux working directory, Node version, PostgreSQL/API process state, port 8787, health response, control script and startup behavior.
