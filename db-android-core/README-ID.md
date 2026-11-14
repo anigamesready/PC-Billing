@@ -22,6 +22,7 @@ Apply only these schema files to a fresh, empty local database:
 6. `schema/006_admin_local_auth_and_rpc.sql`
 7. `schema/007_billing_control_commands.sql`
 8. `schema/008_local_business_triggers.sql`
+9. `schema/009_admin_db1_business_routines.sql`
 
 Do **not** apply `schema/001_db1_catalog_snapshot.sql`; it is a catalog/reference snapshot, not a migration. Do not import DB1/DB2 routing, route-quiesce/before-image triggers, Telegram outbox, or shutdown scheduler sidecars.
 
@@ -77,7 +78,7 @@ The same device routes are also available under `/functions/v1/ani-games-api/` f
 - `POST /auth/v1/logout`
 - `POST /rest/v1/rpc/admin_context`
 - `POST /rest/v1/rpc/admin_context_v2`
-- Admin rental CRUD, alerts, selected sessions, commands, recovery enrollment and period report RPCs from the allowlist in `server.mjs`.
+- Admin login lookup, device list/state/rename/disconnect, active sessions/activity, free-test policy/trial, global rental CRUD, alerts, selected sessions, commands, recovery enrollment and period report RPCs from the allowlist in `server.mjs`.
 
 ### Billing Control / Reseller
 - `POST /rest/v1/rpc/billing_login`
