@@ -71,10 +71,9 @@ const enrollment = await readJson(await post("/device/enroll", {
 assert.ok(enrollment.token);
 
 const heartbeat = await readJson(await post("/device/heartbeat", {
-  token: enrollment.token,
   appVersion: "ci",
   metadata: { rentalSyncReady: true }
-}));
+}, enrollment.token));
 assert.equal(heartbeat.power_state, "online");
 
 console.log("PASS: Node API health, Admin Auth login/context/user, Reseller login/context, device enrollment and heartbeat");
