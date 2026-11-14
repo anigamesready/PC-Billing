@@ -105,9 +105,11 @@ if package.get("version") != "12.4.8" or lock.get("version") != "12.4.8":
     raise SystemExit("PC_DB1_DIRECT_UNEXPECTED_PACKAGE_BASELINE")
 if package.get("build", {}).get("appId") != "com.anigames.billing.v12test":
     raise SystemExit("PC_DB1_DIRECT_APP_ID_CHANGED_ABORT")
+if package.get("build", {}).get("productName") != "AniGames Billing V12.3.3":
+    raise SystemExit("PC_DB1_DIRECT_PRODUCT_NAME_CHANGED_ABORT")
 package["version"] = "12.4.9"
-package["description"] = "AniGames Billing V12.4.9: DB1 direct transport; DB2 router polling removed; V12.4.8 timer and fullscreen safeguards retained."
-package.setdefault("build", {})["productName"] = "AniGames Billing V12.4.9"
+package["description"] = "AniGames Billing V12.4.9: DB1 direct transport; DB2 router polling removed; V12.4.8 timer and fullscreen safeguards retained. Preserve legacy Electron productName/userData path."
+# Keep productName unchanged: Electron derives the default userData folder from app name.
 lock["version"] = "12.4.9"
 if isinstance(lock.get("packages"), dict) and isinstance(lock["packages"].get(""), dict):
     lock["packages"][""]["version"] = "12.4.9"
