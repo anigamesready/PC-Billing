@@ -14,6 +14,18 @@
 - DB Android backend/schema: branch `backend/db-android-core-v1`, head `8e9797628ec4508dd5251d32d2a6faa983c7d106`. It contains schema and contract documentation, not a complete local API service.
 - Full branch ancestry, workflow limitations and source warnings are recorded in `PROJECT_REGISTRY.md`.
 
+## PC Billing DB1-direct recovery — 2026-11-14
+
+- Recovery branch: `recovery/pc-v12.4.9-db1-direct-20261114`; exact head `0565a8a225793e8785ca17f9079a15b753a834f1`.
+- Source baseline: official PC V12.4.8 build branch `fix/pc-v12.4.8-timer-size-sync`, commit `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19`; the DB Android source branch was kept separate and its Redmi adapter was not applied to this DB1 recovery build.
+- Final build: PC Billing V12.4.9 DB1 Direct, GitHub Actions run `43572350285` (`success`), artifact `14104807189`.
+- Runtime: PC device transport is pinned to DB1 Edge Function `ani-games-api`; `resolveDbRoute`, `db-route-status`, DB2 reference and `shared-db-gateway` route selection removed from `v11-cloud.js`.
+- DB1 `ani-games-api` was live-checked at version 36, ACTIVE, with direct handlers for enrollment, heartbeat, watchdog, ack, sync/pull, rental lookup, session start/end/release and test-policy.
+- Compatibility: Electron `appId` remains `com.anigames.billing.v12test` and legacy `productName` remains `AniGames Billing V12.3.3` so the default `userData` path remains the same. Only package/runtime version is V12.4.9 and the portable EXE output filename is V12.4.9.
+- Regression/build verification: existing V12.4.5–V12.4.8 patch chain passed; V12.4.9 patch passed; JS + inline script syntax passed; direct DB1/router static assertions passed; Windows portable EXE build and artifact upload passed.
+- Artifacts: EXE SHA-256 `9B8171EC801229B3C0EE01F763D9037B33ABB7CDCBF38396F3BC8D83C1EB0807`; clean source ZIP SHA-256 `7BEFCF83D4D542FE0F7FE92866E16B7BA29C1DE05E063927B89FBD43099C75F7`; GitHub artifact ZIP SHA-256 `a645ae96002c28fbe7510e53cd4c91c317efa8c18c86f1463024a3bea0c479d7`.
+- Not yet tested on a live customer PC: saved-token login/heartbeat, real rental start/end, and fresh replace/install. No backend DB data, Admin APK, Reseller APK, DB2 project, or master branch was changed.
+
 ## Redmi Termux server — latest reported state
 - Working directory: `~/ani-games-server` (`/data/data/com.termux/files/home/ani-games-server`).
 - Server Control 1.0.2 update was reported installed from `ANI_GAMES_READY_SERVER_CONTROL_FIX_1.0.2/UPDATE.sh`.
