@@ -114,22 +114,6 @@ begin
  return jsonb_build_object('ok',true);
 end $function$;
 
-CREATE OR REPLACE FUNCTION api.billing_context()
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'pg_catalog'
-AS $function$
-declare a public.billing_control_accounts%rowtype; o jsonb;
-begin
- select * into a from public.billing_control_accounts where auth_user_id=auth.uid() and status='active' limit 1;
- if not found then raise exception 'BILLING_CONTROL_ACCESS_DENIED'; end if;
- update public.billing_control_accounts set last_login_at=now(),updated_at=now() where id=a.id;
- select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'name',x.name,'slug',x.slug) order by x.name),'[]'::jsonb) into o
- from public.organizations x where x.id=a.org_id and x.status='active';
- return jsonb_build_object('id',a.id,'username',a.username,'role',a.role,'org_id',a.org_id,'must_change_password',a.must_change_password,'orgs',o);
-end $function$;
-
 CREATE OR REPLACE FUNCTION api.billing_context(p_session_token text)
  RETURNS jsonb
  LANGUAGE plpgsql
