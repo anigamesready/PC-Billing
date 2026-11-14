@@ -219,7 +219,7 @@ jobs:
           - Recovery branch: recovery/pc-v12.4.9-db1-direct-20261114
           - Source commit: $commit
           - V12.4.8 baseline: bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19
-          - Source ZIP SHA-256: $sourceHash
+          - V12.1.0 input source ZIP SHA-256: $sourceHash
           - EXE: AniGames Billing V12.4.9.exe
           - EXE SHA-256: $exeHash
           - Electron appId: com.anigames.billing.v12test
@@ -239,12 +239,15 @@ jobs:
           excluded={"node_modules","dist",".git",".cache","__pycache__"}
           with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
               for item in root.rglob("*"):
-                  if not item.is_file() or any(part in excluded for part in item.relative_to(root).parts):
+                  if not item.is_file() or any(part in excluded for part in item.relative_to(root).parts) or item.resolve()==output.resolve():
                       continue
                   z.write(item,(Path(root.name)/item.relative_to(root)).as_posix())
           print("Final source archive:",output,output.stat().st_size)
           '@ | python -
           if ($LASTEXITCODE -ne 0) { throw 'Source archive packaging failed.' }
+          $finalSource = Join-Path $env:PC_PROJECT_DIR 'AniGames-PC-V12.4.9-DB1-DIRECT-SOURCE.zip'
+          $finalSourceHash = (Get-FileHash $finalSource -Algorithm SHA256).Hash
+          Add-Content (Join-Path $env:PC_PROJECT_DIR 'DB1-DIRECT-V12.4.9-AUDIT.md') "- Final patched source archive SHA-256: $finalSourceHash"
 
           Get-FileHash $exe -Algorithm SHA256 | Format-List
 
