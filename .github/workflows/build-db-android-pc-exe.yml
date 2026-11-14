@@ -95,6 +95,28 @@ jobs:
           python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_db_android_local_api.py') "$env:PC_PROJECT_DIR"
           if ($LASTEXITCODE -ne 0) { throw 'PC DB Android local API adapter failed.' }
 
+      - name: Isolate the Windows DB Android application identity
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
+          $package.name = 'ani-games-billing-db-android'
+          $package.build.appId = 'com.anigames.billing.v1248dbandroid'
+          $package.build.productName = 'AniGames Billing V12.4.8 DB Android'
+          $package | ConvertTo-Json -Depth 100 | Set-Content -Path 'package.json' -Encoding utf8
+          $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
+          $lock.name = 'ani-games-billing-db-android'
+          if ($lock.packages.ContainsKey('')) {
+            $lock.packages[''].name = 'ani-games-billing-db-android'
+          }
+          $lock | ConvertTo-Json -Depth 100 | Set-Content -Path 'package-lock.json' -Encoding utf8
+          $verify = Get-Content 'package.json' -Raw | ConvertFrom-Json
+          if ($verify.build.appId -ne 'com.anigames.billing.v1248dbandroid' -or $verify.build.productName -ne 'AniGames Billing V12.4.8 DB Android') {
+            throw 'Isolated DB Android Electron identity was not applied.'
+          }
+          Write-Host 'PASS: unique Windows appId/productName for side-by-side DB Android installation.'
+
       - name: JavaScript, local API, Electron identity and existing feature regressions
         shell: pwsh
         run: |
@@ -170,7 +192,7 @@ jobs:
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
           $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
           if ($package.version -ne '12.4.8' -or $lock.version -ne '12.4.8') { throw 'Package metadata is not V12.4.8.' }
-          if ($package.build.appId -ne 'com.anigames.billing.v12test' -or $package.build.productName -ne 'AniGames Billing V12.3.3') { throw 'Electron app identity changed; local userData continuity may break.' }
+          if ($package.build.appId -ne 'com.anigames.billing.v1248dbandroid' -or $package.build.productName -ne 'AniGames Billing V12.4.8 DB Android') { throw 'Isolated DB Android Electron identity is incorrect.' }
           if (!$index.Contains('V12.4.8-TIMER-SIZE-SYNC') -or !$renderer.Contains('V12.4.8-TIMER-SIZE-SYNC')) { throw 'V12.4.8 source version markers missing.' }
 
           Get-ChildItem -Path 'patch_pc_*.py' -File | ForEach-Object {
@@ -225,8 +247,8 @@ jobs:
           - Input source ZIP SHA-256: $sourceHash
           - EXE: AniGames Billing V12.4.8.exe
           - EXE SHA-256: $exeHash
-          - Electron appId: com.anigames.billing.v12test
-          - Electron productName retained: AniGames Billing V12.3.3
+          - Electron appId: com.anigames.billing.v1248dbandroid
+          - Electron productName: AniGames Billing V12.4.8 DB Android
           - Database transport: local DB Android API; explicit HTTPS Redmi URL required
           - Automatic shutdown countdown: disabled; manual Admin Windows shutdown remains
           - Blynk/WoL: PC local WoL functions retained; cloud relay remains a separate Admin service
