@@ -5,6 +5,9 @@ DECLARE
   v_bootstrap jsonb;
   v_login jsonb;
   v_login2 jsonb;
+  v_user jsonb;
+  v_refresh jsonb;
+  v_old_token text;
   v_ctx jsonb;
   v_old_ctx jsonb;
   v_created jsonb;
@@ -62,6 +65,8 @@ BEGIN
   v_account := (v_login->>'id')::uuid;
   IF coalesce((v_login->>'ok')::boolean,false) IS NOT TRUE
      OR coalesce(v_token,'')=''
+     OR coalesce(v_login->>'refresh_token','')=''
+     OR coalesce(v_login->>'auth_user_id','')=''
      OR v_login->>'role' IS DISTINCT FROM 'SUPER_ADMIN'
      OR v_login->>'org_id' IS DISTINCT FROM v_org::text THEN
     RAISE EXCEPTION 'ADMIN_LOGIN_RESPONSE_INVALID';
@@ -73,6 +78,27 @@ BEGIN
       AND revoked_at IS NULL AND expires_at>now()+interval '11 hours'
   ) THEN RAISE EXCEPTION 'ADMIN_SESSION_NOT_HASHED_OR_12H'; END IF;
 
+  -- Supabase-js-compatible local user lookup and rotating refresh token.
+  v_user := api.admin_get_user(v_token);
+  IF v_user->>'id' IS DISTINCT FROM v_login->>'auth_user_id'
+     OR v_user->>'email' IS DISTINCT FROM 'ci-owner@local.anigamesready' THEN
+    RAISE EXCEPTION 'ADMIN_GET_USER_INVALID';
+  END IF;
+  v_old_token := v_token;
+  v_refresh := api.admin_refresh_session(v_login->>'refresh_token');
+  v_token := v_refresh->>'token';
+  IF coalesce((v_refresh->>'ok')::boolean,false) IS NOT TRUE
+     OR coalesce(v_token,'')=''
+     OR v_refresh->>'refresh_token' IS NOT DISTINCT FROM v_login->>'refresh_token' THEN
+    RAISE EXCEPTION 'ADMIN_REFRESH_ROTATION_FAILED';
+  END IF;
+  BEGIN
+    PERFORM api.admin_context_v2(v_old_token);
+    RAISE EXCEPTION 'EXPECTED_OLD_ACCESS_TOKEN_REJECTION_NOT_RAISED';
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_error = MESSAGE_TEXT;
+    IF v_error <> 'ADMIN_SESSION_EXPIRED' THEN RAISE; END IF;
+  END;
   v_ctx := api.admin_context_v2(v_token);
   IF v_ctx->>'role' IS DISTINCT FROM 'SUPER_ADMIN'
      OR v_ctx->>'id' IS DISTINCT FROM v_account::text
