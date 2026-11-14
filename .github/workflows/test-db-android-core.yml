@@ -51,6 +51,7 @@ jobs:
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/007_billing_control_commands.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/008_local_business_triggers.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/009_admin_db1_business_routines.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/010_billing_reseller_refresh_and_devices.sql
 
       - name: Run PC pairing, heartbeat, rental, lease, sync and shutdown safety regressions
         env:
@@ -93,6 +94,13 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/tests/008_admin_enrollment_reports_theme_smoke.sql
+
+      - name: Verify Reseller refresh token and device/session APIs
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/tests/010_billing_refresh_smoke.sql
 
       - name: Run Billing Control command authorization regressions
         env:
