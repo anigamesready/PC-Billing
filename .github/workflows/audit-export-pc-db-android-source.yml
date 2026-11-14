@@ -184,6 +184,29 @@ jobs:
           Remove-Item 'index-runtime-check.js' -Force
           Write-Host 'PASS: V12.4.8 exact timer sizing, V12.4.7 fullscreen non-interference, responsive display, Admin controls, rental/session, pairing, WOL, and shutdown policy.'
 
+      - name: Apply isolated PC DB Android local API and watchdog adapter
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python scripts/patch_pc_db_android_local_api.py "$env:PC_PROJECT_DIR"
+          if ($LASTEXITCODE -ne 0) { throw 'PC DB Android adapter patch failed.' }
+          @'
+          from pathlib import Path
+          import re, subprocess, os
+          root=Path(os.environ["PC_PROJECT_DIR"])
+          for name in ("v11-cloud.js","main.js"):
+              result=subprocess.run(["node","--check",str(root/name)],capture_output=True,text=True)
+              if result.returncode: raise SystemExit(result.stderr)
+          html=(root/"index.html").read_text(encoding="utf-8")
+          scripts=re.findall(r'<script\\b(?![^>]*\\bsrc=)[^>]*>(.*?)</script>',html,re.I|re.S)
+          for i,source in enumerate(scripts):
+              path=Path(f"pc-index-inline-{i}.js");path.write_text(source,encoding="utf-8")
+              result=subprocess.run(["node","--check",str(path)],capture_output=True,text=True)
+              if result.returncode: raise SystemExit(result.stderr)
+          print("PASS: PC DB Android adapter and inline JavaScript syntax.")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'PC DB Android syntax verification failed.' }
+
       - name: Package exact patched V12.4.8 source for DB Android audit
         shell: pwsh
         run: |
