@@ -27,6 +27,7 @@ for file in \
   006_admin_local_auth_and_rpc.sql \
   007_billing_control_commands.sql \
   008_local_business_triggers.sql
+  009_admin_db1_business_routines.sql
 do
   echo "[ANI DB] Menerapkan $file"
   psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCHEMA/$file"
