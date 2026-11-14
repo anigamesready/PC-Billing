@@ -12,7 +12,7 @@ mkdir -p "$LOG_DIR"
 set -a
 . "$ENV_FILE"
 set +a
-GATEWAY="${ANI_EDGE_GATEWAY_URL:-https://ani-games-db-android-stage.anigamesready.workers.dev}"
+GATEWAY="${ANI_EDGE_GATEWAY_URL:-https://ani-games-db-android-stage-gateway.anigamesready.workers.dev}"
 : "${ANI_EDGE_REGISTER_TOKEN:?ANI_EDGE_REGISTER_TOKEN belum dikonfigurasi}"
 : "${ANI_EDGE_PROXY_SECRET:?ANI_EDGE_PROXY_SECRET belum dikonfigurasi}"
 
@@ -89,7 +89,17 @@ while [ "$STOPPING" -eq 0 ]; do
   fi
   echo
   echo "[ANI ONLINE] Uji gateway:"
-  curl -fsS --max-time 15 "$GATEWAY/_ani_gateway/health" || true
+  if ! curl -fsS --max-time 15 "$GATEWAY/_ani_gateway/health"; then
+    echo
+    echo "[ANI ONLINE] Gateway belum melaporkan upstream aktif. Tunnel akan dibuat ulang."
+    kill "$TUNNEL_PID" 2>/dev/null || true
+    wait "$TUNNEL_PID" 2>/dev/null || true
+    TUNNEL_PID=""
+    curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
+      -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
+    sleep 10
+    continue
+  fi
   echo
 
   while kill -0 "$TUNNEL_PID" 2>/dev/null && [ "$STOPPING" -eq 0 ]; do
