@@ -315,8 +315,13 @@ async function handler(req, res) {
       return send(res,200,{app:"Ani Games Ready Local Server",api:"online",database:"online",apiVersion:"db-android-v1",remote_access_enabled:!isLoopback,bind_host:HOST,relay:"separate"});
     }
     if (path.startsWith("/auth/v1/")) return await authRequest(req,res,url);
+    if (path === "/setup" && req.method === "GET") {
+      if (!BOOTSTRAP_TOKEN || !isLoopback || !["127.0.0.1","::1","::ffff:127.0.0.1"].includes(req.socket.remoteAddress)) return send(res,404,{error:"NOT_FOUND"});
+      res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
+      return res.end(`<!doctype html><html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ani Games Ready — Setup Owner</title><style>body{font:16px system-ui;background:#101827;color:#eef2ff;max-width:520px;margin:40px auto;padding:20px}input,button{box-sizing:border-box;width:100%;padding:13px;margin:8px 0;border-radius:8px;border:1px solid #475569}input{background:#0f172a;color:#fff}button{background:#2563eb;color:#fff;font-weight:700}small{color:#94a3b8}</style><h2>Setup Admin Ani Games Ready</h2><p>Buat akun Owner lokal pertama. Halaman ini hanya tersedia dari Redmi/localhost dan hanya bisa berhasil sekali.</p><form id="f"><label>Username / Email</label><input name="username" required minlength="3" maxlength="120"><label>Password (minimal 12 karakter)</label><input name="password" type="password" required minlength="12" maxlength="200"><label>Nama rental / organisasi</label><input name="org_name" required minlength="2" maxlength="120"><button>Buat Admin Owner</button></form><p id="s"></p><small>Database lokal Ani Games Ready. Blynk/WoL tidak disentuh.</small><script>document.getElementById('f').addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.target),s=document.getElementById('s');s.textContent='Memproses…';try{const r=await fetch('/api/admin/bootstrap',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:f.get('username'),password:f.get('password'),org_name:f.get('org_name')})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Gagal');s.textContent='Owner lokal berhasil dibuat. Silakan login melalui Admin DB Android.';e.target.reset()}catch(x){s.textContent='Gagal: '+x.message}});</script></html>`);
+    }
     if (path === "/api/admin/bootstrap" && req.method === "POST") {
-      if (!BOOTSTRAP_TOKEN || req.headers["x-ani-bootstrap-token"] !== BOOTSTRAP_TOKEN) return send(res,403,{ok:false,error:"ADMIN_BOOTSTRAP_DENIED"});
+      if (!BOOTSTRAP_TOKEN || !isLoopback || !["127.0.0.1","::1","::ffff:127.0.0.1"].includes(req.socket.remoteAddress)) return send(res,403,{ok:false,error:"ADMIN_BOOTSTRAP_DENIED"});
       const body = await readJson(req);
       const data = await scalar("SELECT api.admin_bootstrap_owner($1::text,$2::text,$3::text,$4::text) AS result",
         [BOOTSTRAP_TOKEN,str(body.username,120),String(body.password||""),str(body.org_name,120)]);
@@ -351,12 +356,6 @@ async function handler(req, res) {
 
 async function main() {
   await query("SELECT 1");
-  if (BOOTSTRAP_TOKEN) {
-    await query(
-      "INSERT INTO private.admin_bootstrap_control(singleton,token_hash) VALUES(true,$1) ON CONFLICT(singleton) DO NOTHING",
-      [sha256(BOOTSTRAP_TOKEN)]
-    );
-  }
   const server = http.createServer(handler);
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
