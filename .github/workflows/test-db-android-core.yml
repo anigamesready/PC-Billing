@@ -170,6 +170,61 @@ jobs:
           npm install --no-audit --no-fund
           npm run check
 
+      - name: Install and smoke-test isolated Termux staging API on port 8788
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          ANI_DB_STAGE_HOME: ${{ runner.temp }}/ani-games-db-android-stage
+          ANI_DB_STAGE_NAME: ani_games_ready_stage
+          ANI_DB_STAGE_PORT: "8788"
+        run: |
+          set -euo pipefail
+          export ANI_DB_STAGE_HOME ANI_DB_STAGE_NAME ANI_DB_STAGE_PORT
+          bash db-android-core/setup-stage.sh
+          bash "$ANI_DB_STAGE_HOME/start-stage.sh"
+          cleanup() { bash "$ANI_DB_STAGE_HOME/stop-stage.sh" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          curl -fsS http://127.0.0.1:8788/health > /tmp/ani-stage-health.json
+          curl -fsS http://127.0.0.1:8788/setup > /tmp/ani-stage-setup.html
+          curl -fsS -X POST http://127.0.0.1:8788/api/admin/bootstrap \
+            -H 'content-type: application/json' \
+            --data '{"username":"CI-STAGE-OWNER","password":"CI-Stage-Owner-Password-2026","org_name":"Ani Games CI Stage"}' \
+            > /tmp/ani-stage-bootstrap.json
+          curl -fsS -X POST 'http://127.0.0.1:8788/auth/v1/token?grant_type=password' \
+            -H 'content-type: application/json' \
+            --data '{"email":"CI-STAGE-OWNER","password":"CI-Stage-Owner-Password-2026"}' \
+            > /tmp/ani-stage-login.json
+          ACCESS_TOKEN="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/tmp/ani-stage-login.json','utf8')).access_token)")"
+          test -n "$ACCESS_TOKEN"
+          curl -fsS -X POST http://127.0.0.1:8788/rest/v1/rpc/admin_context \
+            -H "authorization: Bearer $ACCESS_TOKEN" \
+            -H 'content-type: application/json' \
+            --data '{}' > /tmp/ani-stage-context.json
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import fs from "node:fs";
+          const health=JSON.parse(fs.readFileSync("/tmp/ani-stage-health.json","utf8"));
+          const bootstrap=JSON.parse(fs.readFileSync("/tmp/ani-stage-bootstrap.json","utf8"));
+          const login=JSON.parse(fs.readFileSync("/tmp/ani-stage-login.json","utf8"));
+          const context=JSON.parse(fs.readFileSync("/tmp/ani-stage-context.json","utf8"));
+          assert.equal(health.api,"online");
+          assert.equal(health.database,"online");
+          assert.equal(health.apiVersion,"db-android-v1");
+          assert.equal(health.bind_host,"127.0.0.1");
+          assert.equal(bootstrap.ok,true);
+          assert.ok(login.access_token);
+          assert.ok(login.refresh_token);
+          assert.equal(context.role,"owner");
+          assert.equal(context.orgs?.length,1);
+          console.log("PASS: isolated Termux staging installer, DB migrations, restricted role, port 8788 startup, localhost setup, Owner bootstrap, Admin login and context");
+          NODE
+          psql -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='ani_games_ready_stage'" | grep -q 1
+          psql -d postgres -Atqc "SELECT 1 FROM pg_roles WHERE rolname='ani_api_stage_login'" | grep -q 1
+          test "$(psql -d postgres -Atqc "SELECT count(*) FROM pg_database WHERE datname IN ('ani_games_test','ani_games_ready_stage')")" -eq 2
+          echo "PASS: staging is a separate database and did not replace the CI primary test database."
+
       - name: Test local API over HTTP using the restricted database role
         env:
           PGPASSWORD: postgres
