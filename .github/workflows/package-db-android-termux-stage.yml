@@ -78,7 +78,7 @@ jobs:
           Existing API: port 8787 is not targeted
           Supabase DB1/DB2: not modified
           Blynk/WoL relay: not modified
-          Schema: 000 and 002-010 only; catalog snapshot 001 excluded
+          Schema: 000 and 002-011 only; catalog snapshot 001 excluded
           EOF
           find "$OUT" -type f ! -name "SHA256SUMS.txt" -print0 | sort -z | xargs -0 sha256sum > "$OUT/SHA256SUMS.txt"
           zip -qr "$OUT.zip" "$OUT"
