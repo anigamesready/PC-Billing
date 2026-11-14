@@ -87,6 +87,13 @@ jobs:
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/tests/007_admin_device_policy_smoke.sql
 
+      - name: Run remaining Admin UI RPC and report regressions
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/tests/008_admin_enrollment_reports_theme_smoke.sql
+
       - name: Run Billing Control command authorization regressions
         env:
           PGPASSWORD: postgres
