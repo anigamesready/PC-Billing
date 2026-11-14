@@ -4,6 +4,7 @@ DECLARE
   v_org uuid;
   v_user uuid;
   v_rental uuid;
+  v_legacy_rental uuid;
   v_code text;
   v_updated timestamptz;
 BEGIN
@@ -26,10 +27,11 @@ BEGIN
       AND action='rental_identity_updated' AND target_id=v_rental::text
   ) THEN RAISE EXCEPTION 'RENTAL_IDENTITY_AUDIT_MISSING'; END IF;
 
-  -- A status-only edit must not normalize an untouched legacy code.
-  UPDATE public.rental_accounts SET code=' legacy mixed ',status='active' WHERE id=v_rental;
-  UPDATE public.rental_accounts SET status='disabled' WHERE id=v_rental;
-  SELECT code INTO v_code FROM public.rental_accounts WHERE id=v_rental;
+  -- An untouched legacy code inserted before the trigger must survive a status-only edit.
+  INSERT INTO public.rental_accounts(org_id,code,category,remaining_seconds,status)
+  VALUES(v_org,' legacy mixed ','reguler',600,'active') RETURNING id INTO v_legacy_rental;
+  UPDATE public.rental_accounts SET status='disabled' WHERE id=v_legacy_rental;
+  SELECT code INTO v_code FROM public.rental_accounts WHERE id=v_legacy_rental;
   IF v_code IS DISTINCT FROM ' legacy mixed ' THEN
     RAISE EXCEPTION 'STATUS_ONLY_UPDATE_CHANGED_LEGACY_CODE';
   END IF;
