@@ -22,7 +22,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in             db-android-core/setup-stage.sh             db-android-core/start-stage.sh             db-android-core/status-stage.sh             db-android-core/stop-stage.sh             db-android-core/server/migrate-local.sh             db-android-core/server/provision-runtime-role.sh             db-android-core/server/install-deps.sh             db-android-core/server/start.sh; do
+          for file in \
+            db-android-core/setup-stage.sh \
+            db-android-core/start-stage.sh \
+            db-android-core/status-stage.sh \
+            db-android-core/stop-stage.sh \
+            db-android-core/start-quick-tunnel-test.sh \
+            db-android-core/server/migrate-local.sh \
+            db-android-core/server/provision-runtime-role.sh \
+            db-android-core/server/install-deps.sh \
+            db-android-core/server/start.sh; do
             bash -n "$file"
           done
           node --check db-android-core/server/server.mjs
@@ -39,6 +48,7 @@ jobs:
           cp db-android-core/start-stage.sh "$OUT/start-stage.sh"
           cp db-android-core/status-stage.sh "$OUT/status-stage.sh"
           cp db-android-core/stop-stage.sh "$OUT/stop-stage.sh"
+          cp db-android-core/start-quick-tunnel-test.sh "$OUT/start-quick-tunnel-test.sh"
           cp db-android-core/schema/000_prerequisites.sql "$OUT/schema/"
           for n in 002 003 004 005 006 007 008 009 010 011; do
             file=$(find db-android-core/schema -maxdepth 1 -type f -name "${n}_*.sql" -print -quit)
