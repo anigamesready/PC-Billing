@@ -32,6 +32,22 @@ assert.ok(login.refresh_token);
 const context = await readJson(await post("/rest/v1/rpc/admin_context_v2", {}, login.access_token));
 assert.equal(context.role, "SUPER_ADMIN");
 
+const adminOrgId = context.orgs?.[0]?.id;
+assert.ok(adminOrgId);
+const devices = await readJson(await post("/rest/v1/rpc/admin_devices", { p_org_id: adminOrgId }, login.access_token));
+assert.ok(Array.isArray(devices));
+assert.ok(devices.some(device => device.client_id === "CI-ADMIN-SCREEN-PC"));
+const freeTestPolicy = await readJson(await post("/rest/v1/rpc/admin_get_free_test_policy", {}, login.access_token));
+assert.equal(freeTestPolicy.enabled, false);
+const activity = await readJson(await post("/rest/v1/rpc/admin_activity", {
+  p_org_id: adminOrgId,
+  p_from: new Date(Date.now() - 86400000).toISOString(),
+  p_to: new Date(Date.now() + 60000).toISOString(),
+  p_limit: 100
+}, login.access_token));
+assert.ok(Array.isArray(activity.accounts));
+assert.ok(Array.isArray(activity.sessions));
+
 const user = await readJson(await fetch(base + "/auth/v1/user", {
   headers: { authorization: "Bearer " + login.access_token }
 }));
