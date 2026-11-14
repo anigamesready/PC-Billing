@@ -204,6 +204,8 @@ const RPC = {
   admin_set_free_test_policy: { auth: "admin", sql: "SELECT api.admin_set_free_test_policy($1::text,$2::boolean) AS result", args: ["p_enabled"] },
   admin_start_trial: { auth: "admin", sql: "SELECT api.admin_start_trial($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
 
+  billing_devices: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.device_name,x.client_id),'[]'::jsonb) AS result FROM api.billing_devices($1::text,$2::uuid) x", args: ["p_org_id"] },
+  billing_active_sessions: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.started_at DESC),'[]'::jsonb) AS result FROM api.billing_active_sessions($1::text,$2::uuid) x", args: ["p_org_id"] },
   billing_context: { auth: "billing", sql: "SELECT api.billing_context($1::text) AS result", args: [] },
   billing_logout: { auth: "billing", sql: "SELECT api.billing_logout($1::text) AS result", args: [] },
   billing_change_password: { auth: "billing", sql: "SELECT api.billing_change_password($1::text,$2::text,$3::text) AS result", args: ["p_current_password","p_new_password"] },
@@ -312,6 +314,10 @@ async function authRequest(req, res, url) {
       const data = await scalar("SELECT api.admin_refresh_session($1::text) AS result",[str(body.refresh_token,512)]);
       const user = await scalar("SELECT api.admin_get_user($1::text) AS result",[data.token]);
       return send(res,200,await adminSessionResponse({...data,email:user?.email}));
+    }
+    if (grant === "billing_refresh") {
+      const data = await scalar("SELECT api.billing_refresh_session($1::text) AS result",[str(body.refresh_token,512)]);
+      return send(res,200,data);
     }
     return send(res,400,{message:"GRANT_TYPE_NOT_SUPPORTED"});
   }
