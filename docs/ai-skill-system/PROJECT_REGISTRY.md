@@ -7,6 +7,7 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 | Track | Repository | Work branch | Current head SHA | Source baseline |
 |---|---|---|---|---|
 | PC Billing DB Android | `anigamesready/PC-Billing` | `pc-billing-v12.4.8-DB-Android` | `f938c574dfbd17ab84b07ca940115a280d3f8d78` | `fix/pc-v12.4.8-timer-size-sync` — `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19`; V12.4.8 |
+| PC Billing recovery — DB1 Direct | `anigamesready/PC-Billing` | `recovery/pc-v12.4.9-db1-direct-20261114` | `0565a8a225793e8785ca17f9079a15b753a834f1` | `fix/pc-v12.4.8-timer-size-sync` — `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19`; V12.4.9, DB1-only recovery |
 | Admin DB Android | `anigamesready/Admin-Ani-Games` | `admin-v12.1.50-DB-Android` | `be56ede591c6ebc42b99a02e7731228e02ac40d4` | `fix/ani-wol-master-pairing-guard-20261112` — `9460e8dcbdbf69706408dd0507016cf0037ff153`; V12.1.50, versionCode 78, applicationId `com.anigames.billingadmin.v150` |
 | Reseller DB Android | `anigamesready/Admin-Ani-Games` | `reseller-v1.0.6-DB-Android` | `62e14e8caea62c50269cd62f4122efeed19e8731` | `release/reseller-v1.0.6-remember-login-rental-status` — `a67c2f6318230671a7d7776bf6040c39bca6ff97`; V1.0.6, versionCode 136 |
 | Redmi DB Android schema/API core | `anigamesready/PC-Billing` | `backend/db-android-core-v1` | `8e9797628ec4508dd5251d32d2a6faa983c7d106` | Based on PC Billing DB Android head `f938c574dfbd17ab84b07ca940115a280d3f8d78`; schema/catalog reference only, not a running API |
@@ -22,6 +23,12 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 - This backend branch does NOT contain the Redmi Node API implementation, login/session handlers, route handlers, startup manager or tests. A schema snapshot is not a working Supabase replacement.
 - Existing `.github/workflows/build-pc-v12-4-8-timer-size-sync.yml` auto-push trigger is only `fix/pc-v12.4.8-timer-size-sync`; DB Android is not in the push filter. The workflow extracts an older named PC source ZIP and applies a patch chain. Do not treat manual dispatch or this inherited workflow as proof of a DB Android build.
 - The inherited PC patch chain contains a V13 shutdown-timer patch followed by emergency-no-shutdown and direct-Windows-shutdown patches. Verify final behavior and preserve the no-automatic-countdown decision before any future build.
+
+### PC Billing DB1-direct recovery — 2026-11-14
+- Recovery branch `recovery/pc-v12.4.9-db1-direct-20261114`, head `0565a8a225793e8785ca17f9079a15b753a834f1`, based on V12.4.8 baseline `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19`.
+- GitHub Actions run `43572350285` completed successfully; output is V12.4.9 Windows portable EXE.
+- It pins PC device traffic to DB1 `ani-games-api`; the PC transport no longer resolves DB route status, checks DB2, or selects the shared DB gateway.
+- Keep this recovery branch separate from PC DB Android local-Redmi adapter work and from master. Real PC token/heartbeat/rental acceptance tests are pending.
 
 ### Admin
 - Repository default branch: `main`, head `810bb3a879ae139e6e2dcf5d1526f1935eac7f65`.
