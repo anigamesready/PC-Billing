@@ -40,7 +40,7 @@ jobs:
           cp db-android-core/status-stage.sh "$OUT/status-stage.sh"
           cp db-android-core/stop-stage.sh "$OUT/stop-stage.sh"
           cp db-android-core/schema/000_prerequisites.sql "$OUT/schema/"
-          for n in 002 003 004 005 006 007 008 009 010; do
+          for n in 002 003 004 005 006 007 008 009 010 011; do
             file=$(find db-android-core/schema -maxdepth 1 -type f -name "${n}_*.sql" -print -quit)
             test -n "$file"
             cp "$file" "$OUT/schema/"
