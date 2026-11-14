@@ -59,7 +59,7 @@ psql -X -v ON_ERROR_STOP=1 -d postgres -v db_password="$DB_PASSWORD" <<SQL
 SELECT format(
   'CREATE ROLE $ROLE_NAME LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD %L',
   :'db_password'
-) \\gexec
+) \gexec
 GRANT ani_api_runtime TO $ROLE_NAME;
 SQL
 
