@@ -1,0 +1,260 @@
+name: Build AniGames PC V12.4.9 DB1 Direct Recovery
+
+on:
+  push:
+    branches:
+      - recovery/pc-v12.4.9-db1-direct-20261114
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pc:
+    name: Patch, verify, and build Windows portable EXE
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout isolated recovery branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract exact V12.4.8 source and stage patch chain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip'
+          if (!(Test-Path $zip)) { throw 'PC source ZIP missing.' }
+          Expand-Archive -LiteralPath $zip -DestinationPath 'source-bundle' -Force
+          $project = Get-ChildItem 'source-bundle' -Directory -Recurse | Where-Object { $_.Name -eq 'Ani-Games-Billing-PC-V12.1.0' } | Select-Object -First 1
+          if (!$project) { throw 'PC source project folder missing.' }
+          foreach ($required in @('main.js','preload.js','renderer.js','index.html','v11-cloud.js','package.json','package-lock.json')) {
+            if (!(Test-Path (Join-Path $project.FullName $required))) { throw "Required PC source file missing: $required" }
+          }
+          Copy-Item 'scripts/*.py' $project.FullName -Force
+          $edgeTarget = Join-Path $project.FullName 'supabase/functions/ani-games-api'
+          New-Item -ItemType Directory -Path $edgeTarget -Force | Out-Null
+          Copy-Item 'supabase/functions/ani-games-api/index.ts' (Join-Path $edgeTarget 'index.ts') -Force
+          Copy-Item 'supabase/functions/ani-games-api/deno.json' (Join-Path $edgeTarget 'deno.json') -Force
+          $migrationTarget = Join-Path $project.FullName 'supabase/migrations'
+          New-Item -ItemType Directory -Path $migrationTarget -Force | Out-Null
+          Get-ChildItem 'supabase/migrations' -File -Filter '*.sql' | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $migrationTarget $_.Name) -Force
+          }
+          "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Selected source: $($project.FullName)"
+
+      - name: Reapply verified V12.4.5 through V12.4.8 source chain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          $patches = @(
+            'patch_pc_log_optimization.py',
+            'patch_pc_token_preservation.py',
+            'patch_pc_live_alert_runtime.py',
+            'patch_pc_dual_db_routing.py',
+            'patch_pc_shared_gateway.py',
+            'patch_pc_v12_2_3_route_refresh.py',
+            'patch_pc_v13_shutdown_timer.py',
+            'patch_pc_v13_free_test_gate.py',
+            'patch_pc_v13_1_heartbeat_performance.py',
+            'patch_pc_v13_2_app_exit_protection.py',
+            'patch_pc_v13_3_resilience_watchdog.py',
+            'patch_pc_v12_3_4_global_rentals.py',
+            'patch_pc_v12_3_5_global_rental_gateway.py',
+            'patch_pc_v12_3_6_wol_relay.py',
+            'patch_pc_v12_3_7_single_instance.py',
+            'patch_pc_v12_3_8_auto_wol_mac.py',
+            'patch_pc_v12_3_9_kiosk_failsafe.py',
+            'patch_pc_v12_4_0_timer_window_stability.py',
+            'patch_pc_v12_4_1_lock_state_recovery.py',
+            'patch_pc_v12_4_2_watchdog_after_ready.py',
+            'patch_pc_v12_4_3_emergency_no_shutdown.py',
+            'patch_pc_v12_4_4_restore_direct_windows_shutdown.py',
+            'patch_pc_v12_4_5_admin_logout_responsive_login.py',
+            'patch_pc_v12_4_6_responsive_display_fit.py',
+            'patch_pc_v12_4_7_fullscreen_noninterference.py',
+            'patch_pc_v12_4_8_timer_size_sync.py'
+          )
+          foreach ($patch in $patches) {
+            if (!(Test-Path $patch)) { throw "Patch file missing: $patch" }
+            python $patch
+            if ($LASTEXITCODE -ne 0) { throw "Existing source patch failed: $patch" }
+          }
+
+      - name: Apply DB1 direct recovery patch V12.4.9
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python (Join-Path $PWD 'scripts/patch_pc_v12_4_9_db1_direct.py') "$env:PC_PROJECT_DIR"
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.9 DB1-direct patch failed.' }
+
+      - name: JavaScript, DB1 routing, and legacy feature regression
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          foreach ($file in @('main.js','preload.js','renderer.js','v11-cloud.js')) {
+            node --check $file
+            if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax failed: $file" }
+          }
+          $html = Get-Content 'index.html' -Raw
+          $matches = [regex]::Matches($html, '(?s)<script(?:\s[^>]*)?>(.*?)</script>')
+          $inlineIndex = 0
+          foreach ($match in $matches) {
+            $inline = Join-Path $PWD "inline-check-$inlineIndex.js"
+            [System.IO.File]::WriteAllText($inline, $match.Groups[1].Value, [System.Text.UTF8Encoding]::new($false))
+            node --check $inline
+            if ($LASTEXITCODE -ne 0) { throw "Inline Billing JavaScript syntax failed: $inline" }
+            Remove-Item $inline -Force
+            $inlineIndex++
+          }
+
+          $cloud = Get-Content 'v11-cloud.js' -Raw
+          foreach ($forbidden in @('resolveDbRoute','db-route-status','shared-db-gateway','DB_ENDPOINTS','xcdbipgsvohesxhxydep','x-db-target-key')) {
+            if ($cloud.Contains($forbidden)) { throw "DB2/router reference remains in PC transport: $forbidden" }
+          }
+          if (!$cloud.Contains("const DB1_API_URL='https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/ani-games-api';")) { throw 'PC transport is not pinned to DB1.' }
+          if (!$cloud.Contains("'apikey':DB1_ANON_KEY")) { throw 'DB1 public API key header missing.' }
+          if (!$cloud.Contains("url=DB1_API_URL+'/'+clean")) { throw 'Device request does not use direct DB1 endpoint.' }
+          foreach ($route in @('/device/enroll','/device/heartbeat','/device/ack','/device/sync','/device/pull','/device/test-policy','/device/rental/lookup','/device/session/start','/device/session/end','/device/rental/release','/device/sync-cursor','/device/alert')) {
+            if (!$cloud.Contains("request('$route'")) { throw "Existing device API call missing: $route" }
+          }
+          foreach ($token in @('billing_v11_outbox','billing_v11_sync_cursor','billing_v11_sync_dirty','function heartbeatOnce()','function pullNow()','function syncNow()','billing_v11_token_rejected_hold')) {
+            if (!$cloud.Contains($token)) { throw "Existing pairing/heartbeat/offline sync behavior missing: $token" }
+          }
+          if ($cloud.Contains("localStorage.removeItem(CLOUD_KEY)") -and !$cloud.Contains('function v11DisconnectDevice()')) { throw 'Unexpected pairing cleanup path.' }
+
+          $main = Get-Content 'main.js' -Raw
+          $preload = Get-Content 'preload.js' -Raw
+          $renderer = Get-Content 'renderer.js' -Raw
+          if (!$main.Contains("const DB1_API_URL = 'https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/ani-games-api';")) { throw 'Watchdog DB1 endpoint missing.' }
+          if (!$main.Contains("headers: { apikey: DB1_ANON_KEY, 'content-type': 'application/json' }")) { throw 'Watchdog DB1 API key header missing.' }
+
+          $activeStart = $main.IndexOf('function applyActiveTimerWindowMode')
+          $activeEnd = $main.IndexOf('function handleBillingDisplayLayoutChange', $activeStart)
+          if ($activeStart -lt 0 -or $activeEnd -le $activeStart) { throw 'V12.4.7 active timer window boundaries missing.' }
+          $activeBody = $main.Substring($activeStart, $activeEnd - $activeStart)
+          if (!$activeBody.Contains('setAlwaysOnTop(false)') -or !$activeBody.Contains('showInactive') -or $activeBody.Contains('.focus()')) { throw 'Fullscreen non-interference regression.' }
+          if (!$main.Contains('function rememberPendingTimerWindowGeometry(') -or !$main.Contains('function flushPendingTimerWindowGeometry(')) { throw 'V12.4.8 deferred timer geometry helpers missing.' }
+          if (!$main.Contains('flushPendingTimerWindowGeometry(protectedWindow)')) { throw 'Timer geometry focus sync missing.' }
+          foreach ($token in @('width: 500px;','height: 76px;','#timer-widget.compact','width: 220px;','height: 54px;')) {
+            if (!$html.Contains($token)) { throw "Existing timer CSS dimension missing: $token" }
+          }
+          foreach ($token in @("ipcMain.handle('hide-billing'","ipcMain.handle('show-billing'","const powerCommands = { logoff: ['/l'], restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'] }","app.requestSingleInstanceLock(","globalShortcut.register('Control+Alt+F12'")) {
+            if (!$main.Contains($token)) { throw "Existing Admin/Windows control missing: $token" }
+          }
+          foreach ($token in @('hideBilling: () => ipcRenderer.invoke','showBilling: () => ipcRenderer.invoke')) {
+            if (!$preload.Contains($token)) { throw "Admin Billing bridge missing: $token" }
+          }
+          foreach ($token in @('ani_games_billing_ui_state','fitLoginBoxToViewport','window.v11ApplyRemoteCommand = async')) {
+            if (!$html.Contains($token)) { throw "Login/remote command behavior missing: $token" }
+          }
+          foreach ($token in @('device_rental_lookup','device_start_rental_session','device_end_rental_session')) {
+            if (!(Get-Content 'supabase/functions/ani-games-api/index.ts' -Raw).Contains($token)) { throw "DB1 rental API handler missing: $token" }
+          }
+          if ($html.Contains('function v12CheckScheduledShutdown()') -or $html.Contains('function v12ShutdownScheduleFromAdmin(')) { throw 'Automatic shutdown countdown returned unexpectedly.' }
+          foreach ($token in @('ANI_GAMES_V12_4_3_PURGE_LEGACY_SHUTDOWN_TIMER','SHUTDOWN_TIMER_DISABLED')) {
+            if (!$html.Contains($token)) { throw "Shutdown removal guard missing: $token" }
+          }
+
+          $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
+          $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
+          if ($package.version -ne '12.4.9' -or $lock.version -ne '12.4.9') { throw 'Package metadata is not V12.4.9.' }
+          if ($package.build.appId -ne 'com.anigames.billing.v12test') { throw 'Persistent Electron appId changed.' }
+          if ($package.build.productName -ne 'AniGames Billing V12.4.9') { throw 'Product name does not match V12.4.9.' }
+          if (!$html.Contains('V12.4.9-DB1-DIRECT') -or !$renderer.Contains('V12.4.9-DB1-DIRECT')) { throw 'V12.4.9 version labels missing.' }
+
+          Get-ChildItem -Path 'patch_pc_*.py' -File | ForEach-Object {
+            python -m py_compile $_.Name
+            if ($LASTEXITCODE -ne 0) { throw "Python patch syntax failed: $($_.Name)" }
+          }
+          python -m py_compile 'patch_pc_v12_4_9_db1_direct.py'
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.9 patch script syntax failed.' }
+          Write-Host 'PASS: DB1 direct route, heartbeat, rental/session/sync, local pairing state, V12.4.8 timer, fullscreen, admin controls, and shutdown policy.'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: source-bundle/**/package-lock.json
+
+      - name: Install locked dependencies
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+
+      - name: Build Windows portable EXE
+        shell: pwsh
+        run: |
+          Set-Location $env:PC_PROJECT_DIR
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw 'Windows portable EXE build failed.' }
+
+      - name: Verify EXE and create provenance audit/source ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:PC_PROJECT_DIR 'dist/AniGames Billing V12.4.9.exe'
+          if (!(Test-Path $exe)) {
+            $found = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
+            if (!$found) { throw 'No portable EXE was produced.' }
+            Move-Item -LiteralPath $found.FullName -Destination $exe -Force
+          }
+          $exeHash = (Get-FileHash $exe -Algorithm SHA256).Hash
+          $sourceHash = (Get-FileHash 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip' -Algorithm SHA256).Hash
+          $commit = $env:GITHUB_SHA
+          @"
+          # Ani Games Ready PC Billing V12.4.9 DB1 Direct Recovery
+
+          - Source repository: anigamesready/PC-Billing
+          - Recovery branch: recovery/pc-v12.4.9-db1-direct-20261114
+          - Source commit: $commit
+          - V12.4.8 baseline: bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19
+          - Source ZIP SHA-256: $sourceHash
+          - EXE: AniGames Billing V12.4.9.exe
+          - EXE SHA-256: $exeHash
+          - Electron appId: com.anigames.billing.v12test
+          - Runtime target: Supabase DB1 only (wzkjpycjizexxcxrfdvr)
+          - Removed from PC transport: db-route-status polling, DB2 status check, shared-db-gateway route selection
+          - Preserved: pairing token, local outbox, sync cursor, heartbeat, rental/session endpoints, watchdog, V12.4.8 timer sizing, fullscreen safety, Windows controls
+          - DB2: remains outside this recovery build and is not selected by PC Billing
+          - Tests: JavaScript syntax, inline script syntax, route static assertions, PC legacy feature assertions, package identity, Windows portable EXE build
+          - Not tested: live login/pairing using a real PC token, real rental start/end on customer PC, fresh install/replace on a production PC
+          "@ | Set-Content (Join-Path $env:PC_PROJECT_DIR 'DB1-DIRECT-V12.4.9-AUDIT.md') -Encoding utf8
+
+          @'
+          import os, zipfile
+          from pathlib import Path
+          root=Path(os.environ["PC_PROJECT_DIR"]).resolve()
+          output=Path("AniGames-PC-V12.4.9-DB1-DIRECT-SOURCE.zip")
+          excluded={"node_modules","dist",".git",".cache","__pycache__"}
+          with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for item in root.rglob("*"):
+                  if not item.is_file() or any(part in excluded for part in item.relative_to(root).parts):
+                      continue
+                  z.write(item,(Path(root.name)/item.relative_to(root)).as_posix())
+          print("Final source archive:",output,output.stat().st_size)
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Source archive packaging failed.' }
+
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
+
+      - name: Upload V12.4.9 EXE, source, and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-PC-V12.4.9-DB1-DIRECT-RECOVERY
+          path: |
+            source-bundle/Ani-Games-Billing-PC-V12.1.0/dist/AniGames Billing V12.4.9.exe
+            source-bundle/Ani-Games-Billing-PC-V12.1.0/AniGames-PC-V12.4.9-DB1-DIRECT-SOURCE.zip
+            source-bundle/Ani-Games-Billing-PC-V12.1.0/DB1-DIRECT-V12.4.9-AUDIT.md
+          if-no-files-found: error
+          retention-days: 30
