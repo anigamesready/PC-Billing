@@ -123,6 +123,39 @@ jobs:
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/tests/006_local_business_triggers_smoke.sql
 
+      - name: Syntax-check isolated Termux staging scripts without executing them
+        run: |
+          set -euo pipefail
+          bash -n db-android-core/setup-stage.sh
+          bash -n db-android-core/start-stage.sh
+          bash -n db-android-core/status-stage.sh
+          bash -n db-android-core/stop-stage.sh
+          bash -n db-android-core/server/migrate-local.sh
+          bash -n db-android-core/server/provision-runtime-role.sh
+          bash -n db-android-core/server/install-deps.sh
+          bash -n db-android-core/server/start.sh
+
+      - name: Verify logical backup and restore on a separate staging database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          pg_dump -X -h 127.0.0.1 -p 5432 -U postgres -Fc -d ani_games_test -f /tmp/ani-games-ready-ci.backup
+          createdb -h 127.0.0.1 -p 5432 -U postgres ani_games_restore_test
+          pg_restore -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test --no-owner /tmp/ani-games-ready-ci.backup
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" > /tmp/original-table-count
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" > /tmp/restored-table-count
+          diff -u /tmp/original-table-count /tmp/restored-table-count
+          for table in organizations devices device_tokens rental_accounts rental_sessions rental_offline_leases usage_events audit_logs billing_control_accounts billing_control_sessions; do
+            original=$(psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -Atqc "SELECT count(*) FROM public.$table")
+            restored=$(psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test -Atqc "SELECT count(*) FROM public.$table")
+            test "$original" = "$restored" || { echo "Restore row-count mismatch: $table"; exit 1; }
+          done
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_restore_test -Atqc "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='api'" > /tmp/restored-api-functions
+          test "$(cat /tmp/restored-api-functions)" -gt 40
+          sha256sum /tmp/ani-games-ready-ci.backup
+          echo "PASS: logical backup restored into ani_games_restore_test; table and critical-row counts match."
+
       - name: Install Node.js and verify local API syntax
         uses: actions/setup-node@v4
         with:
