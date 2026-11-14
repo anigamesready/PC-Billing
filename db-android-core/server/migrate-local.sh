@@ -11,9 +11,9 @@ if ! psql -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'"
   createdb "$DB_NAME"
 fi
 
-TABLES="$(psql -d "$DB_NAME" -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")"
+TABLES="$(psql -d "$DB_NAME" -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('public','auth','private','reporting_private') AND table_type='BASE TABLE'")"
 if [ "$TABLES" != "0" ]; then
-  echo "[ANI DB] STOP: database $DB_NAME sudah berisi $TABLES tabel."
+  echo "[ANI DB] STOP: database $DB_NAME sudah berisi $TABLES tabel aplikasi (public/auth/private)."
   echo "[ANI DB] Migrasi ini hanya untuk database staging kosong. Jangan menimpa data."
   exit 2
 fi
