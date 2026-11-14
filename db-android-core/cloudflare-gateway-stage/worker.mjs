@@ -95,12 +95,12 @@ async function controlRequest(request, env, url) {
 export async function handleRequest(request, env) {
   const url = new URL(request.url);
   const headers = corsFor(request);
-  if (url.pathname.startsWith("/_ani_gateway/")) {
-    return controlRequest(request, env, url);
-  }
   if (url.pathname === "/_ani_gateway/health") {
     const value = await env.UPSTREAMS.get(UPSTREAM_KEY, "json");
     return json({ gateway: "online", upstream_active: Boolean(value?.url) }, value?.url ? 200 : 503);
+  }
+  if (url.pathname.startsWith("/_ani_gateway/")) {
+    return controlRequest(request, env, url);
   }
 
   if (isLoopbackOnlyRoute(url.pathname)) return json({ error: "LOCAL_ONLY_ROUTE" }, 403, headers);
