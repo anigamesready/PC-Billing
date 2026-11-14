@@ -141,7 +141,7 @@ export async function handleRequest(request, env) {
       headers: outgoingHeaders,
       redirect: "manual"
     };
-    if (request.method !== "GET" && request.method !== "HEAD") init.body = request.body;
+    if (request.method !== "GET" && request.method !== "HEAD") { init.body = request.body; init.duplex = "half"; }
     upstreamResponse = await fetch(new Request(target.toString(), init));
   } catch {
     return json({ error: "STAGE_UPSTREAM_UNREACHABLE" }, 502, headers);
