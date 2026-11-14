@@ -1142,6 +1142,27 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION api.admin_login_lookup(p_login text)
+RETURNS TABLE(email text,role text,status text)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog','public','auth'
+AS $function$
+  SELECT u.email,a.role,a.status
+  FROM public.admin_accounts a
+  JOIN auth.users u ON u.id=a.auth_user_id
+  WHERE p_login IS NOT NULL
+    AND length(trim(p_login)) BETWEEN 1 AND 120
+    AND a.status='active'
+    AND a.role='SUPER_ADMIN'
+    AND (
+      lower(trim(a.username))=lower(trim(p_login))
+      OR lower(trim(u.email))=lower(trim(p_login))
+    )
+  ORDER BY CASE WHEN lower(trim(a.username))=lower(trim(p_login)) THEN 0 ELSE 1 END
+  LIMIT 1;
+$function$;
+
 -- Token-bound wrappers for the remaining Admin screens and controls.
 CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_session_token text,p_org_id uuid)
 RETURNS SETOF public.rental_sessions LANGUAGE plpgsql SECURITY DEFINER
