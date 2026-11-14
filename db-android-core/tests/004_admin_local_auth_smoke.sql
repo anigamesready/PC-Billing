@@ -106,7 +106,7 @@ BEGIN
   v_ctx := api.admin_context_v2(v_token);
   IF v_ctx->>'role' IS DISTINCT FROM 'SUPER_ADMIN'
      OR v_ctx->>'id' IS DISTINCT FROM v_account::text
-     OR jsonb_array_length(v_ctx->'orgs')<>1 THEN
+     OR jsonb_array_length(v_ctx->'orgs')<1 THEN
     RAISE EXCEPTION 'ADMIN_CONTEXT_V2_INVALID';
   END IF;
   v_old_ctx := api.admin_context(v_token);
