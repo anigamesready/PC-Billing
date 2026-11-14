@@ -29,7 +29,8 @@ local_config=r"""
     return u.href.replace(/\/+$/,'');
   }
   function getApiBaseUrl(){
-    const saved=localStorage.getItem(API_URL_KEY)||'http://127.0.0.1:8787';
+    const saved=localStorage.getItem(API_URL_KEY)||'';
+    if(!saved)return '';
     try{return normalizeApiBaseUrl(saved)}catch(_){return 'http://127.0.0.1:8787'}
   }
   function setApiBaseUrl(value){
@@ -61,6 +62,8 @@ request=r"""  async function request(path,body={},opts={}){
     const retries=Math.max(0,Number(opts.retries??0));
     const clean=String(path||'').replace(/^\/+/,'');
     const cfg=read()||{};
+    const base=getApiBaseUrl();
+    if(!base)throw new Error('SET_REDMi_API_URL_FIRST');
     const token=String(body?.token||cfg.token||'');
     const payload={...(body&&typeof body==='object'?body:{})};
     delete payload.token;
@@ -71,7 +74,7 @@ request=r"""  async function request(path,body={},opts={}){
       try{
         const headers={'content-type':'application/json'};
         if(token)headers.authorization='Bearer '+token;
-        const response=await fetch(getApiBaseUrl()+'/'+clean,{
+        const response=await fetch(base+'/'+clean,{
           method:'POST',headers,body:JSON.stringify(payload),signal:ctl.signal,cache:'no-store'
         });
         const data=await response.json().catch(()=>({}));
@@ -197,7 +200,7 @@ anchor='''                        <div class="form-group" style="grid-column: 1 
 '''
 field=anchor+'''                        <div class="form-group" style="grid-column: 1 / -1;">
                             <label>Alamat Server Rental DB Android (Redmi)</label>
-                            <input type="url" id="v11-api-base-url" value="http://127.0.0.1:8787" placeholder="https://alamat-server-anda" autocomplete="url">
+                            <input type="url" id="v11-api-base-url" value="" placeholder="https://alamat-server-Redmi-anda" autocomplete="url">
                             <small class="theme-help">PC yang terpisah dari Redmi wajib memakai alamat HTTPS tunnel. HTTP hanya untuk localhost pada PC yang sama.</small>
                             <button type="button" class="btn btn-secondary" onclick="v11SaveApiBaseUrl()">Simpan Alamat Server</button>
                             <small id="v11-api-base-url-status" class="theme-help">Server lokal belum dikonfigurasi.</small>
@@ -232,15 +235,8 @@ if script_anchor not in h:
 h=h.replace(script_anchor,script,1)
 index.write_text(h,encoding="utf-8")
 
-# The old embedded Admin dashboard is not used by the PC runtime; remove its Supabase login surface.
-admin=ROOT/"admin.html"
-if admin.exists():
-    admin.write_text("""<!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ani Games Ready Admin DB Android</title>
-<style>body{font-family:Arial,sans-serif;background:#101827;color:#eef2ff;display:grid;place-items:center;min-height:100vh;margin:0;padding:24px}main{max-width:620px;background:#1d293b;padding:28px;border-radius:16px}h1{margin-top:0}p{line-height:1.6;color:#cbd5e1}</style></head>
-<body><main><h1>Ani Games Ready Admin</h1><p>Dashboard Admin terpisah dari aplikasi PC Billing. Gunakan APK Admin DB Android untuk pengelolaan rental pada server lokal Redmi.</p><p>Halaman dashboard Supabase lama dinonaktifkan pada build DB Android ini.</p></main></body></html>
-""",encoding="utf-8")
+# Keep the dormant admin.html asset unchanged; the main Electron Admin panel
+# lives in index.html/renderer.js and its existing local PIN, theme and Windows controls.
 
 # Static checks: the PC device client and watchdog no longer know DB1/DB2 or Supabase gateway URLs.
 v=cloud.read_text(encoding="utf-8")
