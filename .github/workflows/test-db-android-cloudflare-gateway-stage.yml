@@ -1,0 +1,69 @@
+name: Test Ani Games Ready DB Android Cloudflare Stage Gateway
+
+on:
+  push:
+    branches:
+      - infra/db-android-cloudflare-gateway-stage
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Worker unit and security tests
+        run: node --test db-android-core/cloudflare-gateway-stage/worker.test.mjs
+
+      - name: Patch and syntax-check isolated API copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          mkdir -p /tmp/ani-stage/server
+          cp db-android-core/server/server.mjs /tmp/ani-stage/server/server.mjs
+          python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage/server
+          node --check /tmp/ani-stage/server/server.mjs
+          python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage/server
+          grep -q "localBootstrapRequestAllowed(req)" /tmp/ani-stage/server/server.mjs
+          ! grep -q 'HOST = "0.0.0.0"' /tmp/ani-stage/server/server.mjs
+          echo "PASS: patched isolated API syntax, idempotency, loopback bind and bootstrap guards."
+
+      - name: Shell syntax and secret-free package
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n db-android-core/cloudflare-gateway-stage/configure-online.sh
+          bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
+          OUT="/tmp/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
+          mkdir -p "$OUT"
+          cp db-android-core/cloudflare-gateway-stage/worker.mjs "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/worker.test.mjs "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/configure-online.sh "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/start-online.sh "$OUT/"
+          cat > "$OUT/README-ID.txt" <<'EOF'
+          ANI GAMES READY — DB ANDROID HTTPS STAGE GATEWAY
+          This is a staging gateway, not a production 24/7 guarantee.
+          The Redmi API stays bound to 127.0.0.1:8788.
+          The Cloudflare Worker proxies only health/auth/RPC/device API routes.
+          /setup and /api/admin/bootstrap are denied publicly.
+          No database password, Owner credential, DB dump, or runtime .env is included.
+          Quick Tunnel upstream must be refreshed while Termux remains active.
+          EOF
+          if grep -RniE 'register-test-token|edge-test-secret|sb_secret_[A-Za-z0-9_-]{20,}|service_role[_-]key|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' "$OUT"; then
+            echo "Potential secret found in gateway source package."
+            exit 1
+          fi
+          cd /tmp
+          zip -qr ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE
+          sha256sum ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip
