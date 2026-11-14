@@ -1,19 +1,29 @@
 ANI GAMES READY — DB ANDROID STAGING PACKAGE
 ==============================================
 
-Tujuan:
-- Membuat instalasi STAGING terpisah pada Redmi/Termux.
+Tujuan paket:
+- Memasang backend DB Android BARU sebagai STAGING di Redmi/Termux.
+- Tidak mengganti server lama yang berjalan di port 8787.
+- Tidak mengubah Supabase DB1/DB2, APK master, atau relay Blynk/WoL.
+- Tidak mengimpor data Supabase; database staging awalnya kosong.
+
+Komponen:
 - Database staging: ani_games_ready_stage
 - PostgreSQL runtime role: ani_api_stage_login
-- API staging: 127.0.0.1:8788
-- Server lama yang menggunakan port 8787 tidak disentuh.
-- Blynk/WoL relay tidak disentuh.
+- API staging: 127.0.0.1:8788 (loopback-only)
+- Skema: 000 dan 002–011; katalog snapshot 001 dikecualikan.
+- API: PC pairing/heartbeat/sync/sesi, Admin, Billing Control, Reseller.
+- API secret, password runtime dan bootstrap token dibuat acak di perangkat dan hanya disimpan di .env lokal.
 
-Jangan jalankan pada database produksi atau menghapus folder ani-games-server.
-Setup akan berhenti bila folder staging, database staging, role staging, atau port 8788 sudah ada.
+Pemeriksaan keamanan:
+- Setup berhenti bila folder staging, database staging, role staging, atau port 8788 sudah ada.
+- Tidak menimpa database lama.
+- Tidak menghentikan proses pada port 8787.
+- Tidak menyalakan atau mematikan relay Blynk/WoL.
+- API staging hanya menerima koneksi dari localhost sampai HTTPS tunnel/reverse proxy disiapkan.
 
 Langkah setelah paket diekstrak:
-1. Pastikan PostgreSQL dan Node.js online pada Termux.
+1. Pastikan PostgreSQL dan Node.js online di Termux.
 2. Masuk ke folder hasil ekstrak paket.
 3. Jalankan:
    bash setup-stage.sh
@@ -31,8 +41,8 @@ Perintah berikutnya:
 - Lihat log: tail -n 80 ~/ani-games-db-android-stage/logs/stage-api.log
 
 PENTING:
-- Server staging masih hanya localhost. PC Windows atau HP lain belum dapat mengaksesnya.
-- Akses antar-perangkat baru boleh diaktifkan setelah jalur HTTPS/tunnel dan origin/CORS dikonfigurasi. Jangan mengubah URL client ke HTTP LAN karena login dan token akan terkirim tanpa enkripsi.
+- Jangan ubah URL PC ke alamat HTTP LAN. PC Billing hanya menerima HTTPS untuk server di luar PC itu sendiri.
+- Akses antar-perangkat masih perlu HTTPS tunnel/reverse proxy dan konfigurasi CORS/origin. Fitur ini belum diaktifkan.
 - Jangan menaruh isi .env, password, token, private key, atau backup database ke GitHub/chat.
-- Paket ini belum mengimpor data Supabase dan belum memodifikasi server lama.
-- Untuk mengulang uji instalasi bersih, gunakan database/folder staging baru hanya setelah meninjau dan mengekspor data uji yang perlu disimpan.
+- Paket ini belum memindahkan data DB1/DB2 dan belum memodifikasi server lama.
+- Untuk pengulangan uji instalasi bersih, gunakan folder/database staging baru setelah mengekspor hasil uji yang perlu disimpan.
