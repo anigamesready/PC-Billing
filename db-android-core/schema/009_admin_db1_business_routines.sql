@@ -1103,6 +1103,45 @@ BEGIN
 END;
 $function$
 
+CREATE OR REPLACE FUNCTION api.admin_get_free_test_policy()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'private', 'pg_catalog'
+AS $function$
+DECLARE
+  setting_row private.admin_feature_settings%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'UNAUTHENTICATED'; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.org_members m
+    WHERE m.auth_user_id = auth.uid() AND m.role = 'owner'
+  ) THEN
+    RAISE EXCEPTION 'OWNER_ONLY';
+  END IF;
+
+  SELECT * INTO setting_row
+  FROM private.admin_feature_settings
+  WHERE feature_key = 'free_test_10m_enabled';
+
+  RETURN jsonb_build_object(
+    'enabled', COALESCE(setting_row.enabled, false),
+    'contact_phone', '082298316902',
+    'updated_at', setting_row.updated_at,
+    'updated_by', setting_row.updated_by
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION api.admin_rental_accounts(p_org_id uuid, p_device_id uuid)
+ RETURNS SETOF rental_accounts
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+ select r.* from public.rental_accounts r where r.org_id=p_org_id and r.device_id=p_device_id and private.admin_can_access_device(r.device_id,p_org_id) order by r.code;
+$function$;
+
 -- Token-bound wrappers for the remaining Admin screens and controls.
 CREATE OR REPLACE FUNCTION api.admin_active_sessions(p_session_token text,p_org_id uuid)
 RETURNS SETOF public.rental_sessions LANGUAGE plpgsql SECURITY DEFINER
