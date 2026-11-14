@@ -235,7 +235,7 @@ jobs:
           import os, zipfile
           from pathlib import Path
           root=Path(os.environ["PC_PROJECT_DIR"]).resolve()
-          output=Path("AniGames-PC-V12.4.9-DB1-DIRECT-SOURCE.zip")
+          output=Path(os.environ["PC_PROJECT_DIR"]).resolve()/"AniGames-PC-V12.4.9-DB1-DIRECT-SOURCE.zip"
           excluded={"node_modules","dist",".git",".cache","__pycache__"}
           with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
               for item in root.rglob("*"):
