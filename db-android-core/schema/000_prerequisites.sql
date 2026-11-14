@@ -1,6 +1,7 @@
 -- DB Android local prerequisites. Run only on a fresh staging database after review.
 -- This creates no accounts and copies no Supabase Auth secrets.
 BEGIN;
+CREATE SCHEMA IF NOT EXISTS api;
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS private;
@@ -23,5 +24,5 @@ BEGIN
   END IF;
 END
 $$;
-GRANT USAGE ON SCHEMA public,auth,extensions TO ani_api_runtime;
+GRANT USAGE ON SCHEMA public,api,auth,private,extensions TO ani_api_runtime;
 COMMIT;
