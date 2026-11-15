@@ -19,11 +19,11 @@ cp "$DIR/../server/server.mjs" "$HOME_TEST/stage/server/server.mjs"
 printf '12345\n' > "$HOME_TEST/stage/stage-api.pid"
 cat > "$HOME_TEST/stage/stop-stage.sh" <<'STOP'
 #!/usr/bin/env bash
-printf 'stop\n' >> "$HOME_TEST/api-restart.log"
+printf 'stop\n' >> "$ANI_TEST_LOG"
 STOP
 cat > "$HOME_TEST/stage/start-stage.sh" <<'START'
 #!/usr/bin/env bash
-printf 'start\n' >> "$HOME_TEST/api-restart.log"
+printf 'start\n' >> "$ANI_TEST_LOG"
 : > "$ANI_TEST_RESTART"
 START
 chmod +x "$HOME_TEST/stage/stop-stage.sh" "$HOME_TEST/stage/start-stage.sh"
@@ -63,7 +63,7 @@ case "$URL" in
     BODY='{"ok":true,"cleared":true}'
     CODE=200 ;;
   https://*/health)
-    COUNT_FILE="$HOME/health-count"
+    COUNT_FILE="$ANI_TEST_HEALTH_COUNT"
     COUNT=0
     [ -f "$COUNT_FILE" ] && COUNT="$(cat "$COUNT_FILE")"
     COUNT=$((COUNT + 1))
@@ -88,7 +88,7 @@ CURL
 
 chmod +x "$PREFIX_TEST/bin/dig" "$PREFIX_TEST/bin/cloudflared" "$MOCK_BIN/curl"
 set +e
-OUTPUT="$(ANI_TEST_LOG="$HOME_TEST/api-restart.log" ANI_TEST_RESTART="$HOME_TEST/api-restarted" HOME="$HOME_TEST" PREFIX="$PREFIX_TEST" ANI_DB_STAGE_HOME="$HOME_TEST/stage" \
+OUTPUT="$(ANI_TEST_LOG="$HOME_TEST/api-restart.log" ANI_TEST_RESTART="$HOME_TEST/api-restarted" ANI_TEST_HEALTH_COUNT="$HOME_TEST/health-count" PREFIX="$PREFIX_TEST" ANI_DB_STAGE_HOME="$HOME_TEST/stage" \
   PATH="$MOCK_BIN:$PREFIX_TEST/bin:$PATH" timeout -s TERM 9s bash "$RUNNER" 2>&1)"
 set -e
 printf '%s\n' "$OUTPUT"
@@ -103,6 +103,6 @@ fi
 echo "PASS: transient public-health failures do not trigger tunnel deletion; runner recovers automatically."
 grep -q 'ANI-DB-ANDROID-CLOUDFLARE-EDGE-TRUST-V1' "$HOME_TEST/stage/server/server.mjs"
 grep -q 'ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1' "$HOME_TEST/stage/server/server.mjs"
-grep -q '^stop$' "$HOME_TEST/api-restart.log"
-grep -q '^start$' "$HOME_TEST/api-restart.log"
+grep -q '^stop$' "$ANI_TEST_LOG"
+grep -q '^start$' "$ANI_TEST_LOG"
 echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service."
