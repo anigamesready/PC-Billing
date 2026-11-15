@@ -103,8 +103,6 @@ fi
 echo "PASS: transient public-health failures do not trigger tunnel deletion; runner recovers automatically."
 grep -q 'ANI-DB-ANDROID-CLOUDFLARE-EDGE-TRUST-V1' "$HOME_TEST/stage/server/server.mjs"
 grep -q 'ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1' "$HOME_TEST/stage/server/server.mjs"
-grep -q '^stop
- "$HOME/api-restart.log"
-grep -q '^start
- "$HOME/api-restart.log"
+grep -q '^stop$' "$HOME/api-restart.log"
+grep -q '^start$' "$HOME/api-restart.log"
 echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service."
