@@ -21,25 +21,24 @@ if ! curl -fsS --max-time 5 http://127.0.0.1:8788/health >/dev/null; then
   bash "$STAGE_HOME/start-stage.sh"
 fi
 
-# Install only the missing Termux packages. termux-chroot binds
-# $PREFIX/etc to /etc so Go binaries can read a conventional resolver file.
+# Use the native Termux cloudflared package. Termux's Go toolchain patches
+# resolver lookup to read $PREFIX/etc/resolv.conf; do not use proot/chroot.
 NEEDED_PACKAGES=()
 [ -x "$PREFIX/bin/cloudflared" ] || NEEDED_PACKAGES+=(cloudflared)
-[ -x "$PREFIX/bin/termux-chroot" ] || NEEDED_PACKAGES+=(proot)
 [ -x "$PREFIX/bin/dig" ] || NEEDED_PACKAGES+=(dnsutils)
 if [ "${#NEEDED_PACKAGES[@]}" -gt 0 ]; then
   echo "[ANI ONLINE] Memasang dependensi Termux yang belum ada: ${NEEDED_PACKAGES[*]}"
   pkg install -y "${NEEDED_PACKAGES[@]}"
 fi
 [ -x "$PREFIX/bin/cloudflared" ] || { echo "[ANI ONLINE] cloudflared Termux belum tersedia."; exit 1; }
-[ -x "$PREFIX/bin/termux-chroot" ] || { echo "[ANI ONLINE] proot/termux-chroot belum tersedia."; exit 1; }
 [ -x "$PREFIX/bin/dig" ] || { echo "[ANI ONLINE] dnsutils/dig belum tersedia."; exit 1; }
 [ -r "$PREFIX/etc/resolv.conf" ] || { echo "[ANI ONLINE] Resolver Termux $PREFIX/etc/resolv.conf tidak dapat dibaca."; exit 1; }
+
 
 echo "[ANI ONLINE] Menguji DNS SRV Cloudflare melalui resolver Termux..."
 DNS_OK=0
 for DNS_SERVER in 1.1.1.1 8.8.8.8; do
-  DNS_RESULT="$(termux-chroot "dig +time=3 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com @$DNS_SERVER" 2>/dev/null || true)"
+  DNS_RESULT="$(dig +time=3 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com "@$DNS_SERVER" 2>/dev/null || true)"
   if [ -n "$DNS_RESULT" ]; then
     echo "[ANI ONLINE] DNS SRV berhasil melalui $DNS_SERVER:"
     printf '%s\n' "$DNS_RESULT"
@@ -49,8 +48,8 @@ for DNS_SERVER in 1.1.1.1 8.8.8.8; do
 done
 if [ "$DNS_OK" -ne 1 ]; then
   echo "[ANI ONLINE] DNS SRV gagal melalui 1.1.1.1 dan 8.8.8.8."
-  echo "[ANI ONLINE] Isi resolver yang dilihat dari termux-chroot:"
-  termux-chroot "cat /etc/resolv.conf" 2>&1 || true
+  echo "[ANI ONLINE] Resolver Termux:"
+  cat "$PREFIX/etc/resolv.conf" 2>&1 || true
   echo "[ANI ONLINE] Tunnel tidak dijalankan. Periksa koneksi/DNS Android; port 8787 tidak disentuh."
   exit 1
 fi
@@ -75,14 +74,14 @@ trap cleanup EXIT INT TERM
 
 echo "[ANI ONLINE] Gateway HTTPS: $GATEWAY"
 echo "[ANI ONLINE] Port lokal tetap 127.0.0.1:8788; tunnel akan reconnect otomatis."
-echo "[ANI ONLINE] cloudflared dijalankan melalui termux-chroot agar /etc/resolv.conf tersedia."
+echo "[ANI ONLINE] cloudflared dijalankan native dari paket Termux (tanpa proot/chroot)."
 echo "[ANI ONLINE] Biarkan Termux berjalan agar koneksi online tetap aktif."
 echo "[ANI ONLINE] Tekan CTRL+C untuk menghentikan tunnel saja."
 echo
 
 while [ "$STOPPING" -eq 0 ]; do
   : > "$TUNNEL_LOG"
-  termux-chroot "/bin/cloudflared tunnel --url http://127.0.0.1:8788" >"$TUNNEL_LOG" 2>&1 &
+  "$PREFIX/bin/cloudflared" tunnel --url http://127.0.0.1:8788 >"$TUNNEL_LOG" 2>&1 &
   TUNNEL_PID=$!
   echo "$TUNNEL_PID" > "$PID_FILE"
 
