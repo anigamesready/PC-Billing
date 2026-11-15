@@ -23,8 +23,8 @@ GATEWAY="${ANI_EDGE_GATEWAY_URL:-https://ani-games-db-android-stage-gateway.anig
 [ -f "$PATCH_FILE" ] || { echo "[ANI ONLINE] Patch API tidak ditemukan: $PATCH_FILE"; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "[ANI ONLINE] Python3 diperlukan untuk patch API staging."; exit 1; }
 PATCH_OUTPUT="$(python3 "$PATCH_FILE" "$STAGE_HOME/server")"
-printf '%s\\n' "$PATCH_OUTPUT"
-if printf '%s\\n' "$PATCH_OUTPUT" | grep -q 'API_SOURCE_PATCH_APPLIED'; then
+printf '%s\n' "$PATCH_OUTPUT"
+if printf '%s\n' "$PATCH_OUTPUT" | grep -q 'API_SOURCE_PATCH_APPLIED'; then
   echo "[ANI ONLINE] Source API berubah; memulai ulang API staging secara terkontrol..."
   if [ -f "$STAGE_HOME/stage-api.pid" ]; then
     bash "$STAGE_HOME/stop-stage.sh"
