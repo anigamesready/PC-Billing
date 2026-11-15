@@ -17,6 +17,14 @@
 - [ ] Test rental lookup, rental session start/end, heartbeat, command ack, sync/pull and local outbox against DB1 using an actual paired PC.
 - [ ] Only after these pass, mark the recovery build operationally accepted; do not merge to master without separate approval.
 
+## Priority 0 — DB Android Cloudflare stage connectivity
+- [x] Revalidate isolated gateway branch ancestry and newest head before changing the runner.
+- [x] Patch the Termux runner to expose DNS via `termux-chroot`, install missing support packages, preflight Cloudflare SRV DNS, and validate public API `/health`.
+- [x] Pass GitHub Actions Worker/security, isolated API patch/syntax, shell syntax, DNS runner assertions and secret-free package build.
+- [ ] User stops the old reconnect loop, installs the new stage helper package while preserving `online-secrets.env`, and starts the updated runner.
+- [ ] Verify on Redmi that SRV DNS resolves, Quick Tunnel stays alive, Worker registry is active, and public `/health` returns the staging API response.
+- [ ] Only after those tests pass, continue with named/stable tunnel planning; Quick Tunnel remains test-only and is not a 24/7 production solution.
+
 ## Priority 1 — Redmi DB Android server/API contract
 - [ ] Obtain current sanitized read-only inventory/source of Termux project `~/ani-games-server`; do not include .env, passwords, tokens, private keys, database dumps or backups.
 - [ ] Revalidate current Termux working directory, Node version, PostgreSQL/API process state, port 8787, health response, control script and startup behavior.
