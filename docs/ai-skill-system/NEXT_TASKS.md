@@ -1,5 +1,23 @@
 # Next Tasks
 
+
+## Priority 0 — Redmi DB Android API hotfix rollout
+
+- [x] Revalidate the authoritative backend source at d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9 and create an isolated fix branch.
+- [x] Fix Auth compatibility routing so the normalized /functions/v1/ani-games-api prefix reaches the correct Auth handler.
+- [x] Fix the nine-argument dashboard_billing_user binding, including the text role and UUID organization type order.
+- [x] Add a static check for all 49 Node RPC parameter counts, order and types.
+- [x] Add HTTP regressions for direct/prefixed Auth and Billing Admin account create/list/update/delete.
+- [x] Pass the full PostgreSQL/API CI regression on the restricted DB role; run 43755729409.
+- [x] Build the Termux-only patch package and pass shell/fixture/idempotence/local-extension-preservation tests; run 43755729458.
+- [x] Verify final patch ZIP SHA-256: c7d11bf7e376506d0ed816a07cdc738d73009304ed7c145bf0371719a6b1dd07.
+- [ ] Apply APPLY_DB_ANDROID_API_FIX.sh to the existing ~/ani-games-db-android-stage only; let it create the server.mjs backup.
+- [ ] Restart only the stage API with the guarded stop-stage.sh then start-stage.sh scripts; ensure port 8787, PostgreSQL data and WoL relay remain online.
+- [ ] Run CHECK_DB_ANDROID_API_FIX.sh and verify health plus direct and legacy-prefixed Auth responses return 401 AUTH_REQUIRED without creating sessions.
+- [ ] Verify Admin Billing Control account create/list/update/delete from the Admin interface against stage.
+- [ ] Keep API loopback-only until direct internet reachability without a third-party relay is proven. Verify ISP public IPv4 and router forwarding/CGNAT status first; never expose PostgreSQL 5432.
+
+
 ## Priority 0 — Activate BOTH workflow
 - [x] Read current `AGENTS.md`, Master Skill, project state/registry/decisions/backlog/changelog/version ledger and relevant modular Skills from GitHub in this chat.
 - [x] Verify connected GitHub repository read access for this conversation.
