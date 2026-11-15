@@ -186,7 +186,7 @@ const RPC = {
 
   create_enrollment: { auth: "admin", sql: "SELECT api.create_enrollment($1::text,$2::uuid,$3::text,$4::bigint) AS result", args: ["p_org_id","p_label","p_minutes"] },
   create_reseller: { auth: "admin", sql: "SELECT api.create_reseller($1::text,$2::text,$3::text) AS result", args: ["p_name","p_slug"] },
-  dashboard_billing_user: { auth: "admin", sql: "SELECT api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::uuid,$7::text,$8::uuid) AS result", args: ["p_action","p_username","p_password","p_status","p_role","p_org_id","p_display_name","p_user_id"] },
+  dashboard_billing_user: { auth: "admin", sql: "SELECT api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::uuid,$7::text,$8::text,$9::uuid) AS result", args: ["p_action","p_username","p_password","p_status","p_role","p_org_id","p_display_name","p_user_id"] },
   dashboard_billing_users: { auth: "admin", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.username),'[]'::jsonb) AS result FROM api.dashboard_billing_users($1::text) x", args: [] },
   report_detailed_usage_page: { auth: "admin", sql: "SELECT api.report_detailed_usage_page($1::text,$2::uuid,$3::timestamptz,$4::timestamptz,$5::integer,$6::timestamptz,$7::uuid) AS result", args: ["p_org_id","p_from","p_to","p_limit","p_before_started_at","p_before_session_id"] },
   report_monthly_rental_summary: { auth: "admin", sql: "SELECT api.report_monthly_rental_summary($1::text,$2::uuid,$3::timestamptz,$4::timestamptz) AS result", args: ["p_org_id","p_from","p_to"] },
@@ -309,8 +309,7 @@ async function deviceRequest(req, res, path, body) {
   return send(res,404,{ok:false,error:"not_found",path});
 }
 
-async function authRequest(req, res, url) {
-  const path = url.pathname;
+async function authRequest(req, res, url, path) {
   if (path === "/auth/v1/token" && req.method === "POST") {
     const body = await readJson(req);
     const grant = url.searchParams.get("grant_type");
@@ -352,12 +351,12 @@ async function handler(req, res) {
   try {
     let path = url.pathname.replace(/\/+$/,"") || "/";
     const prefix = "/functions/v1/ani-games-api";
-    if (path.startsWith(prefix)) path = path.slice(prefix.length) || "/";
+    if (path === prefix || path.startsWith(prefix + "/")) path = path.slice(prefix.length) || "/";
     if (path === "/health" && req.method === "GET") {
       await query("SELECT 1");
       return send(res,200,{app:"Ani Games Ready Local Server",api:"online",database:"online",apiVersion:"db-android-v1",remote_access_enabled:!isLoopback,bind_host:HOST,relay:"separate"});
     }
-    if (path.startsWith("/auth/v1/")) return await authRequest(req,res,url);
+    if (path.startsWith("/auth/v1/")) return await authRequest(req,res,url,path);
     if (path === "/setup" && req.method === "GET") {
       if (!BOOTSTRAP_TOKEN || !isLoopback || !["127.0.0.1","::1","::ffff:127.0.0.1"].includes(req.socket.remoteAddress)) return send(res,404,{error:"NOT_FOUND"});
       res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
