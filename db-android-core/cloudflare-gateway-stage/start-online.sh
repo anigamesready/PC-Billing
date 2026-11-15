@@ -26,14 +26,14 @@ fi
 NEEDED_PACKAGES=()
 [ -x "$PREFIX/bin/cloudflared" ] || NEEDED_PACKAGES+=(cloudflared)
 [ -x "$PREFIX/bin/termux-chroot" ] || NEEDED_PACKAGES+=(proot)
-[ -x "$PREFIX/bin/dig" ] || NEEDED_PACKAGES+=(bind-tools)
+[ -x "$PREFIX/bin/dig" ] || NEEDED_PACKAGES+=(dnsutils)
 if [ "${#NEEDED_PACKAGES[@]}" -gt 0 ]; then
   echo "[ANI ONLINE] Memasang dependensi Termux yang belum ada: ${NEEDED_PACKAGES[*]}"
   pkg install -y "${NEEDED_PACKAGES[@]}"
 fi
 [ -x "$PREFIX/bin/cloudflared" ] || { echo "[ANI ONLINE] cloudflared Termux belum tersedia."; exit 1; }
 [ -x "$PREFIX/bin/termux-chroot" ] || { echo "[ANI ONLINE] proot/termux-chroot belum tersedia."; exit 1; }
-[ -x "$PREFIX/bin/dig" ] || { echo "[ANI ONLINE] bind-tools/dig belum tersedia."; exit 1; }
+[ -x "$PREFIX/bin/dig" ] || { echo "[ANI ONLINE] dnsutils/dig belum tersedia."; exit 1; }
 [ -r "$PREFIX/etc/resolv.conf" ] || { echo "[ANI ONLINE] Resolver Termux $PREFIX/etc/resolv.conf tidak dapat dibaca."; exit 1; }
 
 echo "[ANI ONLINE] Menguji DNS SRV Cloudflare melalui resolver Termux..."
