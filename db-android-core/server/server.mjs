@@ -26,6 +26,13 @@ const pool = new Pool({
   application_name: "ani-games-ready-local-api"
 });
 
+// Keep the API alive if PostgreSQL drops an idle pooled connection.
+// node-postgres emits these asynchronously on the Pool EventEmitter.
+pool.on("error", error => {
+  const code = String(error?.code || "POOL_CLIENT_ERROR").slice(0, 32);
+  process.stderr.write(JSON.stringify({level:"error",component:"postgres_pool",code})+"\\n");
+});
+
 const sha256 = value => crypto.createHash("sha256").update(String(value)).digest("hex");
 const bucketHash = (...parts) => sha256(PEPPER + "|" + parts.join("|"));
 const bearer = req => {
@@ -417,7 +424,7 @@ async function main() {
   process.on("SIGTERM",stop);
 }
 main().catch(async error => {
-  process.stderr.write(JSON.stringify({level:"fatal",error:publicError(error)})+"\n");
+  process.stderr.write(JSON.stringify({level:"fatal",error:String(error?.code || publicError(error)).slice(0,32)})+"\n");
   await pool.end().catch(()=>{});
   process.exit(1);
 });
