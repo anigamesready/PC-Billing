@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
+# Read-only checker; package ZIP is flat, so extract it into a directory created by the user.
 set -euo pipefail
 
 PROJECT_DIR="${1:-$HOME/ani-games-db-android-stage}"
