@@ -17,7 +17,7 @@ const code = fs.readFileSync(process.argv[2], "utf8");
 assert.ok(code.includes("async function authRequest(req, res, url, path) {"));
 assert.ok(code.includes('if (path === prefix || path.startsWith(prefix + "/"))'));
 assert.ok(code.includes("authRequest(req,res,url,path)"));
-assert.ok(code.includes("$8::text,$9::uuid"));
+assert.ok(code.includes("api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::uuid,$8::text,$9::uuid) AS result"));
 console.log("[ANI CHECK] Source patch assertions: PASS");
 NODE
 
