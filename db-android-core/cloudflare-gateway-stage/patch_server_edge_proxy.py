@@ -85,6 +85,25 @@ else:
     if source.count("function localBootstrapRequestAllowed(req)") != 1 or source.count("localBootstrapRequestAllowed(req)") != 3:
         raise SystemExit("EDGE_BOOTSTRAP_GUARDS_INCOMPLETE")
 
+# Preserve PostgreSQL SQLSTATE on a failed API boot without exposing connection details.
+startup_marker = "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1"
+if startup_marker not in source:
+    old_fatal = '  process.stderr.write(JSON.stringify({level:"fatal",error:publicError(error)})+"\\n");'
+    current_fatal = '  process.stderr.write(JSON.stringify({level:"fatal",error:String(error?.code || publicError(error)).slice(0,32)})+"\\n");'
+    if source.count(old_fatal) == 1:
+        new_fatal = (
+            '  // ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1\\n'
+            '  const diagnosticCode = String(error?.code || publicError(error)).slice(0, 32);\\n'
+            '  process.stderr.write(JSON.stringify({level:"fatal",error:diagnosticCode})+"\\n");'
+        )
+        source = source.replace(old_fatal, new_fatal, 1)
+    elif source.count(current_fatal) == 1:
+        source = source.replace(current_fatal, '  // ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1\\n' + current_fatal, 1)
+    else:
+        raise SystemExit("STARTUP_FATAL_LOG_ANCHOR_MISMATCH")
+elif "diagnosticCode" not in source and "error:String(error?.code || publicError(error))" not in source:
+    raise SystemExit("STARTUP_DIAGNOSTIC_MARKER_BUT_INCOMPLETE")
+
 # node-postgres emits Pool-level "error" events when an idle client disconnects.
 # If unhandled, Node treats the EventEmitter error as fatal and exits the API.
 if pool_marker not in source:
