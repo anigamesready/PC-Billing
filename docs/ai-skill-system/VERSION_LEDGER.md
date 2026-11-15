@@ -16,5 +16,11 @@ Revalidate live repository refs and artifact metadata before every source/build 
 - Reseller V1.0.6 workflow remains Supabase DB1/DB2 and excludes `reseller-v1.0.6-DB-Android` from automatic push.
 - No APK/EXE was built, downloaded or verified during the 2026-11-14 activation audit.
 
+## Infrastructure artifact ledger
+- DB Android Cloudflare Termux DNS-fix helper package.
+- Branch: `infra/db-android-cloudflare-gateway-stage`; runtime runner commit `143253184bca03b96ea5233ac2a76e61723b5cf5`; CI head `693289ad16a380119bba981ecdde4e2d4453ad0e`.
+- Workflow run: `43689341047`; artifact ID `14151522874`; file `ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE-DNS-FIX.zip`; size 17,557 bytes; SHA-256 `84bf654ae73c4b2b6656df058d392c8c56260b3ec41cddea1c62713907018442`.
+- CI: success. On-device DNS/tunnel/public API validation: pending. This helper package is not a PC Billing/Admin/Reseller release and has no application version code.
+
 ## Artifact ledger
-No new APK/EXE artifact was produced for this task. Record exact workflow run, source commit, source archive SHA-256, patch list, package/version, file size and artifact SHA-256 whenever a future build is explicitly requested and actually completed.
+No new APK/EXE artifact was produced. The infrastructure helper artifact above is separate from application releases; Redmi runtime acceptance is still pending.
