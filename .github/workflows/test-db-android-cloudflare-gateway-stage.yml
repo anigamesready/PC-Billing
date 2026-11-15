@@ -35,8 +35,10 @@ jobs:
           node --check /tmp/ani-stage/server/server.mjs
           python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage/server
           grep -q "localBootstrapRequestAllowed(req)" /tmp/ani-stage/server/server.mjs
+          grep -q "ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1" /tmp/ani-stage/server/server.mjs
+          grep -q 'component: "postgres_pool"' /tmp/ani-stage/server/server.mjs
           ! grep -q 'HOST = "0.0.0.0"' /tmp/ani-stage/server/server.mjs
-          echo "PASS: patched isolated API syntax, idempotency, loopback bind and bootstrap guards."
+          echo "PASS: patched isolated API syntax, idempotency, loopback bind, bootstrap guards and PostgreSQL pool error handling."
 
       - name: Shell syntax, Android DNS runner assertions and secret-free package
         shell: bash
@@ -46,6 +48,11 @@ jobs:
           bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
           bash -n db-android-core/cloudflare-gateway-stage/runner-smoke.sh
           bash db-android-core/cloudflare-gateway-stage/runner-smoke.sh
+          grep -Fq 'API_SOURCE_PATCH_APPLIED' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          grep -Fq 'POOL_ERROR_HANDLER_V1' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          grep -Fq 'python3 "$PATCH_FILE" "$STAGE_HOME/server"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'bash "$STAGE_HOME/stop-stage.sh"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'bash "$STAGE_HOME/start-stage.sh"' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq 'Tunnel TIDAK diputus' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq 'LAST_HEALTH_HTTP' db-android-core/cloudflare-gateway-stage/start-online.sh
           ! grep -Fq 'Membersihkan URL lama dan membuat tunnel baru' db-android-core/cloudflare-gateway-stage/start-online.sh
@@ -64,10 +71,12 @@ jobs:
           ANI GAMES READY — DB ANDROID HTTPS STAGE GATEWAY
           This is a staging gateway, not a production 24/7 guarantee.
           The Redmi API stays bound to 127.0.0.1:8788.
-          The runner installs the native Termux cloudflared/dnsutils packages if missing,
-          runs cloudflared directly (no proot/chroot), tests Cloudflare's SRV DNS record,
-          and checks the real public /health route.
-          The runner waits/retries without deleting a slow tunnel and prints HTTP failure details.
+          The runner applies an idempotent API patch for Cloudflare edge trust and PostgreSQL
+          idle-pool error handling, then safely restarts only the PID-tracked staging API if changed.
+          The API remains loopback-only at 127.0.0.1:8788; no unknown process is killed.
+          The runner installs native Termux cloudflared/dnsutils packages if missing,
+          runs cloudflared directly (no proot/chroot), tests Cloudflare SRV DNS, and checks public /health.
+          It retains a slow tunnel during health retries and prints HTTP failure details.
           The Cloudflare Worker proxies only health/auth/RPC/device API routes.
           /setup and /api/admin/bootstrap are denied publicly.
           No database password, Owner credential, DB dump, or runtime .env is included.
