@@ -36,6 +36,8 @@ jobs:
           python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage/server
           grep -q "localBootstrapRequestAllowed(req)" /tmp/ani-stage/server/server.mjs
           grep -q "ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1" /tmp/ani-stage/server/server.mjs
+          grep -q "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1" /tmp/ani-stage/server/server.mjs
+          grep -q 'diagnosticCode = String(error?.code || publicError(error))' /tmp/ani-stage/server/server.mjs
           grep -q 'component: "postgres_pool"' /tmp/ani-stage/server/server.mjs
           ! grep -q 'HOST = "0.0.0.0"' /tmp/ani-stage/server/server.mjs
           echo "PASS: patched isolated API syntax, idempotency, loopback bind, bootstrap guards and PostgreSQL pool error handling."
@@ -71,8 +73,9 @@ jobs:
           ANI GAMES READY — DB ANDROID HTTPS STAGE GATEWAY
           This is a staging gateway, not a production 24/7 guarantee.
           The Redmi API stays bound to 127.0.0.1:8788.
-          The runner applies an idempotent API patch for Cloudflare edge trust and PostgreSQL
-          idle-pool error handling, then safely restarts only the PID-tracked staging API if changed.
+          The runner applies an idempotent API patch for Cloudflare edge trust, PostgreSQL
+          idle-pool handling and safe SQLSTATE startup diagnostics, then safely restarts
+          only the PID-tracked staging API if changed.
           The API remains loopback-only at 127.0.0.1:8788; no unknown process is killed.
           The runner installs native Termux cloudflared/dnsutils packages if missing,
           runs cloudflared directly (no proot/chroot), tests Cloudflare SRV DNS, and checks public /health.
