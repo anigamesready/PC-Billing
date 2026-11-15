@@ -1,0 +1,62 @@
+name: Package Ani Games Ready DB Android API hotfix
+
+on:
+  push:
+    branches:
+      - fix/db-android-core-api-contracts-20261116
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-hotfix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Termux scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n db-android-core/patches/APPLY_DB_ANDROID_API_FIX.sh
+          bash -n db-android-core/patches/CHECK_DB_ANDROID_API_FIX.sh
+      - name: Build server-only hotfix package
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116"
+          mkdir -p "$OUT"
+          cp db-android-core/patches/APPLY_DB_ANDROID_API_FIX.sh "$OUT/"
+          cp db-android-core/patches/CHECK_DB_ANDROID_API_FIX.sh "$OUT/"
+          cat > "$OUT/README-ID.txt" <<'EOF'
+          ANI GAMES READY — DB Android API Fix — 16 November 2026
+
+          Perbaikan:
+          1. Jalur Auth kompatibilitas lama /functions/v1/ani-games-api/auth/v1/... diarahkan memakai path yang sudah dinormalisasi.
+          2. RPC dashboard_billing_user memakai 9 parameter sesuai wrapper PostgreSQL token-bound.
+
+          Aman untuk staging Redmi yang sudah ada:
+          - Hanya mengubah server/server.mjs di folder staging yang ditentukan.
+          - Mempertahankan tambahan lokal lain di server.mjs (patch berdasarkan pola spesifik, bukan replace file penuh).
+          - Membuat backup server.mjs otomatis sebelum mengganti file.
+          - Tidak menjalankan SQL/migrasi/setup/initdb/reset/restore/drop database.
+          - Tidak mengubah .env, PostgreSQL, API lama port 8787, atau relay Blynk/WoL.
+
+          Jalankan dari folder hasil ekstrak:
+            bash APPLY_DB_ANDROID_API_FIX.sh ~/ani-games-db-android-stage
+            bash CHECK_DB_ANDROID_API_FIX.sh ~/ani-games-db-android-stage
+
+          Checker default memakai http://127.0.0.1:8788. Checker hanya melakukan GET health dan GET Auth tanpa token (hasil yang benar HTTP 401 AUTH_REQUIRED); tidak membuat sesi/rental.
+          Bila API staging berada di URL/port lain, set ANI_STAGE_BASE_URL. Jangan gunakan HTTP publik atau membuka port PostgreSQL.
+          EOF
+          (cd "$OUT" && sha256sum APPLY_DB_ANDROID_API_FIX.sh CHECK_DB_ANDROID_API_FIX.sh README-ID.txt > SHA256SUMS.txt)
+          zip -qr "$OUT.zip" "$OUT"
+          sha256sum "$OUT.zip"
+          unzip -l "$OUT.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116
+          path: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip
+          if-no-files-found: error
+          retention-days: 30
