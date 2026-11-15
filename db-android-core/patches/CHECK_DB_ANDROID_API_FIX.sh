@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
 
-PROJECT_DIR="\${1:-$HOME/ani-games-db-android-stage}"
-BASE_URL="\${ANI_STAGE_BASE_URL:-http://127.0.0.1:8788}"
+PROJECT_DIR="${1:-$HOME/ani-games-db-android-stage}"
+BASE_URL="${ANI_STAGE_BASE_URL:-http://127.0.0.1:8788}"
 TARGET_FILE="$PROJECT_DIR/server/server.mjs"
 
 [ -f "$TARGET_FILE" ] || { echo "[ANI CHECK] server.mjs tidak ditemukan: $TARGET_FILE" >&2; exit 1; }
