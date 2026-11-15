@@ -7,13 +7,13 @@
 - Work branch: fix/db-android-core-api-contracts-20261116
 - Exact source baseline branch + full SHA: backend/db-android-core-v1 — d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9
 - Baseline ancestry: backend branch is 123 commits ahead of PC Billing DB Android source head f938c574dfbd17ab84b07ca940115a280d3f8d78, 0 behind. Fix branch compares 14 commits ahead of backend baseline, 0 behind.
-- Current work branch head + full SHA: 85a8be9534f5739f732c6ee6f25b4b8225eaf5f3
+- Current work branch head + full SHA: f16d97a3dfd96f2f3598396976c3ee5d63c60e6d
 - Source archive + SHA-256: no source archive used; GitHub source was fetched by exact branch/ref and verified by blob SHAs.
 - Build workflow + trigger:
   - .github/workflows/test-db-android-core.yml; run 43755729409 — success
   - .github/workflows/package-db-android-api-fix.yml; run 43755729458 — success
 - App/EXE version, package ID, version code: not applicable; server-only hotfix, no app build requested or produced.
-- Artifact: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip; artifact ID 14177929336; size 3,903 bytes; SHA-256 c7d11bf7e376506d0ed816a07cdc738d73009304ed7c145bf0371719a6b1dd07.
+- Artifact: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip; artifact v3 ID 14186805375; size 4,125 bytes; ZIP SHA-256 0f3ba0f20f62a7c3bea3cd5066010308afa979f2ce69fffad7592ed68d747949. The earlier artifact IDs 14177929336 and 14185967938 are superseded and must not be installed.
 
 ## What was inspected
 
@@ -78,3 +78,14 @@
 ## User-facing summary
 
 Two real API defects are fixed on an isolated GitHub branch and the full synthetic PostgreSQL/API CI passed. A tested server-only Termux patch ZIP is available. The user's Redmi DB and existing 8787/WoL services have not been changed by this work; one on-device apply/restart/check step remains. Public access from any network remains off until a safe direct network path is verified.
+
+
+## Follow-up correction — flat ZIP layout and extraction instructions
+
+- User attempted `cd ~/storage/downloads/ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116` and the folder did not exist. Inspection of the actual ZIP showed that GitHub Actions uploaded the four files at archive root, not inside a nested directory. Therefore the earlier `cd` instruction was wrong; no patch script ran on Redmi.
+- The user's stop/start commands did run successfully: staging API port 8788 returned `api=online`, `database=online`, `remote_access_enabled=false`, `bind_host=127.0.0.1`. This only confirms restart, not hotfix application.
+- Rebuilt package with explicit instructions to create an extraction directory before `unzip -d`. Latest package artifact ID 14186805375; file ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116-v3.zip; 4,125 bytes; ZIP SHA-256 0f3ba0f20f62a7c3bea3cd5066010308afa979f2ce69fffad7592ed68d747949.
+- Latest package workflow 43775877360 passed. Local ZIP check: all three SHA256SUMS entries verified; both scripts pass `bash -n`.
+- The patch script's postcondition now checks the complete exact SQL expression: `api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::uuid,$8::text,$9::uuid) AS result`.
+- Correct Termux extraction: `mkdir -p ~/storage/downloads/DB-ANDROID-API-FIX-20261116 && unzip -o ~/storage/downloads/ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116-v3.zip -d ~/storage/downloads/DB-ANDROID-API-FIX-20261116 && cd ~/storage/downloads/DB-ANDROID-API-FIX-20261116`, then run APPLY, restart stage only, and run CHECK.
+- On-device patch application remains pending. Do not use the older v1/v2 ZIP artifacts.
