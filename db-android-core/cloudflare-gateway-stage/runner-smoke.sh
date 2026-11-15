@@ -63,11 +63,10 @@ case "$URL" in
     BODY='{"ok":true,"cleared":true}'
     CODE=200 ;;
   https://*/health)
-    COUNT_FILE="$ANI_TEST_HEALTH_COUNT"
     COUNT=0
-    [ -f "$COUNT_FILE" ] && COUNT="$(cat "$COUNT_FILE")"
+    [ -f "$ANI_TEST_HEALTH_COUNT" ] && COUNT="$(cat "$ANI_TEST_HEALTH_COUNT")"
     COUNT=$((COUNT + 1))
-    printf '%s' "$COUNT" > "$COUNT_FILE"
+    printf '%s' "$COUNT" > "$ANI_TEST_HEALTH_COUNT"
     if [ "$COUNT" -lt 3 ]; then
       BODY='{"error":"STAGE_UPSTREAM_UNREACHABLE"}'
       CODE=502
@@ -100,15 +99,9 @@ if printf '%s' "$OUTPUT" | grep -q 'Membersihkan URL lama'; then
   echo "FAIL: runner prematurely clears the tunnel on transient health failure" >&2
   exit 1
 fi
-echo "PASS: transient public-health failures do not trigger tunnel deletion; runner recovers automatically."
 grep -q 'ANI-DB-ANDROID-CLOUDFLARE-EDGE-TRUST-V1' "$HOME_TEST/stage/server/server.mjs"
 grep -q 'ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1' "$HOME_TEST/stage/server/server.mjs"
-grep -q '^stop
-grep -q '^start
-echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service." "$HOME_TEST/api-restart.log"
-grep -q '^start$' "$ANI_TEST_LOG"
-echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service." "$HOME_TEST/api-restart.log"
-echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service." "$HOME_TEST/api-restart.log"
-grep -q '^start
-echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service." "$HOME_TEST/api-restart.log"
-echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service."
+grep -q 'ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1' "$HOME_TEST/stage/server/server.mjs"
+grep -q '^stop$' "$HOME_TEST/api-restart.log"
+grep -q '^start$' "$HOME_TEST/api-restart.log"
+echo "PASS: API hardening patch, managed stage restart and transient tunnel health recovery."
