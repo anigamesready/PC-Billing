@@ -19,11 +19,11 @@ cp "$DIR/../server/server.mjs" "$HOME_TEST/stage/server/server.mjs"
 printf '12345\n' > "$HOME_TEST/stage/stage-api.pid"
 cat > "$HOME_TEST/stage/stop-stage.sh" <<'STOP'
 #!/usr/bin/env bash
-printf 'stop\n' >> "$HOME/api-restart.log"
+printf 'stop\n' >> "$HOME_TEST/api-restart.log"
 STOP
 cat > "$HOME_TEST/stage/start-stage.sh" <<'START'
 #!/usr/bin/env bash
-printf 'start\n' >> "$HOME/api-restart.log"
+printf 'start\n' >> "$HOME_TEST/api-restart.log"
 : > "$HOME/api-restarted"
 START
 chmod +x "$HOME_TEST/stage/stop-stage.sh" "$HOME_TEST/stage/start-stage.sh"
@@ -103,6 +103,6 @@ fi
 echo "PASS: transient public-health failures do not trigger tunnel deletion; runner recovers automatically."
 grep -q 'ANI-DB-ANDROID-CLOUDFLARE-EDGE-TRUST-V1' "$HOME_TEST/stage/server/server.mjs"
 grep -q 'ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1' "$HOME_TEST/stage/server/server.mjs"
-grep -q '^stop$' "$HOME/api-restart.log"
-grep -q '^start$' "$HOME/api-restart.log"
+grep -q '^stop$' "$HOME_TEST/api-restart.log"
+grep -q '^start$' "$HOME_TEST/api-restart.log"
 echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service."
