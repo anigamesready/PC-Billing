@@ -52,7 +52,7 @@ jobs:
           bash -n db-android-core/cloudflare-gateway-stage/runner-smoke.sh
           bash db-android-core/cloudflare-gateway-stage/runner-smoke.sh
           grep -Fq 'API_SOURCE_PATCH_APPLIED' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
-          grep -Fq 'POOL_ERROR_HANDLER_V1' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          grep -Fq 'PG-POOL-ERROR-HANDLER-V1' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
           grep -Fq 'python3 "$PATCH_FILE" "$STAGE_HOME/server"' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq 'bash "$STAGE_HOME/stop-stage.sh"' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq 'bash "$STAGE_HOME/start-stage.sh"' db-android-core/cloudflare-gateway-stage/start-online.sh
