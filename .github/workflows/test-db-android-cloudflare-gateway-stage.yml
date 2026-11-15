@@ -38,12 +38,15 @@ jobs:
           ! grep -q 'HOST = "0.0.0.0"' /tmp/ani-stage/server/server.mjs
           echo "PASS: patched isolated API syntax, idempotency, loopback bind and bootstrap guards."
 
-      - name: Shell syntax and secret-free package
+      - name: Shell syntax, Android DNS runner assertions and secret-free package
         shell: bash
         run: |
           set -euo pipefail
           bash -n db-android-core/cloudflare-gateway-stage/configure-online.sh
           bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'termux-chroot "/bin/cloudflared tunnel --url http://127.0.0.1:8788"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'dig +time=3 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq '"$GATEWAY/health"' db-android-core/cloudflare-gateway-stage/start-online.sh
           OUT="$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
           rm -rf "$OUT"
           mkdir -p "$OUT"
@@ -55,6 +58,9 @@ jobs:
           ANI GAMES READY — DB ANDROID HTTPS STAGE GATEWAY
           This is a staging gateway, not a production 24/7 guarantee.
           The Redmi API stays bound to 127.0.0.1:8788.
+          The runner installs Termux proot/bind-tools if missing, runs cloudflared
+          through termux-chroot so the Termux resolver is visible at /etc/resolv.conf,
+          tests Cloudflare's SRV DNS record, and checks the real public /health route.
           The Cloudflare Worker proxies only health/auth/RPC/device API routes.
           /setup and /api/admin/bootstrap are denied publicly.
           No database password, Owner credential, DB dump, or runtime .env is included.
