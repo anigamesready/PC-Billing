@@ -66,7 +66,7 @@ swap(
 if (!code.includes("async function authRequest(req, res, url, path) {")
     || !code.includes('if (path === prefix || path.startsWith(prefix + "/"))')
     || !code.includes("authRequest(req,res,url,path)")
-    || !code.includes("$6::text,$7::uuid,$8::text,$9::uuid")) {
+    || !code.includes("api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::uuid,$8::text,$9::uuid) AS result")) {
   throw new Error("Post-patch assertions failed; original file remains untouched");
 }
 
