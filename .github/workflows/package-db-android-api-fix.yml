@@ -81,9 +81,16 @@ jobs:
           - Tidak menjalankan SQL/migrasi/setup/initdb/reset/restore/drop database.
           - Tidak mengubah .env, PostgreSQL, API lama port 8787, atau relay Blynk/WoL.
 
-          Jalankan dari folder hasil ekstrak:
+          Ekstrak ZIP dari Termux (sesuaikan nama ZIP jika browser menambahkan angka):
+            termux-setup-storage
+            unzip -o ~/storage/downloads/ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip -d ~/storage/downloads
+            cd ~/storage/downloads/ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116
+
+          Lalu jalankan:
             bash APPLY_DB_ANDROID_API_FIX.sh ~/ani-games-db-android-stage
             bash CHECK_DB_ANDROID_API_FIX.sh ~/ani-games-db-android-stage
+
+          Jika ZIP tersimpan di folder lain, pindahkan/akses ZIP itu dengan path yang benar. Jangan menjalankan script dari folder staging.
 
           Checker default memakai http://127.0.0.1:8788. Checker hanya melakukan GET health dan GET Auth tanpa token (hasil yang benar HTTP 401 AUTH_REQUIRED); tidak membuat sesi/rental.
           Bila API staging berada di URL/port lain, set ANI_STAGE_BASE_URL. Jangan gunakan HTTP publik atau membuka port PostgreSQL.
