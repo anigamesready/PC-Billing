@@ -1,4 +1,4 @@
-# Project State — 2026-11-15
+# Project State — 2026-11-16
 
 ## Current Skill System status
 - Hybrid BOTH workflow is being used: GitHub is the permanent instruction/state source; ChatGPT reads the repository through the connected GitHub integration at task start.
@@ -11,8 +11,23 @@
 - PC Billing DB Android: V12.4.8, branch `pc-billing-v12.4.8-DB-Android`, head `f938c574dfbd17ab84b07ca940115a280d3f8d78`, source baseline `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19`.
 - Admin DB Android: newer candidate V12.1.50, branch `admin-v12.1.50-DB-Android`, head `be56ede591c6ebc42b99a02e7731228e02ac40d4`, baseline `9460e8dcbdbf69706408dd0507016cf0037ff153`. V12.1.46 is retained as historical.
 - Reseller DB Android: V1.0.6, branch `reseller-v1.0.6-DB-Android`, current head `62e14e8caea62c50269cd62f4122efeed19e8731`, source baseline `a67c2f6318230671a7d7776bf6040c39bca6ff97`.
-- DB Android backend/schema: branch `backend/db-android-core-v1`, head `8e9797628ec4508dd5251d32d2a6faa983c7d106`. It contains schema and contract documentation, not a complete local API service.
+- DB Android standalone backend: branch `backend/db-android-core-v1`, head `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9`. It contains the Node API, Auth/Admin/Billing/Reseller/Device routes, PostgreSQL schema/functions, Termux stage scripts and CI regression suite. Redmi installation still awaits the one-file hotfix and on-device verification.
 - Full branch ancestry, workflow limitations and source warnings are recorded in `PROJECT_REGISTRY.md`.
+
+
+## Redmi DB Android API contract hotfix — 2026-11-16
+
+- User requested direct completion of the API audit/fix, while preserving stable source and the existing Redmi database.
+- Repository: anigamesready/PC-Billing. Source baseline: backend/db-android-core-v1 / d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9 (verified ancestry from PC Billing DB Android head f938c574dfbd17ab84b07ca940115a280d3f8d78).
+- Isolated work branch: fix/db-android-core-api-contracts-20261116 / 85a8be9534f5739f732c6ee6f25b4b8225eaf5f3. Comparison: 14 commits ahead, 0 behind. No merge to master and no modification to the backend baseline.
+- Changes: normalize the Auth path before calling authRequest; enforce exact prefix boundary; correct dashboard_billing_user to nine arguments with the correct role/org type order; add HTTP smoke cases and a contract checker over all 49 Node RPC entries.
+- CI: PostgreSQL/API regression run 43755729409 PASS. It applies schema 000 and 002–011 only to a disposable CI database, runs SQL smoke tests and Node HTTP smoke tests using a restricted DB role, then checks backup/restore and local stage startup. Billing Admin user CRUD over HTTP passed.
+- Packaging: Termux fixture/package run 43755729458 PASS. It checks shell syntax, applies the patch twice to a temporary modified-source fixture (idempotence), confirms local net import and ANI_EDGE_PROXY_SECRET remain, and packages the two scripts plus README.
+- Artifact: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip; artifact ID 14177929336; SHA-256 c7d11bf7e376506d0ed816a07cdc738d73009304ed7c145bf0371719a6b1dd07; 3,903 bytes.
+- Existing Redmi stage history: ~/ani-games-db-android-stage, DB ani_games_ready_stage, API port 8788 loopback; old port 8787 is separate. Previously reported backup ani_games_ready_stage-before-core-20261115-222016.dump has SHA-256 b16ca9199ea848839aeb989bb2d37d3372db56f3e05169572b695e29491f9c19 and was readable by pg_restore --list. It was not restore-tested.
+- Local server.mjs has local additions not present in GitHub baseline (including net and ANI_EDGE_PROXY_SECRET), so the package uses a guarded pattern patch, not whole-file replacement. It creates a timestamped backup and aborts if expected patterns are not unique.
+- No patch has yet been executed on the Redmi in this chat. No local DB, schema, .env, PostgreSQL, port 8787 or Blynk/WoL relay was changed. No migration, initdb, restore, reset or data copy was run.
+- Public access: stage API still binds to 127.0.0.1:8788 and reports remote_access_enabled:false. It is intentionally not exposed. Access from arbitrary networks without a third-party relay remains open pending verification of reachable ISP public IPv4/router forwarding; PostgreSQL port 5432 must remain private.
 
 ## PC Billing DB1-direct recovery — 2026-11-14
 
