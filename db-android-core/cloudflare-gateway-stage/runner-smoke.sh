@@ -14,6 +14,19 @@ ANI_EDGE_REGISTER_TOKEN=register-token-test-012345678901234567890123
 ANI_EDGE_PROXY_SECRET=edge-secret-test-012345678901234567890123456789
 ANI_EDGE_GATEWAY_URL=https://ani-games-db-android-stage-gateway.anigamesready.workers.dev
 ENV
+
+cp "$DIR/../server/server.mjs" "$HOME_TEST/stage/server/server.mjs"
+printf '12345\n' > "$HOME_TEST/stage/stage-api.pid"
+cat > "$HOME_TEST/stage/stop-stage.sh" <<'STOP'
+#!/usr/bin/env bash
+printf 'stop\n' >> "$HOME/api-restart.log"
+STOP
+cat > "$HOME_TEST/stage/start-stage.sh" <<'START'
+#!/usr/bin/env bash
+printf 'start\n' >> "$HOME/api-restart.log"
+: > "$HOME/api-restarted"
+START
+chmod +x "$HOME_TEST/stage/stop-stage.sh" "$HOME_TEST/stage/start-stage.sh"
 printf 'nameserver 1.1.1.1\n' > "$PREFIX_TEST/etc/resolv.conf"
 
 cat > "$PREFIX_TEST/bin/dig" <<'DIG'
@@ -40,6 +53,7 @@ while [ "$#" -gt 0 ]; do
 done
 case "$URL" in
   http://127.0.0.1:8788/health)
+    if [ ! -f "$HOME/api-restarted" ]; then exit 7; fi
     BODY='{"app":"Ani Games Ready Local Server","api":"online","database":"online","apiVersion":"db-android-v1"}'
     CODE=200 ;;
   https://*/_ani_gateway/register)
@@ -87,3 +101,10 @@ if printf '%s' "$OUTPUT" | grep -q 'Membersihkan URL lama'; then
   exit 1
 fi
 echo "PASS: transient public-health failures do not trigger tunnel deletion; runner recovers automatically."
+grep -q 'ANI-DB-ANDROID-CLOUDFLARE-EDGE-TRUST-V1' "$HOME_TEST/stage/server/server.mjs"
+grep -q 'ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1' "$HOME_TEST/stage/server/server.mjs"
+grep -q '^stop
+ "$HOME/api-restart.log"
+grep -q '^start
+ "$HOME/api-restart.log"
+echo "PASS: runner applies API security/resilience patch and restarts only the managed staging service."
