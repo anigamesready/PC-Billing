@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-15 — DB Android Cloudflare Termux DNS runner fix
+- Revalidated the isolated stage branch against its baseline `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9`; branch head was 19 commits ahead and 0 behind.
+- Root-cause evidence from Redmi: `cloudflared` tried `[::1]:53` and received connection refused; Termux resolver file existed under `$PREFIX/etc/resolv.conf`, while Android/Termux lacked the standard `/etc/resolv.conf` path.
+- Updated the stage runner to install missing `proot`/`bind-tools`, execute the tunnel through `termux-chroot`, preflight the Cloudflare SRV record against public DNS, and test the actual public API `/health` after registration.
+- Updated deployment documentation and CI package assertions. No Worker deployment, API source, DB schema/data, production route, port 8787, Supabase or Blynk/WoL resource was modified.
+- GitHub Actions run `43689341047` succeeded; artifact `14151522874`, size 17,557 bytes, SHA-256 `84bf654ae73c4b2b6656df058d392c8c56260b3ec41cddea1c62713907018442`.
+- Redmi application/runtime test is pending; do not mark global API connectivity as fixed until DNS preflight, tunnel persistence and public `/health` pass on-device.
+
+
 ## 2026-11-14 — PC Billing V12.4.9 DB1 Direct recovery build
 - Created isolated recovery branch `recovery/pc-v12.4.9-db1-direct-20261114` from the verified V12.4.8 source baseline.
 - Removed client-side `db-route-status`/DB2/shared-gateway route lookup from PC Billing device transport; all device requests now target DB1 `ani-games-api` directly.
