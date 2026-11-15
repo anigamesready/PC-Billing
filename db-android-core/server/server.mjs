@@ -186,7 +186,7 @@ const RPC = {
 
   create_enrollment: { auth: "admin", sql: "SELECT api.create_enrollment($1::text,$2::uuid,$3::text,$4::bigint) AS result", args: ["p_org_id","p_label","p_minutes"] },
   create_reseller: { auth: "admin", sql: "SELECT api.create_reseller($1::text,$2::text,$3::text) AS result", args: ["p_name","p_slug"] },
-  dashboard_billing_user: { auth: "admin", sql: "SELECT api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::uuid,$7::text,$8::text,$9::uuid) AS result", args: ["p_action","p_username","p_password","p_status","p_role","p_org_id","p_display_name","p_user_id"] },
+  dashboard_billing_user: { auth: "admin", sql: "SELECT api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::uuid,$8::text,$9::uuid) AS result", args: ["p_action","p_username","p_password","p_status","p_role","p_org_id","p_display_name","p_user_id"] },
   dashboard_billing_users: { auth: "admin", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.username),'[]'::jsonb) AS result FROM api.dashboard_billing_users($1::text) x", args: [] },
   report_detailed_usage_page: { auth: "admin", sql: "SELECT api.report_detailed_usage_page($1::text,$2::uuid,$3::timestamptz,$4::timestamptz,$5::integer,$6::timestamptz,$7::uuid) AS result", args: ["p_org_id","p_from","p_to","p_limit","p_before_started_at","p_before_session_id"] },
   report_monthly_rental_summary: { auth: "admin", sql: "SELECT api.report_monthly_rental_summary($1::text,$2::uuid,$3::timestamptz,$4::timestamptz) AS result", args: ["p_org_id","p_from","p_to"] },
