@@ -37,6 +37,7 @@ jobs:
           grep -q "localBootstrapRequestAllowed(req)" /tmp/ani-stage/server/server.mjs
           grep -q "ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1" /tmp/ani-stage/server/server.mjs
           grep -q "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1" /tmp/ani-stage/server/server.mjs
+          grep -A1 "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1" /tmp/ani-stage/server/server.mjs | grep -Eq 'diagnosticCode|error:String'
           grep -q 'error?.code' /tmp/ani-stage/server/server.mjs
           grep -q 'component: "postgres_pool"' /tmp/ani-stage/server/server.mjs
           ! grep -q 'HOST = "0.0.0.0"' /tmp/ani-stage/server/server.mjs
