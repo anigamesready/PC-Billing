@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - backend/db-android-core-v1
+      - fix/db-android-core-api-contracts-20261116
   workflow_dispatch:
 
 permissions:
@@ -160,6 +161,11 @@ jobs:
           test "$(cat /tmp/restored-api-functions)" -gt 40
           sha256sum /tmp/ani-games-ready-ci.backup.sql
           echo "PASS: logical backup restored into ani_games_restore_test; table and critical-row counts match."
+
+      - name: Verify all Node RPC bindings against PostgreSQL signatures
+        run: |
+          set -euo pipefail
+          node db-android-core/server/contract-check.mjs
 
       - name: Install Node.js and verify local API syntax
         uses: actions/setup-node@v4
