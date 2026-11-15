@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
 
-PROJECT_DIR="\${1:-$HOME/ani-games-db-android-stage}"
+PROJECT_DIR="${1:-$HOME/ani-games-db-android-stage}"
 TARGET_FILE="$PROJECT_DIR/server/server.mjs"
 
 if [ ! -f "$TARGET_FILE" ]; then
@@ -70,7 +70,8 @@ if (!code.includes("async function authRequest(req, res, url, path) {")
   throw new Error("Post-patch assertions failed; original file remains untouched");
 }
 
-fs.writeFileSync(targetPath, code, { mode: 0o600 });
+const originalMode = fs.statSync(sourcePath).mode & 0o777;
+fs.writeFileSync(targetPath, code, { mode: originalMode });
 NODE
 
 node --check "$TMP_FILE"
