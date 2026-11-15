@@ -1,4 +1,4 @@
-# Project State — 2026-11-14
+# Project State — 2026-11-15
 
 ## Current Skill System status
 - Hybrid BOTH workflow is being used: GitHub is the permanent instruction/state source; ChatGPT reads the repository through the connected GitHub integration at task start.
@@ -25,6 +25,18 @@
 - Regression/build verification: existing V12.4.5–V12.4.8 patch chain passed; V12.4.9 patch passed; JS + inline script syntax passed; direct DB1/router static assertions passed; Windows portable EXE build and artifact upload passed.
 - Artifacts: EXE SHA-256 `9B8171EC801229B3C0EE01F763D9037B33ABB7CDCBF38396F3BC8D83C1EB0807`; clean source ZIP SHA-256 `7BEFCF83D4D542FE0F7FE92866E16B7BA29C1DE05E063927B89FBD43099C75F7`; GitHub artifact ZIP SHA-256 `a645ae96002c28fbe7510e53cd4c91c317efa8c18c86f1463024a3bea0c479d7`.
 - Not yet tested on a live customer PC: saved-token login/heartbeat, real rental start/end, and fresh replace/install. No backend DB data, Admin APK, Reseller APK, DB2 project, or master branch was changed.
+
+## DB Android Cloudflare staging gateway DNS fix — 2026-11-15
+
+- Dedicated infra branch: `infra/db-android-cloudflare-gateway-stage`; latest verified head after CI trigger: `693289ad16a380119bba981ecdde4e2d4453ad0e`.
+- Branch ancestry: 19 commits ahead of exact stage baseline `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9`, zero behind at the time of verification. No master or production branch was changed.
+- User-observed failure: public Worker `/health` returned HTTP 503 `STAGE_TUNNEL_OFFLINE`; Redmi cloudflared log showed Go DNS lookup to `[::1]:53` connection refused. Python `getaddrinfo` also failed. Termux `$PREFIX/etc/resolv.conf` was present with 8.8.8.8 and 8.8.4.4.
+- Updated `db-android-core/cloudflare-gateway-stage/start-online.sh` to install missing Termux `proot` and `bind-tools`, run cloudflared through `termux-chroot` (which exposes Termux's resolver at `/etc/resolv.conf`), test the Cloudflare SRV record through 1.1.1.1/8.8.8.8, and verify the real public API `/health` path after Worker registry health.
+- Updated stage deployment notes and CI assertions. Worker implementation/deployment, staging API code, port 8787, production DB, Supabase and Blynk/WoL were not changed by this DNS fix.
+- Runtime runner commit: `143253184bca03b96ea5233ac2a76e61723b5cf5`; CI workflow commit/head: `693289ad16a380119bba981ecdde4e2d4453ad0e`.
+- GitHub Actions run `43689341047` completed successfully. Package artifact ID `14151522874`; SHA-256 `84bf654ae73c4b2b6656df058d392c8c56260b3ec41cddea1c62713907018442`; size 17,557 bytes.
+- The new package deliberately excludes `online-secrets.env`, runtime `.env`, passwords and database files. The existing local `online-secrets.env` must be copied forward when updating the helper folder.
+- Not yet applied or tested on the Redmi. Until the new runner passes DNS preflight and public API `/health`, global API access remains unverified and the previous 503 is still the last user-observed public result.
 
 ## Redmi Termux server — latest reported state
 - Working directory: `~/ani-games-server` (`/data/data/com.termux/files/home/ani-games-server`).
