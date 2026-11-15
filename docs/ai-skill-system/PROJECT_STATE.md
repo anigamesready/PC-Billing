@@ -53,19 +53,22 @@
 - The new package deliberately excludes `online-secrets.env`, runtime `.env`, passwords and database files. The existing local `online-secrets.env` must be copied forward when updating the helper folder.
 - Not yet applied or tested on the Redmi. Until the new runner passes DNS preflight and public API `/health`, global API access remains unverified and the previous 503 is still the last user-observed public result.
 
-## Redmi Termux server — latest reported state
-- Working directory: `~/ani-games-server` (`/data/data/com.termux/files/home/ani-games-server`).
-- Server Control 1.0.2 update was reported installed from `ANI_GAMES_READY_SERVER_CONTROL_FIX_1.0.2/UPDATE.sh`.
-- Node.js v24.22.3 API uses port 8787.
-- Last user-reported state on 2026-11-13: PostgreSQL ONLINE, API ONLINE, local `/health` endpoint responded, and a SQL backup checksum was verified.
-- This was not re-queried from the phone in this chat. Current files, current process state, credentials/config, database contents and backup restore have not been revalidated.
+## Redmi Termux server — reported main + DB Android stage state
 
-## DB1-to-Redmi compatibility findings
-- The DB1 live contract audit records 41 tables, 161 routines (152 SECURITY DEFINER), 116 triggers across 17 functions, and 14 active Edge Functions.
-- `001_db1_catalog_snapshot.sql` is a full structure reference, not a ready-to-run replacement. `002_core_business_schema.sql` defines 24 operational business tables with constraints and indexes, but no complete local API, authentication handlers, RPC/function bodies, trigger port set or client contract tests.
-- The local API still needs secure Admin/Owner/Reseller sessions, PC enrollment/device tokens, heartbeat/ack, sync cursor/pull, rental lookup/session lifecycle/release, offline leases/conflicts, global rental CRUD, reports/exports, audit, rate limits and role/org isolation.
-- Do not apply schema files to the existing Redmi database until current server/schema state is inspected and a fresh staging database + restore plan are verified.
-- Do not copy DB1/DB2 route/sync infrastructure, route-quiesce triggers, WoL Relay/Telegram sidecars or automatic shutdown scheduler into the local single-server path.
+- Existing main service: ~/ani-games-server, Server Control 1.0.2, Node.js v24.22.3, API port 8787. The last reported health check on 2026-11-13 showed PostgreSQL/API ONLINE; this service remains separate and was not stopped or modified in the current fix.
+- Separate DB Android staging service: ~/ani-games-db-android-stage; database ani_games_ready_stage; Node API port 8788 bound to 127.0.0.1. The last observed /health response showed API and database online, remote_access_enabled:false, bind_host:127.0.0.1, relay:separate. This is historical observed state, not a live re-query of the phone.
+- Stage PostgreSQL data directory was previously observed as $PREFIX/var/lib/postgresql, PostgreSQL 18, listening on 127.0.0.1:5432. Never expose port 5432.
+- A pre-core backup exists at ~/ani-db-backup/ani_games_ready_stage-before-core-20261115-222016.dump; SHA-256 b16ca9199ea848839aeb989bb2d37d3372db56f3e05169572b695e29491f9c19; pg_restore --list succeeded. A restore test was not performed.
+- The local stage server.mjs contains local additions (including net and ANI_EDGE_PROXY_SECRET) that differ from GitHub baseline. The delivered patch is guarded and preserves those additions; it has not yet been applied to the Redmi.
+- No .env, passwords, tokens or database dumps were copied to GitHub or included in the patch artifact. No database reset, migration, initdb, restore or data copy was run by the hotfix.
+
+## DB Android core implementation status
+
+- The standalone GitHub backend now contains a Node HTTP API, local Auth/Admin/Billing/Reseller/Device routes, 108 API-schema functions, PostgreSQL schema/migrations 000 and 002–011, and a CI suite. Full PostgreSQL/API CI passed at hotfix HEAD; this validates the synthetic disposable CI database, not all client apps against the physical Redmi.
+- The 24-table core schema is separate from the 41-table DB1 catalog snapshot. Migration 001_db1_catalog_snapshot.sql is reference-only and must not be applied.
+- The local stage database was previously observed with 28 base tables. Seven tables held one row each for auth/admin bootstrap, organization/member, and audit setup; the operational rental/device/session tables were empty. It is not a clone/import of DB1 customer or rental data.
+- Auth prefix routing and the Admin Billing User RPC bind order/type were fixed on the isolated branch fix/db-android-core-api-contracts-20261116. Device runtime tests, the on-device patch and UI-level Admin/Reseller/PC client acceptance remain pending.
+- Keep Supabase DB1/DB2 route/sync infrastructure, route-quiesce/before-image triggers, WoL Relay/Telegram sidecars and automatic shutdown scheduler out of the local single-server runtime.
 
 ## Safety constraints
 - Keep DB Android separate from Supabase DB1/DB2 dual-database development and production routes.
@@ -75,4 +78,6 @@
 - Reseller must remain limited to its own rentals; no Admin/Owner or PC/Windows/WoL control.
 
 ## Next action
-Obtain a current, sanitized read-only copy/inventory of the Termux project at `~/ani-games-server`. Inspect source files, package dependencies, server routes, auth, schema, startup/control scripts, logs and backup/restore behavior. Then compare each endpoint against the versioned DB1 contract and define missing server work before touching any client branch.
+1. Apply the guarded API hotfix to ~/ani-games-db-android-stage only, restart only stage port 8788 using its PID-validated stop/start scripts, then run the read-only checker.
+2. Confirm stage Admin Billing CRUD from the Android Admin interface. Keep port 8787, PostgreSQL data and Blynk/WoL relay untouched.
+3. After local acceptance, resolve direct public reachability without a third-party relay by checking ISP public IPv4/router forwarding versus CGNAT. Keep PostgreSQL 5432 private; no external ingress is configured yet.
