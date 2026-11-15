@@ -5,6 +5,7 @@ STAGE_HOME="${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
 ENV_FILE="$STAGE_HOME/server/.env"
 LOG_DIR="$STAGE_HOME/logs"
 TUNNEL_LOG="$LOG_DIR/cloudflare-quick-tunnel.log"
+HEALTH_RESPONSE_FILE="$LOG_DIR/public-health-last.json"
 PID_FILE="$STAGE_HOME/cloudflare-online.pid"
 
 [ -f "$ENV_FILE" ] || { echo "[ANI ONLINE] .env staging tidak ditemukan. Jalankan configure-online.sh."; exit 1; }
