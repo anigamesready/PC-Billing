@@ -15,13 +15,51 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Termux scripts
+      - name: Validate Termux patch scripts
         shell: bash
         run: |
           set -euo pipefail
           bash -n db-android-core/patches/APPLY_DB_ANDROID_API_FIX.sh
           bash -n db-android-core/patches/CHECK_DB_ANDROID_API_FIX.sh
-      - name: Build server-only hotfix package
+      - name: Test patch against a local modified-source fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          FIXTURE="$RUNNER_TEMP/ani-db-patch-fixture"
+          mkdir -p "$FIXTURE/server"
+          cat > "$FIXTURE/server/server.mjs" <<'EOF'
+          import net from "node:net";
+          const EDGE_PROXY_SECRET = process.env.ANI_EDGE_PROXY_SECRET || "";
+          async function authRequest(req, res, url) {
+            const path = url.pathname;
+            if (path === "/auth/v1/user") return null;
+          }
+          async function handler(req, res, url) {
+            let path = url.pathname.replace(/\/+$/, "") || "/";
+            const prefix = "/functions/v1/ani-games-api";
+            if (path.startsWith(prefix)) path = path.slice(prefix.length) || "/";
+            if (path.startsWith("/auth/v1/")) return await authRequest(req,res,url);
+          }
+          const RPC = {
+            dashboard_billing_user: {
+              auth: "admin",
+              sql: "SELECT api.dashboard_billing_user($1::text,$2::text,$3::text,$4::text,$5::text,$6::uuid,$7::text,$8::uuid) AS result",
+              args: ["p_action","p_username","p_password","p_status","p_role","p_org_id","p_display_name","p_user_id"]
+            }
+          };
+          EOF
+
+          bash db-android-core/patches/APPLY_DB_ANDROID_API_FIX.sh "$FIXTURE"
+          sleep 1
+          bash db-android-core/patches/APPLY_DB_ANDROID_API_FIX.sh "$FIXTURE"
+          node --check "$FIXTURE/server/server.mjs"
+          grep -q 'import net from "node:net"' "$FIXTURE/server/server.mjs"
+          grep -q 'ANI_EDGE_PROXY_SECRET' "$FIXTURE/server/server.mjs"
+          grep -q 'authRequest(req,res,url,path)' "$FIXTURE/server/server.mjs"
+          grep -q 'path === prefix || path.startsWith(prefix + "/")' "$FIXTURE/server/server.mjs"
+          grep -q '$6::text,$7::uuid,$8::text,$9::uuid' "$FIXTURE/server/server.mjs"
+          echo "PASS: guarded patch, idempotence, local extensions preserved, Auth route and ordered SQL casts"
+      - name: Build one-level Termux patch artifact
         shell: bash
         run: |
           set -euo pipefail
@@ -34,11 +72,11 @@ jobs:
 
           Perbaikan:
           1. Jalur Auth kompatibilitas lama /functions/v1/ani-games-api/auth/v1/... diarahkan memakai path yang sudah dinormalisasi.
-          2. RPC dashboard_billing_user memakai 9 parameter sesuai wrapper PostgreSQL token-bound.
+          2. RPC dashboard_billing_user memakai 9 parameter dengan urutan tipe sesuai wrapper PostgreSQL token-bound: token, action, username, password, status, role, org_id, display_name, user_id.
 
           Aman untuk staging Redmi yang sudah ada:
           - Hanya mengubah server/server.mjs di folder staging yang ditentukan.
-          - Mempertahankan tambahan lokal lain di server.mjs (patch berdasarkan pola spesifik, bukan replace file penuh).
+          - Mempertahankan tambahan lokal lain di server.mjs (patch berbasis pola spesifik, bukan replace file penuh).
           - Membuat backup server.mjs otomatis sebelum mengganti file.
           - Tidak menjalankan SQL/migrasi/setup/initdb/reset/restore/drop database.
           - Tidak mengubah .env, PostgreSQL, API lama port 8787, atau relay Blynk/WoL.
@@ -51,12 +89,10 @@ jobs:
           Bila API staging berada di URL/port lain, set ANI_STAGE_BASE_URL. Jangan gunakan HTTP publik atau membuka port PostgreSQL.
           EOF
           (cd "$OUT" && sha256sum APPLY_DB_ANDROID_API_FIX.sh CHECK_DB_ANDROID_API_FIX.sh README-ID.txt > SHA256SUMS.txt)
-          zip -qr "$OUT.zip" "$OUT"
-          sha256sum "$OUT.zip"
-          unzip -l "$OUT.zip"
+          cat "$OUT/SHA256SUMS.txt"
       - uses: actions/upload-artifact@v4
         with:
           name: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116
-          path: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip
+          path: ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116/
           if-no-files-found: error
           retention-days: 30
