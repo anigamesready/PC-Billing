@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-16 — Redmi DB Android API contract hotfix
+
+- Revalidated the backend baseline at d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9 (123 commits ahead of PC Billing DB Android source head f938c574dfbd17ab84b07ca940115a280d3f8d78, zero behind).
+- Created isolated branch fix/db-android-core-api-contracts-20261116 at 85a8be9534f5739f732c6ee6f25b4b8225eaf5f3; 14 commits ahead of the backend baseline, zero behind. No master/backend baseline merge or production change.
+- Fixed two API integration defects: legacy-prefixed Auth requests were routed using the original, non-normalized URL path; Admin dashboard_billing_user had an incorrect bind count and swapped role/org SQL types.
+- Added 49-entry RPC contract validation for parameter count, order and types, and HTTP smoke tests for both Auth paths plus Billing Admin account CRUD.
+- PostgreSQL/API regression run 43755729409 passed; package/fixture run 43755729458 passed. Fixture test applied the guarded Termux patch twice and confirmed that local net import and ANI_EDGE_PROXY_SECRET additions were preserved.
+- Built artifact ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip, artifact ID 14177929336, size 3,903 bytes, SHA-256 c7d11bf7e376506d0ed816a07cdc738d73009304ed7c145bf0371719a6b1dd07.
+- The package changes only stage server/server.mjs, creates a timestamped backup and performs no SQL migration or DB reset. It does not touch .env, PostgreSQL, port 8787 or WoL relay.
+- Redmi patch application and post-restart device checks remain pending. Stage API is still loopback-only; access from arbitrary external networks is not claimed.
+
+
 ## 2026-11-15 — DB Android Cloudflare Termux DNS runner fix
 - Revalidated the isolated stage branch against its baseline `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9`; branch head was 19 commits ahead and 0 behind.
 - Root-cause evidence from Redmi: `cloudflared` tried `[::1]:53` and received connection refused; Termux resolver file existed under `$PREFIX/etc/resolv.conf`, while Android/Termux lacked the standard `/etc/resolv.conf` path.
