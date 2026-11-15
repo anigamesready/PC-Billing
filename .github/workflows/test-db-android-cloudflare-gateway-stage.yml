@@ -44,6 +44,11 @@ jobs:
           set -euo pipefail
           bash -n db-android-core/cloudflare-gateway-stage/configure-online.sh
           bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
+          bash -n db-android-core/cloudflare-gateway-stage/runner-smoke.sh
+          bash db-android-core/cloudflare-gateway-stage/runner-smoke.sh
+          grep -Fq 'Tunnel TIDAK diputus' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'LAST_HEALTH_HTTP' db-android-core/cloudflare-gateway-stage/start-online.sh
+          ! grep -Fq 'Membersihkan URL lama dan membuat tunnel baru' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq '"$PREFIX/bin/cloudflared" tunnel --url http://127.0.0.1:8788' db-android-core/cloudflare-gateway-stage/start-online.sh
           ! grep -q 'termux-chroot\|proot' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq 'dig +time=3 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com' db-android-core/cloudflare-gateway-stage/start-online.sh
@@ -62,6 +67,7 @@ jobs:
           The runner installs the native Termux cloudflared/dnsutils packages if missing,
           runs cloudflared directly (no proot/chroot), tests Cloudflare's SRV DNS record,
           and checks the real public /health route.
+          The runner waits/retries without deleting a slow tunnel and prints HTTP failure details.
           The Cloudflare Worker proxies only health/auth/RPC/device API routes.
           /setup and /api/admin/bootstrap are denied publicly.
           No database password, Owner credential, DB dump, or runtime .env is included.
