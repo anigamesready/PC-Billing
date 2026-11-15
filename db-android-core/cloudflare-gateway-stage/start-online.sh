@@ -20,11 +20,40 @@ if ! curl -fsS --max-time 5 http://127.0.0.1:8788/health >/dev/null; then
   echo "[ANI ONLINE] API staging port 8788 belum online. Mencoba start..."
   bash "$STAGE_HOME/start-stage.sh"
 fi
-if ! command -v cloudflared >/dev/null 2>&1; then
-  echo "[ANI ONLINE] Menginstal cloudflared dari repository resmi Termux..."
-  pkg install cloudflared -y
+
+# Install only the missing Termux packages. termux-chroot binds
+# $PREFIX/etc to /etc so Go binaries can read a conventional resolver file.
+NEEDED_PACKAGES=()
+[ -x "$PREFIX/bin/cloudflared" ] || NEEDED_PACKAGES+=(cloudflared)
+[ -x "$PREFIX/bin/termux-chroot" ] || NEEDED_PACKAGES+=(proot)
+[ -x "$PREFIX/bin/dig" ] || NEEDED_PACKAGES+=(bind-tools)
+if [ "${#NEEDED_PACKAGES[@]}" -gt 0 ]; then
+  echo "[ANI ONLINE] Memasang dependensi Termux yang belum ada: ${NEEDED_PACKAGES[*]}"
+  pkg install -y "${NEEDED_PACKAGES[@]}"
 fi
-command -v cloudflared >/dev/null 2>&1 || { echo "[ANI ONLINE] cloudflared belum terpasang."; exit 1; }
+[ -x "$PREFIX/bin/cloudflared" ] || { echo "[ANI ONLINE] cloudflared Termux belum tersedia."; exit 1; }
+[ -x "$PREFIX/bin/termux-chroot" ] || { echo "[ANI ONLINE] proot/termux-chroot belum tersedia."; exit 1; }
+[ -x "$PREFIX/bin/dig" ] || { echo "[ANI ONLINE] bind-tools/dig belum tersedia."; exit 1; }
+[ -r "$PREFIX/etc/resolv.conf" ] || { echo "[ANI ONLINE] Resolver Termux $PREFIX/etc/resolv.conf tidak dapat dibaca."; exit 1; }
+
+echo "[ANI ONLINE] Menguji DNS SRV Cloudflare melalui resolver Termux..."
+DNS_OK=0
+for DNS_SERVER in 1.1.1.1 8.8.8.8; do
+  DNS_RESULT="$(termux-chroot "dig +time=3 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com @$DNS_SERVER" 2>/dev/null || true)"
+  if [ -n "$DNS_RESULT" ]; then
+    echo "[ANI ONLINE] DNS SRV berhasil melalui $DNS_SERVER:"
+    printf '%s\n' "$DNS_RESULT"
+    DNS_OK=1
+    break
+  fi
+done
+if [ "$DNS_OK" -ne 1 ]; then
+  echo "[ANI ONLINE] DNS SRV gagal melalui 1.1.1.1 dan 8.8.8.8."
+  echo "[ANI ONLINE] Isi resolver yang dilihat dari termux-chroot:"
+  termux-chroot "cat /etc/resolv.conf" 2>&1 || true
+  echo "[ANI ONLINE] Tunnel tidak dijalankan. Periksa koneksi/DNS Android; port 8787 tidak disentuh."
+  exit 1
+fi
 
 if command -v termux-wake-lock >/dev/null 2>&1; then termux-wake-lock || true; fi
 
@@ -46,13 +75,14 @@ trap cleanup EXIT INT TERM
 
 echo "[ANI ONLINE] Gateway HTTPS: $GATEWAY"
 echo "[ANI ONLINE] Port lokal tetap 127.0.0.1:8788; tunnel akan reconnect otomatis."
+echo "[ANI ONLINE] cloudflared dijalankan melalui termux-chroot agar /etc/resolv.conf tersedia."
 echo "[ANI ONLINE] Biarkan Termux berjalan agar koneksi online tetap aktif."
 echo "[ANI ONLINE] Tekan CTRL+C untuk menghentikan tunnel saja."
 echo
 
 while [ "$STOPPING" -eq 0 ]; do
   : > "$TUNNEL_LOG"
-  cloudflared tunnel --url http://127.0.0.1:8788 >"$TUNNEL_LOG" 2>&1 &
+  termux-chroot "/bin/cloudflared tunnel --url http://127.0.0.1:8788" >"$TUNNEL_LOG" 2>&1 &
   TUNNEL_PID=$!
   echo "$TUNNEL_PID" > "$PID_FILE"
 
@@ -66,7 +96,7 @@ while [ "$STOPPING" -eq 0 ]; do
 
   if [ -z "$UPSTREAM" ]; then
     echo "[ANI ONLINE] URL tunnel belum muncul. Log:"
-    tail -n 20 "$TUNNEL_LOG" || true
+    tail -n 30 "$TUNNEL_LOG" || true
     kill "$TUNNEL_PID" 2>/dev/null || true
     wait "$TUNNEL_PID" 2>/dev/null || true
     TUNNEL_PID=""
@@ -88,7 +118,7 @@ while [ "$STOPPING" -eq 0 ]; do
     continue
   fi
   echo
-  echo "[ANI ONLINE] Uji gateway:"
+  echo "[ANI ONLINE] Uji status registry gateway:"
   if ! curl -fsS --max-time 15 "$GATEWAY/_ani_gateway/health"; then
     echo
     echo "[ANI ONLINE] Gateway belum melaporkan upstream aktif. Tunnel akan dibuat ulang."
@@ -100,6 +130,28 @@ while [ "$STOPPING" -eq 0 ]; do
     sleep 10
     continue
   fi
+  echo
+
+  # This checks the actual public API path, not just the Worker's KV registry.
+  PUBLIC_HEALTH=""
+  for _ in $(seq 1 8); do
+    PUBLIC_HEALTH="$(curl -fsS --max-time 10 "$GATEWAY/health" 2>/dev/null || true)"
+    [ -n "$PUBLIC_HEALTH" ] && break
+    sleep 2
+  done
+  if [ -z "$PUBLIC_HEALTH" ]; then
+    echo "[ANI ONLINE] Gateway tercatat aktif, tetapi API publik /health belum berhasil."
+    echo "[ANI ONLINE] Membersihkan URL lama dan membuat tunnel baru."
+    kill "$TUNNEL_PID" 2>/dev/null || true
+    wait "$TUNNEL_PID" 2>/dev/null || true
+    TUNNEL_PID=""
+    curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
+      -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
+    sleep 10
+    continue
+  fi
+  echo "[ANI ONLINE] API publik /health berhasil:"
+  printf '%s\n' "$PUBLIC_HEALTH"
   echo
 
   while kill -0 "$TUNNEL_PID" 2>/dev/null && [ "$STOPPING" -eq 0 ]; do
