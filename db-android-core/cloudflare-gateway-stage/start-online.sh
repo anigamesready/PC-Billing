@@ -58,7 +58,34 @@ if command -v termux-wake-lock >/dev/null 2>&1; then termux-wake-lock || true; f
 
 TUNNEL_PID=""
 STOPPING=0
+CLEANED_UP=0
+LAST_HEALTH_HTTP="000"
+LAST_HEALTH_BODY=""
+PUBLIC_HEALTH=""
+
+probe_public_health() {
+  : > "$HEALTH_RESPONSE_FILE"
+  LAST_HEALTH_HTTP="$(curl -sS --connect-timeout 3 --max-time 5 \
+    -o "$HEALTH_RESPONSE_FILE" -w '%{http_code}' "$GATEWAY/health" 2>/dev/null || true)"
+  LAST_HEALTH_BODY="$(cat "$HEALTH_RESPONSE_FILE" 2>/dev/null || true)"
+  if [ "$LAST_HEALTH_HTTP" = "200" ] && \
+      grep -Eq '"api"[[:space:]]*:[[:space:]]*"online"' "$HEALTH_RESPONSE_FILE" && \
+      grep -Eq '"database"[[:space:]]*:[[:space:]]*"online"' "$HEALTH_RESPONSE_FILE"; then
+    PUBLIC_HEALTH="$LAST_HEALTH_BODY"
+    return 0
+  fi
+  return 1
+}
+
+refresh_registration() {
+  curl -fsS --max-time 12 -X POST "$GATEWAY/_ani_gateway/register" \
+    -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" \
+    -H "content-type: application/json" \
+    --data-binary "{\"url\":\"$UPSTREAM\"}" >/dev/null
+}
 cleanup() {
+  if [ "$CLEANED_UP" -eq 1 ]; then return; fi
+  CLEANED_UP=1
   STOPPING=1
   if [ -n "$TUNNEL_PID" ]; then
     kill "$TUNNEL_PID" 2>/dev/null || true
@@ -131,35 +158,60 @@ while [ "$STOPPING" -eq 0 ]; do
   fi
   echo
 
-  # This checks the actual public API path, not just the Worker's KV registry.
+  # Do not delete a registered tunnel while the temporary hostname is still warming up.
+  echo "[ANI ONLINE] Menunggu API publik siap (hingga sekitar 3 menit)..."
   PUBLIC_HEALTH=""
-  for _ in $(seq 1 8); do
-    PUBLIC_HEALTH="$(curl -fsS --max-time 10 "$GATEWAY/health" 2>/dev/null || true)"
-    [ -n "$PUBLIC_HEALTH" ] && break
-    sleep 2
+  for attempt in $(seq 1 24); do
+    if probe_public_health; then break; fi
+    if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then break; fi
+    if (( attempt % 6 == 0 )); then
+      echo "[ANI ONLINE] Masih menunggu; HTTP $LAST_HEALTH_HTTP; respons: \${LAST_HEALTH_BODY:-kosong}"
+      refresh_registration || echo "[ANI ONLINE] Refresh registry belum berhasil; tunnel tetap dipertahankan."
+    fi
+    sleep 3
   done
-  if [ -z "$PUBLIC_HEALTH" ]; then
-    echo "[ANI ONLINE] Gateway tercatat aktif, tetapi API publik /health belum berhasil."
-    echo "[ANI ONLINE] Membersihkan URL lama dan membuat tunnel baru."
-    kill "$TUNNEL_PID" 2>/dev/null || true
+
+  # Keep the same registered URL and retry until the API is healthy or cloudflared exits.
+  if [ -z "$PUBLIC_HEALTH" ] && kill -0 "$TUNNEL_PID" 2>/dev/null; then
+    echo "[ANI ONLINE] API publik belum sehat (HTTP $LAST_HEALTH_HTTP). Tunnel TIDAK diputus."
+    echo "[ANI ONLINE] Pemeriksaan dilanjutkan otomatis setiap 15 detik."
+    HEALTH_RECHECK=0
+    while kill -0 "$TUNNEL_PID" 2>/dev/null && [ "$STOPPING" -eq 0 ]; do
+      sleep 15
+      if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then break; fi
+      if probe_public_health; then break; fi
+      HEALTH_RECHECK=$((HEALTH_RECHECK + 1))
+      if (( HEALTH_RECHECK % 8 == 0 )); then
+        echo "[ANI ONLINE] API belum siap; HTTP $LAST_HEALTH_HTTP; respons: \${LAST_HEALTH_BODY:-kosong}"
+        refresh_registration || echo "[ANI ONLINE] Refresh registry gagal sementara; mencoba lagi otomatis."
+      fi
+    done
+  fi
+
+  if [ -n "$PUBLIC_HEALTH" ]; then
+    echo "[ANI ONLINE] API PUBLIK BERHASIL:"
+    printf '%s\n' "$PUBLIC_HEALTH"
+    echo
+  else
+    echo "[ANI ONLINE] Proses tunnel terhenti. Log Cloudflare terakhir:"
+    tail -n 30 "$TUNNEL_LOG" || true
+    if [ "$STOPPING" -eq 0 ]; then
+      curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
+        -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
+    fi
     wait "$TUNNEL_PID" 2>/dev/null || true
     TUNNEL_PID=""
-    curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
-      -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
-    sleep 10
+    sleep 5
     continue
   fi
-  echo "[ANI ONLINE] API publik /health berhasil:"
-  printf '%s\n' "$PUBLIC_HEALTH"
-  echo
 
   while kill -0 "$TUNNEL_PID" 2>/dev/null && [ "$STOPPING" -eq 0 ]; do
     sleep 120
     kill -0 "$TUNNEL_PID" 2>/dev/null || break
-    curl -fsS --max-time 12 -X POST "$GATEWAY/_ani_gateway/register" \
-      -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" \
-      -H "content-type: application/json" \
-      --data-binary "{\"url\":\"$UPSTREAM\"}" >/dev/null || echo "[ANI ONLINE] Refresh tunnel gagal; mencoba lagi..."
+    refresh_registration || echo "[ANI ONLINE] Refresh tunnel gagal; mencoba lagi..."
+    if ! probe_public_health; then
+      echo "[ANI ONLINE] Tunnel masih berjalan; health HTTP $LAST_HEALTH_HTTP. Pemeriksaan otomatis berlanjut."
+    fi
   done
 
   if [ "$STOPPING" -eq 0 ]; then
