@@ -1,4 +1,4 @@
-# Project Registry — live revalidation 2026-11-14
+# Project Registry — live revalidation 2026-11-16
 
 This registry is a source map, not a permanent truth. Re-fetch branch heads, ancestry, workflows and artifacts before every code edit or build.
 
@@ -10,17 +10,18 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 | PC Billing recovery — DB1 Direct | `anigamesready/PC-Billing` | `recovery/pc-v12.4.9-db1-direct-20261114` | `0565a8a225793e8785ca17f9079a15b753a834f1` | `fix/pc-v12.4.8-timer-size-sync` — `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19`; V12.4.9, DB1-only recovery |
 | Admin DB Android | `anigamesready/Admin-Ani-Games` | `admin-v12.1.50-DB-Android` | `be56ede591c6ebc42b99a02e7731228e02ac40d4` | `fix/ani-wol-master-pairing-guard-20261112` — `9460e8dcbdbf69706408dd0507016cf0037ff153`; V12.1.50, versionCode 78, applicationId `com.anigames.billingadmin.v150` |
 | Reseller DB Android | `anigamesready/Admin-Ani-Games` | `reseller-v1.0.6-DB-Android` | `62e14e8caea62c50269cd62f4122efeed19e8731` | `release/reseller-v1.0.6-remember-login-rental-status` — `a67c2f6318230671a7d7776bf6040c39bca6ff97`; V1.0.6, versionCode 136 |
-| Redmi DB Android schema/API core | `anigamesready/PC-Billing` | `backend/db-android-core-v1` | `8e9797628ec4508dd5251d32d2a6faa983c7d106` | Based on PC Billing DB Android head `f938c574dfbd17ab84b07ca940115a280d3f8d78`; schema/catalog reference only, not a running API |
+| Redmi DB Android standalone server/API | `anigamesready/PC-Billing` | `backend/db-android-core-v1` | `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9` | Based on PC Billing DB Android head `f938c574dfbd17ab84b07ca940115a280d3f8d78`; Node API + schema 000,002–011 + Termux stage scripts; device validation pending |
+| Redmi DB Android API contract hotfix | `anigamesready/PC-Billing` | `fix/db-android-core-api-contracts-20261116` | `85a8be9534f5739f732c6ee6f25b4b8225eaf5f3` | Isolated from backend head `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9`; server-only Auth route and RPC type corrections |
 
 ## Live GitHub verification — 2026-11-14
 
 ### PC Billing
 - Repository default branch: `main`, head `9796f2d83d9f4d052c72f6467855ebc63e02299f`.
 - DB Android work branch remains V12.4.8 at `f938c574dfbd17ab84b07ca940115a280d3f8d78`; its commit adds only `docs/DB-ANDROID-PC-AUDIT.md` above the exact source baseline.
-- `backend/db-android-core-v1` is 5 commits ahead of the PC DB Android branch and 0 behind. The five additions are README, DB1 live contract audit, prerequisites SQL, full catalog snapshot SQL, and 24-table core business schema SQL.
-- Latest backend branch commit `8e9797628ec4508dd5251d32d2a6faa983c7d106` adds `002_core_business_schema.sql` (466 lines); parent `aa44f0755179cff4001c1c276e4502902f47f670`.
+- `backend/db-android-core-v1` is 123 commits ahead of PC Billing DB Android head `f938c574dfbd17ab84b07ca940115a280d3f8d78` and 0 behind; merge base is exactly that PC Billing DB Android head.
+- Latest backend branch HEAD is `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9`, which includes the Termux staging API, startup/status/stop scripts, Node API, migrations, regression tests, and package/test workflows.
 - The DB1 audit reports 41 tables, 161 routines (152 SECURITY DEFINER), 116 triggers across 17 trigger functions, and 14 active Edge Functions. The full catalog snapshot is reference-only; the 24-table core schema excludes Supabase route/sync, WoL Relay, Telegram and automatic shutdown scheduler tables.
-- This backend branch does NOT contain the Redmi Node API implementation, login/session handlers, route handlers, startup manager or tests. A schema snapshot is not a working Supabase replacement.
+- Correction to the 2026-11-14 snapshot: the live backend/db-android-core-v1 branch contains a standalone Node HTTP API, local Auth/Admin/Billing/Reseller and Device routes, Termux stage scripts, PostgreSQL migrations and smoke tests. It is a separate local DB runtime, not a Supabase replacement. CI does not prove that the Redmi device has received the latest patch or that public internet access works.
 - Existing `.github/workflows/build-pc-v12-4-8-timer-size-sync.yml` auto-push trigger is only `fix/pc-v12.4.8-timer-size-sync`; DB Android is not in the push filter. The workflow extracts an older named PC source ZIP and applies a patch chain. Do not treat manual dispatch or this inherited workflow as proof of a DB Android build.
 - The inherited PC patch chain contains a V13 shutdown-timer patch followed by emergency-no-shutdown and direct-Windows-shutdown patches. Verify final behavior and preserve the no-automatic-countdown decision before any future build.
 
@@ -60,3 +61,16 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 6. Implement server-side authentication, role/org scope, device identity, session revocation, rate limits, transaction locks, idempotency, audit, offline leases and command acknowledgements before connecting clients.
 7. Never embed database/service-role secrets in PC/Android/Web clients or commit them to GitHub.
 8. Re-fetch all full SHAs, workflows and artifact metadata before any code edit/build. Registry snapshots are not authorization to change production.
+
+
+## Live GitHub verification — 2026-11-16: Redmi DB Android API hotfix
+
+- Authoritative backend baseline: backend/db-android-core-v1 at d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9.
+- Dedicated fix branch: fix/db-android-core-api-contracts-20261116 at 85a8be9534f5739f732c6ee6f25b4b8225eaf5f3. GitHub compare confirms 14 commits ahead of the backend baseline and 0 behind; the diff is limited to 7 files in db-android-core and its two CI workflows. The backend baseline and master were not edited.
+- Root causes fixed:
+  1. Auth compatibility routing stripped /functions/v1/ani-games-api in the outer handler but Auth re-read the original url.pathname, producing AUTH_ROUTE_NOT_FOUND. The normalized path is now passed through; prefix stripping requires a path boundary.
+  2. dashboard_billing_user had an incorrect placeholder count and argument type order. Its nine values are now bound as text,text,text,text,text,text,uuid,text,uuid, matching the token-bound SQL wrapper.
+- Added a 49-entry Node RPC contract check for parameter count, order and types, plus HTTP regressions for direct/prefixed Auth and Admin Billing User create/list/update/delete.
+- PostgreSQL/API regression workflow 43755729409 completed successfully at HEAD 85a8be9534f5739f732c6ee6f25b4b8225eaf5f3. Package/fixture workflow 43755729458 also succeeded.
+- Termux-only patch artifact ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip: artifact ID 14177929336, size 3,903 bytes, SHA-256 c7d11bf7e376506d0ed816a07cdc738d73009304ed7c145bf0371719a6b1dd07. It modifies only the existing stage server/server.mjs, preserves local custom code, creates a backup and does not run SQL or touch .env, PostgreSQL, port 8787 or WoL relay.
+- The patch is not yet applied on the Redmi. Stage API stays loopback-only (127.0.0.1:8788); public reachability from arbitrary networks is not established. Do not expose PostgreSQL port 5432.
