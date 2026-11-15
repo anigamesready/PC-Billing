@@ -1,6 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PATCH_FILE="$SCRIPT_DIR/patch_server_edge_proxy.py"
 STAGE_HOME="${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
 ENV_FILE="$STAGE_HOME/server/.env"
 LOG_DIR="$STAGE_HOME/logs"
@@ -16,6 +18,24 @@ set +a
 GATEWAY="${ANI_EDGE_GATEWAY_URL:-https://ani-games-db-android-stage-gateway.anigamesready.workers.dev}"
 : "${ANI_EDGE_REGISTER_TOKEN:?ANI_EDGE_REGISTER_TOKEN belum dikonfigurasi}"
 : "${ANI_EDGE_PROXY_SECRET:?ANI_EDGE_PROXY_SECRET belum dikonfigurasi}"
+
+# Bring the existing staging API source up to the audited edge + PostgreSQL resilience patch.
+[ -f "$PATCH_FILE" ] || { echo "[ANI ONLINE] Patch API tidak ditemukan: $PATCH_FILE"; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "[ANI ONLINE] Python3 diperlukan untuk patch API staging."; exit 1; }
+PATCH_OUTPUT="$(python3 "$PATCH_FILE" "$STAGE_HOME/server")"
+printf '%s\\n' "$PATCH_OUTPUT"
+if printf '%s\\n' "$PATCH_OUTPUT" | grep -q 'API_SOURCE_PATCH_APPLIED'; then
+  echo "[ANI ONLINE] Source API berubah; memulai ulang API staging secara terkontrol..."
+  if [ -f "$STAGE_HOME/stage-api.pid" ]; then
+    bash "$STAGE_HOME/stop-stage.sh"
+  fi
+  if curl -fsS --max-time 3 http://127.0.0.1:8788/health >/dev/null 2>&1; then
+    echo "[ANI ONLINE] STOP: port 8788 masih merespons tetapi PID staging tidak berhasil diverifikasi."
+    echo "[ANI ONLINE] Tidak akan mematikan proses yang tidak dikenal."
+    exit 1
+  fi
+  bash "$STAGE_HOME/start-stage.sh"
+fi
 
 if ! curl -fsS --max-time 5 http://127.0.0.1:8788/health >/dev/null; then
   echo "[ANI ONLINE] API staging port 8788 belum online. Mencoba start..."
