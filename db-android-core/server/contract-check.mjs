@@ -17,17 +17,42 @@ const schema = fs.readdirSync(schemaDir)
 const entries = [...rpcBlock[1].matchAll(/^\s*([A-Za-z0-9_]+):\s*\{\s*auth:\s*"([^"]+)",\s*sql:\s*"([^"]+)",\s*args:\s*\[([^\]]*)\]\s*\}/gm)];
 assert.equal(entries.length, 49, "RPC allowlist entry count changed; review this checker before updating");
 
-function countParams(signature) {
-  const value = signature.trim();
-  if (!value) return 0;
+function splitParameters(signature) {
+  const parts = [];
   let depth = 0;
-  let count = 1;
-  for (const character of value) {
+  let start = 0;
+  for (let index = 0; index < signature.length; index++) {
+    const character = signature[index];
     if (character === "(") depth++;
     else if (character === ")") depth--;
-    else if (character === "," && depth === 0) count++;
+    else if (character === "," && depth === 0) {
+      parts.push(signature.slice(start, index).trim());
+      start = index + 1;
+    }
   }
-  return count;
+  if (signature.slice(start).trim()) parts.push(signature.slice(start).trim());
+  return parts;
+}
+
+function normalizeType(value) {
+  const type = value.toLowerCase().replace(/\s+/g, " ").trim().replace(/\s*\[\s*\]/g, "[]");
+  if (type === "timestamp with time zone") return "timestamptz";
+  if (type === "timestamp without time zone") return "timestamp";
+  if (type === "character varying") return "varchar";
+  return type;
+}
+
+function parameterTypes(signature) {
+  return splitParameters(signature).map(parameter => {
+    let value = parameter.replace(/^\s*(IN|OUT|INOUT|VARIADIC)\s+/i, "").trim();
+    value = value.replace(/^\w+\s+/, "");
+    value = value.split(/\s+(?:DEFAULT|=|:=)\s+/i)[0].trim();
+    return normalizeType(value);
+  });
+}
+
+function countParams(signature) {
+  return splitParameters(signature).length;
 }
 
 for (const match of entries) {
@@ -45,17 +70,25 @@ for (const match of entries) {
     name + ": SQL placeholders " + placeholders + " != Node bound arguments " + suppliedArgs
   );
 
+  const castEntries = [...sql.matchAll(/\$(\d+)::([A-Za-z][A-Za-z0-9_]*(?:\[\])?)/g)]
+    .sort((left, right) => Number(left[1]) - Number(right[1]));
+  assert.equal(castEntries.length, placeholders, name + ": every RPC argument must have an explicit SQL cast");
+  const nodeTypes = castEntries.map(entry => normalizeType(entry[2]));
+
   const signaturePattern = new RegExp(
     "CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+api\\." + name +
     "\\s*\\(([\\s\\S]*?)\\)\\s*(?:RETURNS|returns)",
     "gi"
   );
   const definitions = [...schema.matchAll(signaturePattern)];
-  const matchingOverload = definitions.some(definition => countParams(definition[1]) === placeholders);
+  const matchingOverload = definitions.some(definition => {
+    const types = parameterTypes(definition[1]);
+    return types.length === placeholders && types.every((type, index) => type === nodeTypes[index]);
+  });
   assert.ok(
     matchingOverload,
-    name + ": no PostgreSQL api." + name + " overload with " + placeholders + " parameters"
+    name + ": no PostgreSQL api." + name + " overload matches ordered Node argument types (" + nodeTypes.join(", ") + ")"
   );
 }
 
-console.log("PASS: 49 Node RPC bindings match SQL placeholders and PostgreSQL function overloads");
+console.log("PASS: 49 Node RPC bindings match PostgreSQL parameter count, order and types");
