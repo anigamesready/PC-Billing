@@ -24,7 +24,7 @@ STOP
 cat > "$HOME_TEST/stage/start-stage.sh" <<'START'
 #!/usr/bin/env bash
 printf 'start\n' >> "$HOME_TEST/api-restart.log"
-: > "$HOME/api-restarted"
+: > "$ANI_TEST_RESTART"
 START
 chmod +x "$HOME_TEST/stage/stop-stage.sh" "$HOME_TEST/stage/start-stage.sh"
 printf 'nameserver 1.1.1.1\n' > "$PREFIX_TEST/etc/resolv.conf"
@@ -53,7 +53,7 @@ while [ "$#" -gt 0 ]; do
 done
 case "$URL" in
   http://127.0.0.1:8788/health)
-    if [ ! -f "$HOME/api-restarted" ]; then exit 7; fi
+    if [ ! -f "$ANI_TEST_RESTART" ]; then exit 7; fi
     BODY='{"app":"Ani Games Ready Local Server","api":"online","database":"online","apiVersion":"db-android-v1"}'
     CODE=200 ;;
   https://*/_ani_gateway/register)
@@ -88,7 +88,7 @@ CURL
 
 chmod +x "$PREFIX_TEST/bin/dig" "$PREFIX_TEST/bin/cloudflared" "$MOCK_BIN/curl"
 set +e
-OUTPUT="$(HOME="$HOME_TEST" PREFIX="$PREFIX_TEST" ANI_DB_STAGE_HOME="$HOME_TEST/stage" \
+OUTPUT="$(ANI_TEST_LOG="$HOME_TEST/api-restart.log" ANI_TEST_RESTART="$HOME_TEST/api-restarted" HOME="$HOME_TEST" PREFIX="$PREFIX_TEST" ANI_DB_STAGE_HOME="$HOME_TEST/stage" \
   PATH="$MOCK_BIN:$PREFIX_TEST/bin:$PATH" timeout -s TERM 9s bash "$RUNNER" 2>&1)"
 set -e
 printf '%s\n' "$OUTPUT"
