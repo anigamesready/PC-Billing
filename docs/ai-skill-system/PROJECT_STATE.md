@@ -81,3 +81,40 @@
 1. Apply the guarded API hotfix to ~/ani-games-db-android-stage only, restart only stage port 8788 using its PID-validated stop/start scripts, then run the read-only checker.
 2. Confirm stage Admin Billing CRUD from the Android Admin interface. Keep port 8787, PostgreSQL data and Blynk/WoL relay untouched.
 3. After local acceptance, resolve direct public reachability without a third-party relay by checking ISP public IPv4/router forwarding versus CGNAT. Keep PostgreSQL 5432 private; no external ingress is configured yet.
+
+ 
+## Admin APK login + DB Android global access — 2026-11-16 (priority deadline 2026-11-22)
+
+### User-visible failure and verified meaning
+- User screenshot shows the Admin APK API field set to http://127.0.0.1:8788 and the status message "Server database lokal belum siap: Failed to fetch" before login can proceed.
+- 127.0.0.1 always means the device running the APK, not the Redmi server when the APK is installed on a different phone. The displayed error is a network-fetch failure; it does not, by itself, prove PostgreSQL is down.
+- Earlier user-provided Termux output showed stage API and PostgreSQL online at 127.0.0.1:8788, remote_access_enabled:false, bind_host:127.0.0.1. This is prior evidence, not a live recheck of the Redmi on 2026-11-16.
+- User had applied the API contract patch, restarted stage and ran CHECK_DB_ANDROID_API_FIX.sh: source assertions, API+database health, direct Auth and compatibility-prefixed Auth all returned PASS. That verifies local API contracts, not the APK WebView, remote reachability or public tunnel.
+
+### Admin source candidate
+- Repository: anigamesready/Admin-Ani-Games.
+- Work branch: fix/admin-db-android-login-gate-v1.51, current audited head 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5; compare against admin-v12.1.50-DB-Android at 3ebc8b1912aef13a4833f113c9e7a4914554b146: 5 commits ahead, 0 behind.
+- The other branch fix/admin-v12.1.50-db-android-login-click is diverged from the current V12.1.50 base and is not the release source.
+- Existing V12.1.51 patch restores the missing setAdminAuthEnabled helper and identifies a candidate APK as version 12.1.51, versionCode 79, applicationId com.anigames.billingadmin.v150db.
+- Added scripts/patch_admin_db_android_api_fetch_reliability.py and wired it into .github/workflows/build-db-android-admin-apk.yml. It changes bodyless GET health requests so they do not send an unnecessary JSON Content-Type preflight and turns generic fetch exceptions into an actionable API origin diagnostic. It preserves JSON Content-Type for requests with bodies and does not alter credentials/auth semantics.
+- This helper is an additional diagnostic/reliability improvement, not proof of the screenshot root cause. No successful APK build/artifact or on-device login has been verified for this candidate in this task. CI status lookup returned no status rows; do not claim build success.
+
+### Global access audit
+- Cloudflare account has Worker ani-games-db-android-stage-gateway, public stable Worker URL https://ani-games-db-android-stage-gateway.anigamesready.workers.dev, Workers.dev enabled, KV namespace ani-games-db-android-stage-upstreams (ID 55b2907fc76242c99774413e9986187f). Worker deployment is present.
+- Current KV upstream key ani_games_ready_stage:upstream is absent; its GET returned key-not-found. Cloudflare account returned zero named tunnels and zero zones/custom DNS zones. Therefore the Worker is deployed but the Redmi origin is NOT connected; internet access is not currently working.
+- Existing Worker has allowlisted API routes, denies public /setup and /api/admin/bootstrap, accepts opaque Android WebView origin null, requires registration bearer token, and overwrites edge client-IP/secret headers before forwarding. The values of Worker secrets were not read or disclosed.
+- Old gateway branch infra/db-android-cloudflare-gateway-stage is diverged from the installed API-fix branch (49 ahead, 17 behind); do not use its package directly.
+- New isolated branch infra/db-android-cloudflare-global-stage-20261116 is based exactly on API fix head f16d97a3dfd96f2f3598396976c3ee5d63c60e6d. Current head 8c39f86410a3cd6b0ce3521029e689d63984752e; compare is 10 ahead, 0 behind. It ports gateway files only and hardens the API patch to reuse an existing local node:net import and ANI_EDGE_PROXY_SECRET declaration, avoiding duplicate JS declarations. CI result remains unverified.
+- Current gateway path uses a Cloudflare Quick Tunnel registered behind the stable Worker URL. The origin URL is ephemeral and registration TTL is 600 seconds; the Termux runner refreshes it periodically and reconnects, but needs the Redmi, Termux, power, network and background execution to stay alive. It is a staging/availability proof, not a 24/7 SLA or a named stable tunnel.
+- The Worker URL can be used over Wi-Fi or cellular once its upstream is active, but that path traverses the internet. Direct LAN-only access from another device still needs a separate safe LAN listener/origin configuration and explicit CORS/origin policy; do not point a different phone at 127.0.0.1.
+
+### Safety and runtime boundary
+- PostgreSQL remains loopback/private on port 5432. Never port-forward/expose 5432.
+- Do not blindly set API bind to 0.0.0.0; local LAN ingress needs a separate audited listener, explicit origin policy and firewall/role/rate-limit checks.
+- Main server port 8787, production DB, Supabase DB1/DB2 and Blynk/WoL relay are out of scope and must remain untouched.
+- No runtime server process, Redmi .env, PostgreSQL schema/data or Cloudflare Worker deployment was changed by this task. Only isolated GitHub source branches were updated.
+
+### Acceptance target and deadline
+- Target: Sunday, 2026-11-22 (Asia/Jakarta).
+- Do not mark complete until: Admin V12.1.51 APK artifact and SHA are verified; clean install/replace and correct login pass on Android; Cloudflare public /health returns API+database online; Admin login succeeds over cellular and Wi-Fi using HTTPS URL; role separation and Admin CRUD pass; Termux reconnect/background/restart behavior is documented; PostgreSQL 5432 stays private; rollback is available.
+- Deadline is a project acceptance target, not a claim that the phone can be remotely operated from GitHub. On-device runtime tests require the Redmi/Termux output.
