@@ -52,3 +52,15 @@
 - Created isolated documentation branch `docs/ani-games-ready-ai-skill-system` from PC Billing DB Android branch `f938c574dfbd17ab84b07ca940115a280d3f8d78`.
 - Added master instructions, modular Skills, project registry/state/decisions, version ledger, next tasks, and handover template.
 - No runtime source, build workflow, APK/EXE, database, Supabase project, or production configuration changed.
+
+ 
+## 2026-11-16 — Admin login and DB Android global access audit
+- User screenshot showed the Admin APK still defaults to http://127.0.0.1:8788 and displays Failed to fetch. Explained that loopback is the device running the APK, not a remote Redmi server; the message alone does not prove PostgreSQL is down.
+- Confirmed historical user-reported stage health/API checker PASS after API contract patch; current Redmi state still requires a fresh Termux check.
+- Revalidated Admin V12.1.50 source base at 3ebc8b1912aef13a4833f113c9e7a4914554b146. Created/continued isolated V12.1.51 work branch fix/admin-db-android-login-gate-v1.51, latest head 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5, 5 ahead/0 behind.
+- Audited V12.1.51 missing setAdminAuthEnabled helper. Added a separate fetch reliability patch that removes unnecessary Content-Type on bodyless health GET and reports the attempted API origin when WebView fetch fails; wired into the dedicated APK workflow. This does not prove root cause or build success.
+- Audited the deployed Worker and KV: stable workers.dev gateway exists, but upstream key is absent. No named Cloudflare tunnel or DNS zone exists in the account. Public API therefore remains offline pending Redmi tunnel registration.
+- Rejected old gateway branch infra/db-android-cloudflare-gateway-stage as an install source because it diverges from the active API hotfix (49 ahead/17 behind).
+- Created infra/db-android-cloudflare-global-stage-20261116 from current API hotfix base f16d97a3dfd96f2f3598396976c3ee5d63c60e6d; latest head 8c39f86410a3cd6b0ce3521029e689d63984752e, 10 ahead/0 behind. Added gateway source, compatibility-safe API patch logic and a CI synthetic fixture for the Redmi's existing net/edge-secret additions.
+- Build/CI status and artifacts for these branches are not verified; no APK or Termux gateway ZIP was claimed delivered. No Redmi process, runtime .env, PostgreSQL, port 8787, production data, Supabase or Worker deployment was modified.
+- Added an acceptance plan with target Sunday 2026-11-22; all on-device/global connectivity criteria remain open.
