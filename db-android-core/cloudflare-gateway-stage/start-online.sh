@@ -83,7 +83,7 @@ if [ "$CLOUDFLARED_MODE" = "proot" ]; then
       ! printf '%s' "$GUEST_LOCAL_HEALTH" | \
       grep -Eq '"database"[[:space:]]*:[[:space:]]*"online"'; then
     echo "[ANI ONLINE] STOP: Linux guest belum dapat membaca API/DB Termux di 127.0.0.1:8788."
-    printf '%s\\n' "${GUEST_LOCAL_HEALTH:-respons kosong}"
+    printf '%s\n' "${GUEST_LOCAL_HEALTH:-respons kosong}"
     echo "[ANI ONLINE] API dan PostgreSQL tidak diubah; tunnel tidak dijalankan."
     exit 1
   fi
