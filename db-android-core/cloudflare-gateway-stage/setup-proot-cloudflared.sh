@@ -24,32 +24,43 @@ else
   echo "[ANI PROOT] Container $CONTAINER sudah ada; tidak di-reset."
 fi
 
-echo "[ANI PROOT] Menyiapkan DNS khusus di dalam Linux guest..."
-proot-distro login "$CONTAINER" -- /bin/bash -lc "
+echo "[ANI PROOT] Menyiapkan DNS dan Cloudflared di dalam Linux guest..."
+proot-distro login "$CONTAINER" -- /bin/bash -s <<'GUEST'
 set -euo pipefail
-printf 'nameserver 1.1.1.1\\nnameserver 8.8.8.8\\noptions timeout:3 attempts:2\\n' > /etc/resolv.conf
+
+VERSION="2026.11.0"
+EXPECTED_SHA256="abe54a006acf9faf2d19ee9d953cb0d0804e92f59c5382a162e57b84d086f56f"
+
+printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\noptions timeout:3 attempts:2\n' > /etc/resolv.conf
+
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl dnsutils
-if ! /usr/local/bin/cloudflared --version 2>/dev/null | grep -Fq '$VERSION'; then
-  echo '[ANI PROOT] Mengunduh Cloudflared resmi versi $VERSION ARM64...'
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl dnsutils libc-bin
+
+if ! /usr/local/bin/cloudflared --version 2>/dev/null | grep -Fq "$VERSION"; then
+  echo "[ANI PROOT] Mengunduh Cloudflared resmi versi $VERSION ARM64..."
   rm -f /tmp/cloudflared
-  curl -fL --retry 3 --retry-delay 2 'https://github.com/cloudflare/cloudflared/releases/download/$VERSION/cloudflared-linux-arm64' -o /tmp/cloudflared
+  curl -fL --retry 3 --retry-delay 2 "https://github.com/cloudflare/cloudflared/releases/download/$VERSION/cloudflared-linux-arm64" -o /tmp/cloudflared
+
   ACTUAL_SHA256="$(sha256sum /tmp/cloudflared | awk '{print $1}')"
-  if [ "$ACTUAL_SHA256" != '$CLOUDFLARED_SHA256' ]; then
+  if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
     rm -f /tmp/cloudflared
-    echo '[ANI PROOT] STOP: SHA-256 binary tidak cocok dengan rilis resmi.'
+    echo "[ANI PROOT] STOP: SHA-256 binary tidak cocok dengan rilis resmi."
     exit 1
   fi
+
   install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared
   rm -f /tmp/cloudflared
 fi
-echo '[ANI PROOT] Versi Cloudflared:'
+
+echo "[ANI PROOT] Versi Cloudflared:"
 /usr/local/bin/cloudflared --version
-echo '[ANI PROOT] Menguji A record API Quick Tunnel...'
+
+echo "[ANI PROOT] Menguji DNS A record API Quick Tunnel..."
 getent ahostsv4 api.trycloudflare.com | sed -n '1,2p'
-echo '[ANI PROOT] Menguji DNS SRV edge Cloudflare...'
+
+echo "[ANI PROOT] Menguji DNS SRV edge Cloudflare..."
 dig +time=4 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com @1.1.1.1 | grep '7844'
-"
+GUEST
 
 echo "[ANI PROOT] SETUP SELESAI."
 echo "[ANI PROOT] API PostgreSQL/Node tetap di Termux; hanya tunnel memakai Linux guest."
