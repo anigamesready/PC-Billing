@@ -73,7 +73,7 @@
 ## 2026-11-16 — DB Android outbound WebSocket relay stage
 
 - Replaced the repeated native Cloudflared DNS/PRoot approach with an isolated Node.js outbound WebSocket agent and Cloudflare Worker + SQLite Durable Object relay.
-- Created work branch infra/db-android-ws-relay-stage-20261116 from exact stage parent 388fe1808a32ac13ffeeeae6fff49cbef8e7f177; latest branch head 7aed650a0705e20302719012fd440f4c245622d6. No master merge or stable product branch edits.
+- Created work branch infra/db-android-ws-relay-stage-20261116 from exact stage parent 388fe1808a32ac13ffeeeae6fff49cbef8e7f177; latest branch head d86e7ecfa82d7af29bb53d067a316984b1fef69b. No master merge or stable product branch edits.
 - Deployed Worker ani-games-db-android-stage-ws-relay on workers.dev with Durable Object class RelayHub, SQLite namespace d3deb95247764649a63e05aa94962c45, binding RELAY_HUB, migration v1.
 - Added Worker route allowlist, opaque-origin CORS support, bootstrap/setup denial, request header filtering, client-IP forwarding under the existing local edge-trust contract, bounded payload/concurrency/timeouts and WebSocket health/reconnect design.
 - Local tests: 12/12 PASS, Worker/agent Node syntax PASS, Termux shell syntax PASS. GitHub Actions run 43831355655 SUCCESS.
