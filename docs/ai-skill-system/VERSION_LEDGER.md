@@ -35,3 +35,16 @@ Revalidate live repository refs and artifact metadata before every source/build 
 
 ## Artifact ledger
 No new APK/EXE artifact was produced. The infrastructure helper artifact above is separate from application releases; Redmi runtime acceptance is still pending.
+
+ 
+## 2026-11-16 — Current Admin login/global gateway work candidates (not released)
+
+| Track | Repository | Branch | Current head | Base comparison | Package / status |
+|---|---|---|---|---|---|
+| Admin DB Android login repair | anigamesready/Admin-Ani-Games | fix/admin-db-android-login-gate-v1.51 | 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5 | admin-v12.1.50-DB-Android at 3ebc8b1912aef13a4833f113c9e7a4914554b146; 5 ahead, 0 behind | Candidate V12.1.51; versionCode 79; applicationId com.anigames.billingadmin.v150db; no verified APK artifact yet |
+| DB Android global-access gateway | anigamesready/PC-Billing | infra/db-android-cloudflare-global-stage-20261116 | 8c39f86410a3cd6b0ce3521029e689d63984752e | fix/db-android-core-api-contracts-20261116 at f16d97a3dfd96f2f3598396976c3ee5d63c60e6d; 10 ahead, 0 behind | Source/CI candidate only; no verified Termux ZIP or Redmi runtime success yet |
+
+- The old infra/db-android-cloudflare-gateway-stage branch at d1c8a4dde3ec791e29e41a32604dd15c20de14b8 is divergent from the API fix branch (49 ahead/17 behind) and must not be used as a direct install source.
+- The Worker ani-games-db-android-stage-gateway is deployed at https://ani-games-db-android-stage-gateway.anigamesready.workers.dev, but current KV upstream is missing; it is not online to the Redmi.
+- Gateway uses an ephemeral Quick Tunnel origin behind the stable Worker hostname, refreshed periodically; not a 24/7 named-tunnel release. No custom DNS zone/named tunnel found in the connected Cloudflare account.
+- CI statuses returned no check rows in this audit, and there are no verified new release artifacts. Keep all entries marked candidate/pending until evidence is fetched.
