@@ -10,9 +10,13 @@ Branch: `infra/db-android-cloudflare-global-stage-20261116`
 - Existing API on port 8787, Supabase, production rental data, and Blynk/WoL relay are outside this branch.
 
 ## Android DNS compatibility
-- The runner installs native Termux `cloudflared` and `dnsutils` if missing; it deliberately does not use `proot` or `termux-chroot`.
-- It verifies the Cloudflare Tunnel SRV record with public DNS resolvers `1.1.1.1` and `8.8.8.8` before starting the tunnel.
+- Native Termux Cloudflared remains the default runner mode.
+- When Android's Go resolver incorrectly targets `[::1]:53`, an isolated rootless PRoot fallback is available. It runs only the official Linux ARM64 Cloudflared binary in a Debian guest; PostgreSQL and Node API remain native Termux services.
+- Install the isolated tunnel environment with `bash setup-proot-cloudflared.sh`, then start it with `bash start-online-proot.sh`.
+- The setup verifies the official Cloudflared release SHA-256 before installing the binary and tests both the API host A record and Cloudflare Tunnel SRV record from inside Debian.
+- The runner verifies the Cloudflare Tunnel SRV record with public DNS resolvers `1.1.1.1` and `8.8.8.8` before starting the tunnel.
 - It checks both the Worker registry and the real public `/health` route. A registry entry alone is not treated as proof that the API is reachable.
+- The PRoot container is dedicated to Cloudflared and its active sessions are stopped on runner cleanup; no database or production API process is managed by that container.
 
 ## Public route restrictions
 - Only health, auth, allowlisted RPC and PC device API paths are forwarded.
