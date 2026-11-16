@@ -54,10 +54,10 @@ No new APK/EXE artifact was produced. The infrastructure helper artifact above i
 - Repository: anigamesready/PC-Billing.
 - Work branch: infra/db-android-ws-relay-stage-20261116.
 - Exact parent baseline: infra/db-android-cloudflare-global-stage-20261116 / 388fe1808a32ac13ffeeeae6fff49cbef8e7f177.
-- Current work branch head: bfe419e57eefc653879ef1092bff48f7037d083a.
+- Current work branch head: 7aed650a0705e20302719012fd440f4c245622d6.
 - Worker: ani-games-db-android-stage-ws-relay; URL https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev.
 - Durable Object namespace: ani-games-db-android-stage-ws-relay_RelayHub, ID d3deb95247764649a63e05aa94962c45, SQLite; binding RELAY_HUB, migration tag v1.
-- GitHub Actions: run 43829292289, conclusion SUCCESS.
+- GitHub Actions: run 43831355655, conclusion SUCCESS.
 - Local verification: worker/agent Node syntax PASS; 12/12 Worker/relay regression tests PASS; 3 Bash scripts syntax PASS.
 - Redmi installer ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip, size 9.8 KiB, SHA-256 fc7a65e2899fd6a16fd274a61b3c65269ba6ca2ec353e3d24c39be35d70d4b4f.
 - Source ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-SOURCE.zip, size 14,863 bytes, SHA-256 f67826e2031772d312d909758d552d517fb05cc6a3b5f36dd9051333c2cac1b2.
