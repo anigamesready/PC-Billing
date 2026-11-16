@@ -1,0 +1,37 @@
+name: DB Android Stage Bootstrap Recovery Tests
+
+on:
+  push:
+    branches:
+      - fix/db-android-stage-bootstrap-recovery-20261116
+    paths:
+      - 'db-android-core/repair-stage-bootstrap.sh'
+      - 'db-android-core/tests/repair-stage-bootstrap.test.sh'
+      - '.github/workflows/test-db-android-stage-bootstrap-recovery.yml'
+  pull_request:
+    branches:
+      - fix/db-android-stage-bootstrap-recovery-20261116
+    paths:
+      - 'db-android-core/repair-stage-bootstrap.sh'
+      - 'db-android-core/tests/repair-stage-bootstrap.test.sh'
+      - '.github/workflows/test-db-android-stage-bootstrap-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-and-safety-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Bash syntax
+        run: |
+          bash -n db-android-core/repair-stage-bootstrap.sh
+          bash -n db-android-core/tests/repair-stage-bootstrap.test.sh
+      - name: Bootstrap recovery safety tests
+        run: bash db-android-core/tests/repair-stage-bootstrap.test.sh
+      - name: Ensure no destructive DB commands or secret literals
+        run: |
+          ! grep -nEi 'DROP[[:space:]]+(DATABASE|SCHEMA)|pg_ctl[[:space:]]+stop|killall|ANI_ADMIN_BOOTSTRAP_TOKEN=[0-9a-f]{64}' db-android-core/repair-stage-bootstrap.sh
