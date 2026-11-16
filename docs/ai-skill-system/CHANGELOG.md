@@ -73,10 +73,10 @@
 ## 2026-11-16 — DB Android outbound WebSocket relay stage
 
 - Replaced the repeated native Cloudflared DNS/PRoot approach with an isolated Node.js outbound WebSocket agent and Cloudflare Worker + SQLite Durable Object relay.
-- Created work branch infra/db-android-ws-relay-stage-20261116 from exact stage parent 388fe1808a32ac13ffeeeae6fff49cbef8e7f177; latest branch head bfe419e57eefc653879ef1092bff48f7037d083a. No master merge or stable product branch edits.
+- Created work branch infra/db-android-ws-relay-stage-20261116 from exact stage parent 388fe1808a32ac13ffeeeae6fff49cbef8e7f177; latest branch head 7aed650a0705e20302719012fd440f4c245622d6. No master merge or stable product branch edits.
 - Deployed Worker ani-games-db-android-stage-ws-relay on workers.dev with Durable Object class RelayHub, SQLite namespace d3deb95247764649a63e05aa94962c45, binding RELAY_HUB, migration v1.
 - Added Worker route allowlist, opaque-origin CORS support, bootstrap/setup denial, request header filtering, client-IP forwarding under the existing local edge-trust contract, bounded payload/concurrency/timeouts and WebSocket health/reconnect design.
-- Local tests: 12/12 PASS, Worker/agent Node syntax PASS, Termux shell syntax PASS. GitHub Actions run 43829292289 SUCCESS.
+- Local tests: 12/12 PASS, Worker/agent Node syntax PASS, Termux shell syntax PASS. GitHub Actions run 43831355655 SUCCESS.
 - Prepared installer ZIP ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip SHA-256 fc7a65e2899fd6a16fd274a61b3c65269ba6ca2ec353e3d24c39be35d70d4b4f; source ZIP SHA-256 f67826e2031772d312d909758d552d517fb05cc6a3b5f36dd9051333c2cac1b2. Packages contain no secret values.
 - The Worker's secret RELAY_SHARED_SECRET still requires manual setup in Cloudflare Dashboard because the automated secret-write action was blocked; Redmi agent is not yet installed or connected. Public health, API end-to-end, Admin APK login, cellular/Wi-Fi and 24-hour tests remain pending. This is not yet a completed public relay.
 - No schema/SQL migration, database reset, PostgreSQL public bind, API main port 8787, Supabase DB1/DB2, Blynk/WoL or Admin APK changes were made.
