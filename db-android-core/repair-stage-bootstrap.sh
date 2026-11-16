@@ -27,6 +27,8 @@ command -v psql >/dev/null 2>&1 || fail "psql belum tersedia di Termux."
 command -v curl >/dev/null 2>&1 || fail "curl belum tersedia di Termux."
 command -v sha256sum >/dev/null 2>&1 || fail "sha256sum belum tersedia di Termux."
 
+chmod 600 "$ENV_FILE"
+
 # Read only the generated KEY=value entries; do not execute the .env as shell code.
 ANI_BIND="$(read_env_value ANI_BIND)"
 PORT="$(read_env_value PORT)"
@@ -36,7 +38,6 @@ BOOTSTRAP_TOKEN="$(read_env_value ANI_ADMIN_BOOTSTRAP_TOKEN)"
 [[ "$ANI_BIND" == "127.0.0.1" && "$PORT" == "8788" ]] || fail "konfigurasi API bukan staging loopback 127.0.0.1:8788. Tidak ada perubahan dibuat."
 [[ "$DATABASE_URL" == postgresql://ani_api_stage_login:*@127.0.0.1:5432/ani_games_ready_stage* ]] || fail "DATABASE_URL tidak menunjuk database staging lokal yang diharapkan. Tidak ada perubahan dibuat."
 [[ "$BOOTSTRAP_TOKEN" =~ ^[0-9a-f]{64}$ ]] || fail "token bootstrap lokal tidak valid atau tidak ditemukan. Tidak ada perubahan dibuat."
-chmod 600 "$ENV_FILE"
 
 PID="$(cat "$PID_FILE" 2>/dev/null || true)"
 [[ "$PID" =~ ^[0-9]+$ ]] || fail "PID staging tidak valid."
