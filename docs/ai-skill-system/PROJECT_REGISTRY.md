@@ -74,3 +74,26 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 - PostgreSQL/API regression workflow 43755729409 completed successfully at HEAD 85a8be9534f5739f732c6ee6f25b4b8225eaf5f3. Package/fixture workflow 43755729458 also succeeded.
 - Termux-only patch artifact ANI-GAMES-READY-DB-ANDROID-API-FIX-20261116.zip: artifact ID 14177929336, size 3,903 bytes, SHA-256 c7d11bf7e376506d0ed816a07cdc738d73009304ed7c145bf0371719a6b1dd07. It modifies only the existing stage server/server.mjs, preserves local custom code, creates a backup and does not run SQL or touch .env, PostgreSQL, port 8787 or WoL relay.
 - The patch is not yet applied on the Redmi. Stage API stays loopback-only (127.0.0.1:8788); public reachability from arbitrary networks is not established. Do not expose PostgreSQL port 5432.
+
+
+## Live GitHub verification — 2026-11-16: Admin login and Redmi global access
+
+### Admin APK
+- Current Admin DB Android base: anigamesready/Admin-Ani-Games branch admin-v12.1.50-DB-Android, commit 3ebc8b1912aef13a4833f113c9e7a4914554b146.
+- Isolated Admin candidate: fix/admin-db-android-login-gate-v1.51, head 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5; 5 commits ahead, zero behind the V12.1.50 base.
+- Candidate versionName 12.1.51, versionCode 79, applicationId com.anigames.billingadmin.v150db. The V12.1.51 patch restores the missing setAdminAuthEnabled helper.
+- Added scripts/patch_admin_db_android_api_fetch_reliability.py and wired it into the dedicated DB Android APK workflow. It removes Content-Type from bodyless health GET requests and surfaces the attempted API origin on WebView fetch failures. Treat as candidate only: CI status, artifact SHA and device login are not yet verified.
+- The alternate fix/admin-v12.1.50-db-android-login-click branch is diverged from the current base; do not use it as the build source.
+
+### Cloudflare gateway
+- Worker ani-games-db-android-stage-gateway is deployed and workers.dev is enabled at https://ani-games-db-android-stage-gateway.anigamesready.workers.dev. KV namespace ani-games-db-android-stage-upstreams is bound (ID 55b2907fc76242c99774413e9986187f), but current key ani_games_ready_stage:upstream is absent. No named Cloudflare Tunnel or DNS zone exists in the connected account. This means there is no active public path to the Redmi yet.
+- Old gateway branch infra/db-android-cloudflare-gateway-stage at d1c8a4dde3ec791e29e41a32604dd15c20de14b8 diverges from API fix branch fix/db-android-core-api-contracts-20261116 (49 ahead, 17 behind); do not apply it directly.
+- New branch infra/db-android-cloudflare-global-stage-20261116 is based exactly on API fix branch head f16d97a3dfd96f2f3598396976c3ee5d63c60e6d; current head 8c39f86410a3cd6b0ce3521029e689d63984752e, 10 ahead, zero behind.
+- New gateway branch includes Worker, allowlisted API proxy, edge client-IP trust with a shared secret, local bootstrap deny checks, Termux runner/configuration scripts and CI tests. The API patch now reuses existing local node:net and ANI_EDGE_PROXY_SECRET declarations instead of duplicating them. CI/artifact/on-device checks remain pending.
+- The current origin strategy uses Quick Tunnel behind the stable Worker hostname. Quick Tunnel URL rotates; Worker registration TTL is 600 seconds and Termux runner refreshes while alive. This is staging, not a named tunnel or a guaranteed 24/7 service. The same Worker URL can be used over Wi-Fi or mobile data after origin registration, but it routes through the internet. Direct LAN-only ingress remains a separate uncompleted design.
+
+### Hard boundaries
+- Keep stage API 127.0.0.1:8788 until a separately audited LAN listener is implemented.
+- PostgreSQL 127.0.0.1:5432 remains private; no port-forwarding or public DB listener.
+- Keep main server port 8787, production data, Supabase DB1/DB2 and Blynk/WoL relay unchanged.
+- User acceptance target recorded as Sunday 2026-11-22. See PROJECT_STATE.md and NEXT_TASKS.md for the required tests and blockers.
