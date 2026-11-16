@@ -8,6 +8,8 @@ SERVER_DIR="$STAGE_HOME/server"
 ENV_FILE="$SERVER_DIR/.env"
 PID_FILE="$STAGE_HOME/stage-api.pid"
 DB_NAME="ani_games_ready_stage"
+DB_HOST="127.0.0.1"
+DB_PORT="5432"
 API_URL="http://127.0.0.1:8788"
 
 fail() {
@@ -49,10 +51,20 @@ CMD="$(tr '\0' ' ' <"/proc/$PID/cmdline" 2>/dev/null || true)"
 HEALTH="$(curl -fsS --max-time 8 "$API_URL/health")" || fail "health API staging gagal."
 [[ "$HEALTH" == *'"api":"online"'* && "$HEALTH" == *'"database":"online"'* && "$HEALTH" == *'"bind_host":"127.0.0.1"'* ]] || fail "health bukan API staging lokal yang sehat."
 
+# API login is least-privilege and intentionally cannot read/write private bootstrap control.
+# Recovery uses the local Termux PostgreSQL administrator over loopback TCP; never elevate API role.
+psql_stage_admin() {
+  psql -X -w -h "$DB_HOST" -p "$DB_PORT" "$@"
+}
+ADMIN_CHECK="$(psql_stage_admin -v ON_ERROR_STOP=1 -qAt -d postgres -c \\
+  "SELECT CASE WHEN r.rolsuper THEN 't' ELSE 'f' END FROM pg_roles r WHERE r.rolname=current_user;")" \\
+  || fail "tidak bisa login sebagai admin PostgreSQL melalui TCP $DB_HOST:$DB_PORT. Database belum diubah."
+[[ "$ADMIN_CHECK" == "t" ]] || fail "akun PostgreSQL lokal bukan superuser. Helper tidak akan memakai akun runtime ani_api_stage_login atau menaikkan haknya. Database belum diubah."
+
 TOKEN_HASH="$(printf '%s' "$BOOTSTRAP_TOKEN" | sha256sum | awk '{print $1}')"
 
 read_db_state() {
-  psql -X -q -t -A -v ON_ERROR_STOP=1 -v "token_hash=$TOKEN_HASH" -d "$DB_NAME" <<'SQL'
+  psql_stage_admin -q -t -A -v ON_ERROR_STOP=1 -v "token_hash=$TOKEN_HASH" -d "$DB_NAME" <<'SQL'
 SELECT
   CASE WHEN EXISTS (
     SELECT 1 FROM public.admin_accounts
@@ -93,7 +105,7 @@ fi
 
 if [[ "$TOKEN_MATCH" != "t" || "$ROW_EXISTS" != "t" ]]; then
   printf '[ANI BOOTSTRAP FIX] Menyelaraskan hash token bootstrap lokal (tanpa mengubah token atau data akun)...\n'
-  psql -X -v ON_ERROR_STOP=1 -v "token_hash=$TOKEN_HASH" -d "$DB_NAME" <<'SQL'
+  psql_stage_admin -v ON_ERROR_STOP=1 -v "token_hash=$TOKEN_HASH" -d "$DB_NAME" <<'SQL'
 BEGIN;
 DO $guard$
 BEGIN
