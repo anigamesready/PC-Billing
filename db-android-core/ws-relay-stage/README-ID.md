@@ -29,7 +29,16 @@ Durable Object: `RelayHub` (SQLite), namespace terpisah.
 
 ## Installer Redmi
 Paket instalasi Android disediakan terpisah dalam artifact percakapan bernama:
-`ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip`.
+`ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip`.
 Installer memasang agent dan script kontrol, membuat backup timestamp `.env`, memverifikasi `ANI_EDGE_PROXY_SECRET` yang sudah ada, membuat salinan sementara rahasia itu dengan izin file privat untuk dimasukkan manual ke Worker sebagai `RELAY_SHARED_SECRET`, lalu menambahkan atau memperbarui hanya `ANI_DB_RELAY_URL`. Nilai secret di `.env` tidak diganti; API dan PostgreSQL tidak direstart.
 
 Status implementasi: Worker telah terpasang; agent Redmi dan secret Worker belum dikonfigurasi, sehingga relay belum diklaim online.
+
+
+## Final Termux installer package
+- File: `ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip`
+- Size: 11,437 bytes
+- SHA-256: `e7b448b678819b3d811c3503dfdb04d90e1b7dbb54be98f9caad836acd633a95`
+- Contains `START-HERE.txt`, the guarded installer, Node agent, start/stop/status scripts, README and per-file checksums.
+- Verified: archive integrity, per-file SHA-256, Node syntax, Bash syntax, and a disposable installer simulation. The simulation confirmed that only `ANI_DB_RELAY_URL` is added, the existing edge secret is preserved, a timestamped `.env` backup is created, and the install directory / secret file receive private permissions.
+- Redmi installation and public health are not yet verified. Worker secret `RELAY_SHARED_SECRET` still requires manual configuration in Cloudflare Dashboard before the agent can connect.
