@@ -47,3 +47,9 @@
 - Gateway runner Ctrl+C stops tunnel/registry and should not stop local API; verify stage /health remains online.
 - Preserve timestamped .env and server.mjs backups before gateway configure/apply. No database rollback is authorized or needed for these changes.
 - Do not revert the API hotfix branch or touch DB rows/schema without explicit approval.
+
+
+## Runtime recheck update — 2026-11-16 09:45 WIB
+- User's Termux command `curl -sS --max-time 5 http://127.0.0.1:8788/health` returned `curl: (7) Failed to connect ... Connection refused`.
+- Current evidence: staging API port 8788 is not listening. PostgreSQL state is unknown from this result. No restart or DB operation was performed.
+- Safe next step: run the previously verified stage-only start script and recheck health; leave port 8787 and all database data untouched.
