@@ -110,3 +110,19 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 - Existing Cloudflare Quick Tunnel Worker ani-games-db-android-stage-gateway and KV were not modified or deleted; they remain rollback reference only. Do not repeat the failed native Cloudflared DNS or PRoot/termux-chroot attempts.
 - The design is outbound WSS from Node.js Termux to the Worker/DO; API remains loopback port 8788 and PostgreSQL remains loopback port 5432. Main port 8787, Supabase DB1/DB2 and Blynk/WoL remain out of scope.
 - Installer artifact ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip, 11,437 bytes, SHA-256 e7b448b678819b3d811c3503dfdb04d90e1b7dbb54be98f9caad836acd633a95. It adds only ANI_DB_RELAY_URL to the staging .env after backup and installs agent/control files; it does not restart API or DB.
+
+ 
+## Live GitHub verification — 2026-11-16: Admin DB Android V12.1.53 clean single-DB build
+
+- Repository: `anigamesready/Admin-Ani-Games`.
+- Work branch: `fix/admin-db-android-clean-single-db-v1.53`; full head `1177b018725822a671fe3a2b9b9facedf75240b7`.
+- Baseline chain: `admin-v12.1.50-DB-Android` at `3ebc8b1912aef13a4833f113c9e7a4914554b146` → V12.1.51 login gate `fix/admin-db-android-login-gate-v1.51` at `8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5` → V12.1.52 gateway-default stage → V12.1.53 clean single-DB head. V12.1.53 is 10 commits ahead and 0 behind the V12.1.51 baseline.
+- Build workflow: `.github/workflows/build-db-android-admin-apk.yml`; new push trigger is only `fix/admin-db-android-clean-single-db-v1.53`, with manual dispatch also enabled.
+- GitHub Actions run `43879706639` SUCCESS. Both main and safe-test APKs built and v2 signature verified.
+- V12.1.53 final APK: `AniGames-Admin-DB-Android-V12.1.53.apk`; applicationId `com.anigames.billingadmin.v150db`; versionCode 81; 734,881 bytes; SHA-256 `3c436460229450b66cdd72752fc65c9d2a2a39e428cc156da0017cc0253dea28`.
+- Safe-test APK: `AniGames-Admin-DB-Android-V12.1.53-SAFE-TEST.apk`; applicationId `com.anigames.billingadmin.v150dbtest`; versionCode 81; 734,889 bytes; SHA-256 `8e0cb141d634dcd9d9a79cc58eee1fa89ababfebb2c607f5f57d2f716882ea38`.
+- Artifact ZIP ID `14231274085`; size 1,295,700 bytes; SHA-256 `447a2c825ab8d0dd980f4ee74fece7823552f4a59ea3b1e85275d5931607e72a`.
+- Physical HTML/JS audit removed the old DB1/DB2 route bar, sync/preflight section, tab, route state, switch stubs and DB2-only copy. No direct Supabase table reads remain in Admin UI. Core local Admin auth/rental/command/report/theme RPCs and separate WoL relay sidecar remain.
+- The app defaults to the dedicated HTTPS Worker URL `https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev` on Admin, login and Billing Control pages. Manual API URL override remains. No local `127.0.0.1:8787` or `:8788` default is shipped.
+- This is an isolated staging/debug-signed APK. Stable Admin, main branch, Redmi server/database/schema, port 8787, Supabase runtime and Blynk/WoL relay were not changed by the APK build.
+- Device-side install, valid credential login, Admin CRUD/PC commands/reports/WoL end-to-end, Wi-Fi/cellular and 24-hour acceptance remain pending. User-reported health at the last Termux check showed the WSS agent, Worker, stage API 8788 and PostgreSQL online; port 8787 was separately closed. Do not mark the APK operationally accepted until device tests pass.
