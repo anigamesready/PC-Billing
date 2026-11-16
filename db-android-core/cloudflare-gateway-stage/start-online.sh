@@ -124,7 +124,9 @@ refresh_registration() {
 }
 stop_tunnel() {
   if [ -n "$TUNNEL_PID" ]; then
-    stop_tunnel
+    kill "$TUNNEL_PID" 2>/dev/null || true
+    wait "$TUNNEL_PID" 2>/dev/null || true
+    TUNNEL_PID=""
   fi
   if [ "$CLOUDFLARED_MODE" = "proot" ]; then
     "$PREFIX/bin/proot-distro" kill "$PROOT_CONTAINER" >/dev/null 2>&1 || true
