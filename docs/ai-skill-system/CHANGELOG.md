@@ -69,3 +69,14 @@
 ## 2026-11-16 09:45 WIB — Stage API not listening
 - User's live Termux curl to `127.0.0.1:8788/health` returned curl error 7 (connection refused). Stage API is currently not accepting connections. This alone does not establish PostgreSQL status.
 - No runtime restart or DB mutation was performed by assistant. Next step is to start only the stage API with the previously verified start-stage script and recheck health.
+
+## 2026-11-16 — DB Android outbound WebSocket relay stage
+
+- Replaced the repeated native Cloudflared DNS/PRoot approach with an isolated Node.js outbound WebSocket agent and Cloudflare Worker + SQLite Durable Object relay.
+- Created work branch infra/db-android-ws-relay-stage-20261116 from exact stage parent 388fe1808a32ac13ffeeeae6fff49cbef8e7f177; latest branch head bfe419e57eefc653879ef1092bff48f7037d083a. No master merge or stable product branch edits.
+- Deployed Worker ani-games-db-android-stage-ws-relay on workers.dev with Durable Object class RelayHub, SQLite namespace d3deb95247764649a63e05aa94962c45, binding RELAY_HUB, migration v1.
+- Added Worker route allowlist, opaque-origin CORS support, bootstrap/setup denial, request header filtering, client-IP forwarding under the existing local edge-trust contract, bounded payload/concurrency/timeouts and WebSocket health/reconnect design.
+- Local tests: 12/12 PASS, Worker/agent Node syntax PASS, Termux shell syntax PASS. GitHub Actions run 43829292289 SUCCESS.
+- Prepared installer ZIP ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip SHA-256 135ae52234aa626245c73ffde1eefc2cee3d854f13aefc10856ea35ffcd9da87; source ZIP SHA-256 54104d599819a78dc8c1bbec29a8fea857b24643ae157af58930a232dbc6e9f2. Packages contain no secret values.
+- The Worker's secret RELAY_SHARED_SECRET still requires manual setup in Cloudflare Dashboard because the automated secret-write action was blocked; Redmi agent is not yet installed or connected. Public health, API end-to-end, Admin APK login, cellular/Wi-Fi and 24-hour tests remain pending. This is not yet a completed public relay.
+- No schema/SQL migration, database reset, PostgreSQL public bind, API main port 8787, Supabase DB1/DB2, Blynk/WoL or Admin APK changes were made.
