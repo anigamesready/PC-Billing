@@ -97,3 +97,17 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 - PostgreSQL 127.0.0.1:5432 remains private; no port-forwarding or public DB listener.
 - Keep main server port 8787, production data, Supabase DB1/DB2 and Blynk/WoL relay unchanged.
 - User acceptance target recorded as Sunday 2026-11-22. See PROJECT_STATE.md and NEXT_TASKS.md for the required tests and blockers.
+
+## Live GitHub verification — 2026-11-16: DB Android WebSocket relay stage
+
+- Dedicated branch: infra/db-android-ws-relay-stage-20261116, current head bfe419e57eefc653879ef1092bff48f7037d083a.
+- Exact source parent: infra/db-android-cloudflare-global-stage-20261116 at 388fe1808a32ac13ffeeeae6fff49cbef8e7f177; the new relay branch was cut from this verified gateway/API-contract baseline. No merge to master or production branch.
+- The new source branch includes the deployed Worker module db-android-core/ws-relay-stage/worker.mjs, Worker security regression tests, safe env example, stage README and CI workflow. The Termux agent/control scripts are supplied in a separate secret-free installer/source package for device installation.
+- Worker ani-games-db-android-stage-ws-relay is deployed at https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev; workers.dev is enabled and previews are disabled.
+- Durable Object class RelayHub has a dedicated SQLite namespace ID d3deb95247764649a63e05aa94962c45, binding RELAY_HUB. Migration v1 was accepted.
+- GitHub Actions run 43829292289 for the relay branch completed successfully. The branch workflow checks Worker syntax, five CI security regressions and source secret patterns. A separate local run completed 12/12 Worker/relay tests, plus Node syntax and Bash syntax checks.
+- Important boundary: the Worker is deployed, but RELAY_SHARED_SECRET has not yet been added and the Redmi Node agent has not yet been installed/connected. Public /_relay/health and end-to-end client login were not verified. This is NOT a completed public relay.
+- Existing Cloudflare Quick Tunnel Worker ani-games-db-android-stage-gateway and KV were not modified or deleted; they remain rollback reference only. Do not repeat the failed native Cloudflared DNS or PRoot/termux-chroot attempts.
+- The design is outbound WSS from Node.js Termux to the Worker/DO; API remains loopback port 8788 and PostgreSQL remains loopback port 5432. Main port 8787, Supabase DB1/DB2 and Blynk/WoL remain out of scope.
+- Installer artifact ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip, 9.8 KiB, SHA-256 135ae52234aa626245c73ffde1eefc2cee3d854f13aefc10856ea35ffcd9da87. It adds only ANI_DB_RELAY_URL to the staging .env after backup and installs agent/control files; it does not restart API or DB.
+- Source archive ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-SOURCE.zip, 14,863 bytes, SHA-256 54104d599819a78dc8c1bbec29a8fea857b24643ae157af58930a232dbc6e9f2. No secret values are included.
