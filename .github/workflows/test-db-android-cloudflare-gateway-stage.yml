@@ -1,0 +1,134 @@
+name: Test Ani Games Ready DB Android Cloudflare Stage Gateway
+
+on:
+  push:
+    branches:
+      - infra/db-android-cloudflare-global-stage-20261116
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Worker unit and security tests
+        run: node --test db-android-core/cloudflare-gateway-stage/worker.test.mjs
+
+      - name: Patch and syntax-check isolated API copy (base + existing local additions)\n        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          mkdir -p /tmp/ani-stage/server
+          cp db-android-core/server/server.mjs /tmp/ani-stage/server/server.mjs
+          python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage/server
+          node --check /tmp/ani-stage/server/server.mjs
+          python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage/server
+          grep -q "localBootstrapRequestAllowed(req)" /tmp/ani-stage/server/server.mjs
+          grep -q "ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1" /tmp/ani-stage/server/server.mjs
+          grep -q "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1" /tmp/ani-stage/server/server.mjs
+          grep -A1 "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1" /tmp/ani-stage/server/server.mjs | grep -Eq 'diagnosticCode|error:String'
+          grep -q 'error?.code' /tmp/ani-stage/server/server.mjs
+          grep -q 'component: "postgres_pool"' /tmp/ani-stage/server/server.mjs
+          ! grep -q 'HOST = "0.0.0.0"' /tmp/ani-stage/server/server.mjs
+          echo "PASS: patched isolated API syntax, idempotency, loopback bind, bootstrap guards and PostgreSQL pool error handling."
+          mkdir -p /tmp/ani-stage-local/server
+          cp db-android-core/server/server.mjs /tmp/ani-stage-local/server/server.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("/tmp/ani-stage-local/server/server.mjs")
+          s = p.read_text(encoding="utf-8")
+          crypto = 'import crypto from "node:crypto";'
+          if s.count(crypto) != 1:
+              raise SystemExit("Synthetic fixture crypto import anchor mismatch")
+          s = s.replace(crypto, crypto + '\\nimport net from "node:net";', 1)
+          bootstrap = 'const BOOTSTRAP_TOKEN = process.env.ANI_ADMIN_BOOTSTRAP_TOKEN || "";'
+          if s.count(bootstrap) != 1:
+              raise SystemExit("Synthetic fixture bootstrap anchor mismatch")
+          s = s.replace(bootstrap, bootstrap + "\\nconst EDGE_PROXY_SECRET = process.env.ANI_EDGE_PROXY_SECRET || '';", 1)
+          p.write_text(s, encoding="utf-8")
+          PY
+          python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage-local/server
+          node --check /tmp/ani-stage-local/server/server.mjs
+          python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage-local/server
+          test "$(grep -c '^import net from "node:net";' /tmp/ani-stage-local/server/server.mjs)" -eq 1
+          test "$(grep -c '^const EDGE_PROXY_SECRET = process.env.ANI_EDGE_PROXY_SECRET' /tmp/ani-stage-local/server/server.mjs)" -eq 1
+          node --check /tmp/ani-stage-local/server/server.mjs
+          echo "PASS: existing Termux net import and edge secret declaration are preserved without duplicates."
+
+      - name: Shell syntax, Android DNS runner assertions and secret-free package
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n db-android-core/cloudflare-gateway-stage/configure-online.sh
+          bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
+          bash -n db-android-core/cloudflare-gateway-stage/runner-smoke.sh
+          bash db-android-core/cloudflare-gateway-stage/runner-smoke.sh
+          grep -Fq 'API_SOURCE_PATCH_APPLIED' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          grep -Fq 'PG-POOL-ERROR-HANDLER-V1' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          grep -Fq 'python3 "$PATCH_FILE" "$STAGE_HOME/server"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'bash "$STAGE_HOME/stop-stage.sh"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'bash "$STAGE_HOME/start-stage.sh"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'Tunnel TIDAK diputus' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'LAST_HEALTH_HTTP' db-android-core/cloudflare-gateway-stage/start-online.sh
+          ! grep -Fq 'Membersihkan URL lama dan membuat tunnel baru' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq '"$PREFIX/bin/cloudflared" tunnel --url http://127.0.0.1:8788' db-android-core/cloudflare-gateway-stage/start-online.sh
+          ! grep -q 'termux-chroot\|proot' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'dig +time=3 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq '"$GATEWAY/health"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          OUT="$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          cp db-android-core/cloudflare-gateway-stage/worker.mjs "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/configure-online.sh "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/start-online.sh "$OUT/"
+          cat > "$OUT/README-ID.txt" <<'EOF'
+          ANI GAMES READY — DB ANDROID HTTPS STAGE GATEWAY
+          This is a staging gateway, not a production 24/7 guarantee.
+          The Redmi API stays bound to 127.0.0.1:8788.
+          The runner applies an idempotent API patch for Cloudflare edge trust, PostgreSQL
+          idle-pool handling and safe SQLSTATE startup diagnostics, then safely restarts
+          only the PID-tracked staging API if changed.
+          The API remains loopback-only at 127.0.0.1:8788; no unknown process is killed.
+          The runner installs native Termux cloudflared/dnsutils packages if missing,
+          runs cloudflared directly (no proot/chroot), tests Cloudflare SRV DNS, and checks public /health.
+          It retains a slow tunnel during health retries and prints HTTP failure details.
+          The Cloudflare Worker proxies only health/auth/RPC/device API routes.
+          /setup and /api/admin/bootstrap are denied publicly.
+          No database password, Owner credential, DB dump, or runtime .env is included.
+          Quick Tunnel upstream must be refreshed while Termux remains active.
+          EOF
+          if grep -RniE 'register-test-token|edge-test-secret|sb_secret_[A-Za-z0-9_-]{20,}|service_role[_-]key|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' "$OUT"; then
+            echo "Potential secret found in gateway source package."
+            exit 1
+          fi
+          cat > "$OUT/online-secrets.env.example" <<'EOF'
+          # Copy to online-secrets.env on the Redmi only; fill values privately.
+          GATEWAY_BASE_URL=https://ani-games-db-android-stage-gateway.anigamesready.workers.dev
+          GATEWAY_REGISTER_TOKEN=PASTE_PRIVATE_REGISTER_TOKEN
+          EDGE_PROXY_SECRET=PASTE_PRIVATE_EDGE_SECRET
+          EOF
+          mkdir -p "$GITHUB_WORKSPACE/output"
+          ARCHIVE="$RUNNER_TEMP/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip"
+          cd "$GITHUB_WORKSPACE/output"
+          zip -qr "$ARCHIVE" ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE
+          sha256sum "$ARCHIVE" | tee "$GITHUB_WORKSPACE/output/SHA256SUMS.txt"
+          cp "$ARCHIVE" "$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE.zip"
+          unzip -t "$ARCHIVE"
+      - name: Upload Termux online gateway package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE
+          path: output/*
+          if-no-files-found: error
+          retention-days: 30
