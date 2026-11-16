@@ -48,3 +48,17 @@ No new APK/EXE artifact was produced. The infrastructure helper artifact above i
 - The Worker ani-games-db-android-stage-gateway is deployed at https://ani-games-db-android-stage-gateway.anigamesready.workers.dev, but current KV upstream is missing; it is not online to the Redmi.
 - Gateway uses an ephemeral Quick Tunnel origin behind the stable Worker hostname, refreshed periodically; not a 24/7 named-tunnel release. No custom DNS zone/named tunnel found in the connected Cloudflare account.
 - CI statuses returned no check rows in this audit, and there are no verified new release artifacts. Keep all entries marked candidate/pending until evidence is fetched.
+
+## DB Android outbound WebSocket relay stage — 2026-11-16
+
+- Repository: anigamesready/PC-Billing.
+- Work branch: infra/db-android-ws-relay-stage-20261116.
+- Exact parent baseline: infra/db-android-cloudflare-global-stage-20261116 / 388fe1808a32ac13ffeeeae6fff49cbef8e7f177.
+- Current work branch head: bfe419e57eefc653879ef1092bff48f7037d083a.
+- Worker: ani-games-db-android-stage-ws-relay; URL https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev.
+- Durable Object namespace: ani-games-db-android-stage-ws-relay_RelayHub, ID d3deb95247764649a63e05aa94962c45, SQLite; binding RELAY_HUB, migration tag v1.
+- GitHub Actions: run 43829292289, conclusion SUCCESS.
+- Local verification: worker/agent Node syntax PASS; 12/12 Worker/relay regression tests PASS; 3 Bash scripts syntax PASS.
+- Redmi installer ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip, size 9.8 KiB, SHA-256 135ae52234aa626245c73ffde1eefc2cee3d854f13aefc10856ea35ffcd9da87.
+- Source ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-SOURCE.zip, size 14,863 bytes, SHA-256 54104d599819a78dc8c1bbec29a8fea857b24643ae157af58930a232dbc6e9f2.
+- No app/APK version applies. No Admin APK built or changed. Worker secret, Redmi agent installation, live /health, API end-to-end, Wi-Fi/cellular login and 24-hour tests remain pending.
