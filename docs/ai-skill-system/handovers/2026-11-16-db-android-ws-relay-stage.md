@@ -6,7 +6,7 @@
 - Repository: anigamesready/PC-Billing
 - Work branch: infra/db-android-ws-relay-stage-20261116
 - Exact source baseline branch + full SHA: infra/db-android-cloudflare-global-stage-20261116 / 388fe1808a32ac13ffeeeae6fff49cbef8e7f177
-- Current work branch head at source handover: 7aed650a0705e20302719012fd440f4c245622d6
+- Current work branch head at source handover: d86e7ecfa82d7af29bb53d067a316984b1fef69b
 - Worker: ani-games-db-android-stage-ws-relay at https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev
 - Durable Object: RelayHub, SQLite namespace d3deb95247764649a63e05aa94962c45.
 - Local final Termux ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip, SHA-256 e7b448b678819b3d811c3503dfdb04d90e1b7dbb54be98f9caad836acd633a95.
