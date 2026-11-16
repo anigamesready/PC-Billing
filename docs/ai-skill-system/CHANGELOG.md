@@ -80,3 +80,15 @@
 - Prepared final Termux ZIP ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip SHA-256 e7b448b678819b3d811c3503dfdb04d90e1b7dbb54be98f9caad836acd633a95; source ZIP SHA-256 f67826e2031772d312d909758d552d517fb05cc6a3b5f36dd9051333c2cac1b2. Packages contain no secret values.
 - The Worker's secret RELAY_SHARED_SECRET still requires manual setup in Cloudflare Dashboard because the automated secret-write action was blocked; Redmi agent is not yet installed or connected. Public health, API end-to-end, Admin APK login, cellular/Wi-Fi and 24-hour tests remain pending. This is not yet a completed public relay.
 - No schema/SQL migration, database reset, PostgreSQL public bind, API main port 8787, Supabase DB1/DB2, Blynk/WoL or Admin APK changes were made.
+
+## 2026-11-16 — Admin DB Android V12.1.53 clean single-DB build
+
+- Revalidated isolated Admin lineage: V12.1.51 login gate at 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5; V12.1.53 work branch fix/admin-db-android-clean-single-db-v1.53 at 1177b018725822a671fe3a2b9b9facedf75240b7; 10 commits ahead / 0 behind the V12.1.51 baseline.
+- Added V12.1.52 gateway default for all three app WebView pages and V12.1.53 physical removal of legacy DB1/DB2 selector, route-control and sync UI/state from Admin.
+- Preserved local Admin auth/context, rental CRUD, PC commands, reports/theme and independent Blynk/WoL relay sidecar. Remaining Supabase variables are explicitly named RELAY_SUPABASE_* and no direct Supabase table access remains in Admin UI.
+- Static single-DB/core-feature assertions and JavaScript syntax validation for Admin, login and Billing Control pages passed.
+- GitHub Actions run 43879706639 succeeded. Main APK V12.1.53 (versionCode 81; applicationId com.anigames.billingadmin.v150db) and side-by-side safe-test APK (com.anigames.billingadmin.v150dbtest) built and v2 signature verified.
+- Main APK: 734,881 bytes; SHA-256 3c436460229450b66cdd72752fc65c9d2a2a39e428cc156da0017cc0253dea28. Safe-test APK: 734,889 bytes; SHA-256 8e0cb141d634dcd9d9a79cc58eee1fa89ababfebb2c607f5f57d2f716882ea38.
+- Artifact ID 14231274085, ZIP size 1,295,700 bytes, SHA-256 447a2c825ab8d0dd980f4ee74fece7823552f4a59ea3b1e85275d5931607e72a. The APKs use CI debug signing, not production release signing.
+- User-reported point-in-time stage status before build showed the relay agent/Worker/API 8788/PostgreSQL online; port 8787 was separately closed. APK build did not change Redmi runtime, DB data/schema, .env, Supabase production or WoL relay.
+- Device install, valid Admin login, authorization/role, rental CRUD, commands, reports, WoL and Wi-Fi/cellular tests remain pending. A 401 INVALID_CREDENTIALS response to an empty-body probe does not count as successful login.
