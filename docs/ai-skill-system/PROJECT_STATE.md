@@ -118,3 +118,9 @@
 - Target: Sunday, 2026-11-22 (Asia/Jakarta).
 - Do not mark complete until: Admin V12.1.51 APK artifact and SHA are verified; clean install/replace and correct login pass on Android; Cloudflare public /health returns API+database online; Admin login succeeds over cellular and Wi-Fi using HTTPS URL; role separation and Admin CRUD pass; Termux reconnect/background/restart behavior is documented; PostgreSQL 5432 stays private; rollback is available.
 - Deadline is a project acceptance target, not a claim that the phone can be remotely operated from GitHub. On-device runtime tests require the Redmi/Termux output.
+
+
+### Runtime recheck — 2026-11-16 09:45 WIB
+- User ran `curl -sS --max-time 5 http://127.0.0.1:8788/health` in Termux; curl returned error 7, connection refused in 2 ms. This confirms no API listener was accepting connections on stage port 8788 at that moment.
+- It does NOT prove PostgreSQL is offline; API and DB must be checked separately. No restart or DB operation has been run by the assistant.
+- Next safe step: use the previously verified stage-only `~/ani-games-db-android-stage/start-stage.sh`, then recheck `/health`. Do not touch port 8787 or PostgreSQL data.
