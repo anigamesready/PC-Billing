@@ -9,7 +9,7 @@
 
 ## Latest verified source tracks
 - PC Billing DB Android: V12.4.8, branch `pc-billing-v12.4.8-DB-Android`, head `f938c574dfbd17ab84b07ca940115a280d3f8d78`, source baseline `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19`.
-- Admin DB Android: newer candidate V12.1.50, branch `admin-v12.1.50-DB-Android`, head `be56ede591c6ebc42b99a02e7731228e02ac40d4`, baseline `9460e8dcbdbf69706408dd0507016cf0037ff153`. V12.1.46 is retained as historical.
+- Admin DB Android: newer candidate V12.1.50, branch `admin-v12.1.50-DB-Android`, head `3ebc8b1912aef13a4833f113c9e7a4914554b146`, baseline `9460e8dcbdbf69706408dd0507016cf0037ff153`. V12.1.46 is retained as historical.
 - Reseller DB Android: V1.0.6, branch `reseller-v1.0.6-DB-Android`, current head `62e14e8caea62c50269cd62f4122efeed19e8731`, source baseline `a67c2f6318230671a7d7776bf6040c39bca6ff97`.
 - DB Android standalone backend: branch `backend/db-android-core-v1`, head `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9`. It contains the Node API, Auth/Admin/Billing/Reseller/Device routes, PostgreSQL schema/functions, Termux stage scripts and CI regression suite. Redmi installation still awaits the one-file hotfix and on-device verification.
 - Full branch ancestry, workflow limitations and source warnings are recorded in `PROJECT_REGISTRY.md`.
