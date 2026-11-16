@@ -6,7 +6,7 @@
 - Repository: anigamesready/PC-Billing
 - Work branch: infra/db-android-ws-relay-stage-20261116
 - Exact source baseline branch + full SHA: infra/db-android-cloudflare-global-stage-20261116 / 388fe1808a32ac13ffeeeae6fff49cbef8e7f177
-- Current work branch head at source handover: bfe419e57eefc653879ef1092bff48f7037d083a
+- Current work branch head at source handover: 7aed650a0705e20302719012fd440f4c245622d6
 - Worker: ani-games-db-android-stage-ws-relay at https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev
 - Durable Object: RelayHub, SQLite namespace d3deb95247764649a63e05aa94962c45.
 - Local installer ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip, SHA-256 fc7a65e2899fd6a16fd274a61b3c65269ba6ca2ec353e3d24c39be35d70d4b4f.
@@ -33,7 +33,7 @@
 - Local Node syntax for Worker and agent: PASS.
 - Local Node regression tests: 12/12 PASS (route allowlist, auth, CORS, bootstrap denial, IP forwarding, request limit, offline health, concurrent response correlation and 204).
 - Bash syntax for start/stop/status: PASS.
-- GitHub Actions run 43829292289: SUCCESS; branch CI uses a focused five-test suite and syntax/secret scan.
+- GitHub Actions run 43831355655: SUCCESS; branch CI uses a focused five-test suite and syntax/secret scan.
 - Cloudflare Worker deployment and Durable Object namespace binding: API returned success.
 - workers.dev subdomain enabled; previews disabled.
 - Public health/API end-to-end could not be fetched from the verification environment; no claim it is online.
