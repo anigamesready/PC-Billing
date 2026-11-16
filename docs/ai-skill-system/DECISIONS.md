@@ -16,4 +16,7 @@
 | D-012 | Reseller remains isolated to its own rental records and cannot control PCs/Windows/WoL. | Least privilege and product role separation. |
 | D-013 | Finish every task with state, changelog, version ledger and handover. | Work must survive chat loss or interruption. |
 
+| D-014 | Internet access to the Redmi DB Android API must go through an authenticated HTTPS edge gateway and an outbound tunnel; PostgreSQL 5432 remains private. | Never use direct DB exposure or an unreviewed public API bind. A Quick Tunnel behind a stable Worker URL is staging until its phone-dependency, reconnect and 24-hour availability tests pass. |
+| D-015 | The Admin API base URL must be environment-specific and saved as an HTTPS URL for any non-loopback server. | 127.0.0.1 refers to the phone running the Admin APK; it is not a remote server address. Preserve loopback default only for same-device testing. |
+
 Changes to these decisions require an explicit user instruction and a dated explanation; do not silently overwrite them.
