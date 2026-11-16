@@ -89,6 +89,8 @@ jobs:
           grep -Fq '"$PREFIX/bin/proot-distro" login "$PROOT_CONTAINER"' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq '"$PREFIX/bin/proot-distro" kill "$PROOT_CONTAINER"' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq 'CLOUDFLARED_SHA256=' db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh
+          grep -Fq 'GUEST_LOCAL_HEALTH=' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'Linux guest terhubung ke API dan database Termux' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq 'dig +time=3 +tries=1 +short SRV _v2-origintunneld._tcp.argotunnel.com' db-android-core/cloudflare-gateway-stage/start-online.sh
           grep -Fq '"$GATEWAY/health"' db-android-core/cloudflare-gateway-stage/start-online.sh
           OUT="$GITHUB_WORKSPACE/output/ANI-GAMES-READY-DB-ANDROID-CLOUDFLARE-STAGE"
