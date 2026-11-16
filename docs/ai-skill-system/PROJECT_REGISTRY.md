@@ -100,7 +100,7 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 
 ## Live GitHub verification — 2026-11-16: DB Android WebSocket relay stage
 
-- Dedicated branch: infra/db-android-ws-relay-stage-20261116, current head 7aed650a0705e20302719012fd440f4c245622d6.
+- Dedicated branch: infra/db-android-ws-relay-stage-20261116, current head d86e7ecfa82d7af29bb53d067a316984b1fef69b.
 - Exact source parent: infra/db-android-cloudflare-global-stage-20261116 at 388fe1808a32ac13ffeeeae6fff49cbef8e7f177; the new relay branch was cut from this verified gateway/API-contract baseline. No merge to master or production branch.
 - The new source branch includes the deployed Worker module db-android-core/ws-relay-stage/worker.mjs, Worker security regression tests, safe env example, stage README and CI workflow. The Termux agent/control scripts are supplied in a separate secret-free installer/source package for device installation.
 - Worker ani-games-db-android-stage-ws-relay is deployed at https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev; workers.dev is enabled and previews are disabled.
