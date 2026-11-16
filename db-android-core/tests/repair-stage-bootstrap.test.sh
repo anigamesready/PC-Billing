@@ -27,7 +27,16 @@ chmod 600 "$ROOT/stage/server/.env"
 cat > "$ROOT/bin/psql" <<'EOF2'
 #!/usr/bin/env bash
 set -euo pipefail
-SQL="$(cat)"
+args="$*"
+if [[ "$args" == *" -c "* ]]; then SQL=""; else SQL="$(cat)"; fi
+if [[ "$args" != *"-h 127.0.0.1"* || "$args" != *"-p 5432"* ]]; then
+  echo "psql did not use loopback TCP 127.0.0.1:5432" >&2
+  exit 91
+fi
+if [[ "$args" == *"rolsuper"* ]]; then
+  printf '%s\\n' "${MOCK_ADMIN_SUPERUSER:-t}"
+  exit 0
+fi
 if [[ "$SQL" == *"INSERT INTO private.admin_bootstrap_control"* ]]; then
   touch "$MOCK_ROOT/updated" "$MOCK_ROOT/row"
   exit 0
@@ -98,3 +107,16 @@ set -e
 [[ "$RC" -ne 0 && "$OUT" == *"bootstrap sudah pernah dikonsumsi"* ]]
 [[ ! -f "$ROOT/updated" ]]
 printf 'PASS: consumed bootstrap blocks repair; no DB write.\n'
+
+
+printf 'TEST 5 — non-superuser TCP connection safety guard\\n'
+rm -f "$ROOT/updated" "$ROOT/row" "$ROOT/owner" "$ROOT/consumed"
+export MOCK_ADMIN_SUPERUSER=f
+set +e
+OUT="$(bash "$SCRIPT" 2>&1)"
+RC=$?
+set -e
+[[ "$RC" -ne 0 && "$OUT" == *"akun PostgreSQL lokal bukan superuser"* ]]
+[[ ! -f "$ROOT/updated" ]]
+export MOCK_ADMIN_SUPERUSER=t
+printf 'PASS: non-superuser blocked before any database write.\\n'
