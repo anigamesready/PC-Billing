@@ -268,7 +268,6 @@ while [ "$STOPPING" -eq 0 ]; do
     curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
       -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
   fi
-  wait "$TUNNEL_PID" 2>/dev/null || true
-  TUNNEL_PID=""
+  stop_tunnel
   sleep 5
 done
