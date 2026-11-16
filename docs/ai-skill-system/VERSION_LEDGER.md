@@ -59,6 +59,6 @@ No new APK/EXE artifact was produced. The infrastructure helper artifact above i
 - Durable Object namespace: ani-games-db-android-stage-ws-relay_RelayHub, ID d3deb95247764649a63e05aa94962c45, SQLite; binding RELAY_HUB, migration tag v1.
 - GitHub Actions: run 43829292289, conclusion SUCCESS.
 - Local verification: worker/agent Node syntax PASS; 12/12 Worker/relay regression tests PASS; 3 Bash scripts syntax PASS.
-- Redmi installer ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip, size 9.8 KiB, SHA-256 135ae52234aa626245c73ffde1eefc2cee3d854f13aefc10856ea35ffcd9da87.
+- Redmi installer ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip, size 9.8 KiB, SHA-256 fc7a65e2899fd6a16fd274a61b3c65269ba6ca2ec353e3d24c39be35d70d4b4f.
 - Source ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-SOURCE.zip, size 14,863 bytes, SHA-256 f67826e2031772d312d909758d552d517fb05cc6a3b5f36dd9051333c2cac1b2.
 - No app/APK version applies. No Admin APK built or changed. Worker secret, Redmi agent installation, live /health, API end-to-end, Wi-Fi/cellular login and 24-hour tests remain pending.
