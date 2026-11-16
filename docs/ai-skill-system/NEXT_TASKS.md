@@ -144,3 +144,33 @@
 - [ ] Do not expose TCP 5432 or set API bind to 0.0.0.0.
 - [ ] Do not change main port 8787, production data, Supabase DB1/DB2, or Blynk/WoL relay.
 - [ ] Do not run SQL migration/initdb/restore/reset or copy rental data.
+
+ 
+## Priority 0 — Admin DB Android V12.1.53 device acceptance (latest candidate)
+
+The V12.1.53 branch supersedes the earlier V12.1.51/V12.1.52 APK candidates. Do not install or use V12.1.52 as the latest candidate.
+
+### Completed
+- [x] Continue from the verified V12.1.51 Admin DB Android login-gate branch and create isolated `fix/admin-db-android-clean-single-db-v1.53`.
+- [x] Set the dedicated Redmi WebSocket Worker HTTPS URL as default in Admin, login and Billing Control pages; retain the manual URL override.
+- [x] Physically remove the DB1/DB2 top bar, Database & Sync tab/section, sync/preflight UI, route state/stubs and DB2-only status copy from the Admin page.
+- [x] Keep the Admin auth/API adapter single-database; verify no direct `sb.from(` Admin table access.
+- [x] Keep Supabase only for the independent Blynk/WoL relay sidecar with explicit `RELAY_SUPABASE_*` naming.
+- [x] Pass static core Admin feature checks and JavaScript syntax checks across all 3 WebView pages.
+- [x] Pass GitHub Actions run 43879706639; build/verify main APK and side-by-side safe-test APK, package IDs, versionCode 81, v2 signatures and ZIP integrity.
+- [x] Verify final artifact checksums and record handover `handovers/2026-11-16-admin-db-android-v12.1.53.md`.
+
+### Remaining — exact order
+- [ ] User installs `AniGames-Admin-DB-Android-V12.1.53.apk` as a separate app; keep the stable Admin APK installed as rollback.
+- [ ] Confirm Termux DB Android stage API 8788, PostgreSQL and outbound WSS relay are still running using sanitized health/status output. Do not restart or edit port 8787.
+- [ ] Test a valid existing Admin account login through the HTTPS Worker gateway; validate token refresh, logout, dashboard and server-derived role/org access. The prior empty-body test returning 401 INVALID_CREDENTIALS is not a valid-login test.
+- [ ] Test Admin device/PC list and status, recovery enrollment, alerts, rental list/create/edit/disable/delete, active-session restrictions, PC command dispatch/status, detailed/monthly/yearly/per-PC reports and Excel/PDF export.
+- [ ] Test independent WoL relay authentication, status/probe and action; confirm DB Android service controls do not stop or alter WoL relay.
+- [ ] Test the app on Wi-Fi and cellular data, screen-off/reconnect and app relaunch. Record exact failures; do not declare operational acceptance until these pass.
+- [ ] If the APK fails to sign in, capture the redacted error and inspect the API/Worker path; never request passwords, refresh tokens or secret values in chat.
+
+### Safety boundaries
+- [ ] Keep `com.anigames.billingadmin.v150db` separate from the stable Admin package.
+- [ ] Do not merge the branch or distribute as a production-signed release without separate release-signing/build approval.
+- [ ] Do not change the Redmi .env, DB schema/data, PostgreSQL, port 8787, production Supabase routes or WoL relay during APK acceptance.
+- [ ] No SQL migration, initdb, restore, reset, destructive sync or public PostgreSQL exposure.
