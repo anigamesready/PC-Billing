@@ -19,6 +19,13 @@ GATEWAY="${ANI_EDGE_GATEWAY_URL:-https://ani-games-db-android-stage-gateway.anig
 : "${ANI_EDGE_REGISTER_TOKEN:?ANI_EDGE_REGISTER_TOKEN belum dikonfigurasi}"
 : "${ANI_EDGE_PROXY_SECRET:?ANI_EDGE_PROXY_SECRET belum dikonfigurasi}"
 
+CLOUDFLARED_MODE="${ANI_CLOUDFLARED_MODE:-native}"
+PROOT_CONTAINER="${ANI_CLOUDFLARED_PROOT_CONTAINER:-ani-cf-tunnel}"
+case "$CLOUDFLARED_MODE" in
+  native|proot) ;;
+  *) echo "[ANI ONLINE] Mode Cloudflared tidak dikenal: $CLOUDFLARED_MODE"; exit 1 ;;
+esac
+
 # Bring the existing staging API source up to the audited edge + PostgreSQL resilience patch.
 [ -f "$PATCH_FILE" ] || { echo "[ANI ONLINE] Patch API tidak ditemukan: $PATCH_FILE"; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "[ANI ONLINE] Python3 diperlukan untuk patch API staging."; exit 1; }
@@ -42,18 +49,29 @@ if ! curl -fsS --max-time 5 http://127.0.0.1:8788/health >/dev/null; then
   bash "$STAGE_HOME/start-stage.sh"
 fi
 
-# Use the native Termux cloudflared package. Termux's Go toolchain patches
-# resolver lookup to read $PREFIX/etc/resolv.conf; do not use proot/chroot.
+# Native mode remains the default. Proot mode runs only cloudflared in an isolated
+# Linux userspace where /etc/resolv.conf exists; PostgreSQL and API remain in Termux.
 NEEDED_PACKAGES=()
-[ -x "$PREFIX/bin/cloudflared" ] || NEEDED_PACKAGES+=(cloudflared)
 [ -x "$PREFIX/bin/dig" ] || NEEDED_PACKAGES+=(dnsutils)
+if [ "$CLOUDFLARED_MODE" = "native" ]; then
+  [ -x "$PREFIX/bin/cloudflared" ] || NEEDED_PACKAGES+=(cloudflared)
+fi
 if [ "${#NEEDED_PACKAGES[@]}" -gt 0 ]; then
   echo "[ANI ONLINE] Memasang dependensi Termux yang belum ada: ${NEEDED_PACKAGES[*]}"
   pkg install -y "${NEEDED_PACKAGES[@]}"
 fi
-[ -x "$PREFIX/bin/cloudflared" ] || { echo "[ANI ONLINE] cloudflared Termux belum tersedia."; exit 1; }
 [ -x "$PREFIX/bin/dig" ] || { echo "[ANI ONLINE] dnsutils/dig belum tersedia."; exit 1; }
-[ -r "$PREFIX/etc/resolv.conf" ] || { echo "[ANI ONLINE] Resolver Termux $PREFIX/etc/resolv.conf tidak dapat dibaca."; exit 1; }
+if [ "$CLOUDFLARED_MODE" = "native" ]; then
+  [ -x "$PREFIX/bin/cloudflared" ] || { echo "[ANI ONLINE] cloudflared Termux belum tersedia."; exit 1; }
+  [ -r "$PREFIX/etc/resolv.conf" ] || { echo "[ANI ONLINE] Resolver Termux $PREFIX/etc/resolv.conf tidak dapat dibaca."; exit 1; }
+else
+  [ -x "$PREFIX/bin/proot-distro" ] || { echo "[ANI ONLINE] PRoot-Distro belum tersedia. Jalankan setup-proot-cloudflared.sh."; exit 1; }
+  if ! "$PREFIX/bin/proot-distro" login "$PROOT_CONTAINER" -- /usr/local/bin/cloudflared --version >/dev/null 2>&1; then
+    echo "[ANI ONLINE] Cloudflared PRoot belum siap pada container $PROOT_CONTAINER."
+    echo "[ANI ONLINE] Jalankan setup-proot-cloudflared.sh terlebih dahulu."
+    exit 1
+  fi
+fi
 
 
 echo "[ANI ONLINE] Menguji DNS SRV Cloudflare melalui resolver Termux..."
@@ -104,14 +122,19 @@ refresh_registration() {
     -H "content-type: application/json" \
     --data-binary "{\"url\":\"$UPSTREAM\"}" >/dev/null
 }
+stop_tunnel() {
+  if [ -n "$TUNNEL_PID" ]; then
+    stop_tunnel
+  fi
+  if [ "$CLOUDFLARED_MODE" = "proot" ]; then
+    "$PREFIX/bin/proot-distro" kill "$PROOT_CONTAINER" >/dev/null 2>&1 || true
+  fi
+}
 cleanup() {
   if [ "$CLEANED_UP" -eq 1 ]; then return; fi
   CLEANED_UP=1
   STOPPING=1
-  if [ -n "$TUNNEL_PID" ]; then
-    kill "$TUNNEL_PID" 2>/dev/null || true
-    wait "$TUNNEL_PID" 2>/dev/null || true
-  fi
+  stop_tunnel
   curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
     -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
   rm -f "$PID_FILE"
@@ -122,14 +145,22 @@ trap cleanup EXIT INT TERM
 
 echo "[ANI ONLINE] Gateway HTTPS: $GATEWAY"
 echo "[ANI ONLINE] Port lokal tetap 127.0.0.1:8788; tunnel akan reconnect otomatis."
-echo "[ANI ONLINE] cloudflared dijalankan native dari paket Termux (tanpa proot/chroot)."
+if [ "$CLOUDFLARED_MODE" = "proot" ]; then
+  echo "[ANI ONLINE] Cloudflared berjalan di Linux PRoot $PROOT_CONTAINER; API dan PostgreSQL tetap native Termux."
+else
+  echo "[ANI ONLINE] Cloudflared dijalankan native dari paket Termux."
+fi
 echo "[ANI ONLINE] Biarkan Termux berjalan agar koneksi online tetap aktif."
 echo "[ANI ONLINE] Tekan CTRL+C untuk menghentikan tunnel saja."
 echo
 
 while [ "$STOPPING" -eq 0 ]; do
   : > "$TUNNEL_LOG"
-  "$PREFIX/bin/cloudflared" tunnel --url http://127.0.0.1:8788 >"$TUNNEL_LOG" 2>&1 &
+  if [ "$CLOUDFLARED_MODE" = "proot" ]; then
+    "$PREFIX/bin/proot-distro" login "$PROOT_CONTAINER" -- /usr/local/bin/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8788 >"$TUNNEL_LOG" 2>&1 &
+  else
+    "$PREFIX/bin/cloudflared" tunnel --no-autoupdate --url http://127.0.0.1:8788 >"$TUNNEL_LOG" 2>&1 &
+  fi
   TUNNEL_PID=$!
   echo "$TUNNEL_PID" > "$PID_FILE"
 
@@ -146,9 +177,7 @@ while [ "$STOPPING" -eq 0 ]; do
   if [ -z "$UPSTREAM" ]; then
     echo "[ANI ONLINE] URL tunnel belum muncul. Log:"
     tail -n 30 "$TUNNEL_LOG" || true
-    kill "$TUNNEL_PID" 2>/dev/null || true
-    wait "$TUNNEL_PID" 2>/dev/null || true
-    TUNNEL_PID=""
+    stop_tunnel
     sleep 10
     continue
   fi
@@ -160,9 +189,7 @@ while [ "$STOPPING" -eq 0 ]; do
       --data-binary "{\"url\":\"$UPSTREAM\"}"; then
     echo
     echo "[ANI ONLINE] Registrasi gagal. Tunnel akan dibuat ulang."
-    kill "$TUNNEL_PID" 2>/dev/null || true
-    wait "$TUNNEL_PID" 2>/dev/null || true
-    TUNNEL_PID=""
+    stop_tunnel
     sleep 10
     continue
   fi
@@ -171,9 +198,7 @@ while [ "$STOPPING" -eq 0 ]; do
   if ! curl -fsS --max-time 15 "$GATEWAY/_ani_gateway/health"; then
     echo
     echo "[ANI ONLINE] Gateway belum melaporkan upstream aktif. Tunnel akan dibuat ulang."
-    kill "$TUNNEL_PID" 2>/dev/null || true
-    wait "$TUNNEL_PID" 2>/dev/null || true
-    TUNNEL_PID=""
+    stop_tunnel
     curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
       -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
     sleep 10
@@ -222,8 +247,7 @@ while [ "$STOPPING" -eq 0 ]; do
       curl -fsS --max-time 8 -X POST "$GATEWAY/_ani_gateway/clear" \
         -H "Authorization: Bearer $ANI_EDGE_REGISTER_TOKEN" >/dev/null 2>&1 || true
     fi
-    wait "$TUNNEL_PID" 2>/dev/null || true
-    TUNNEL_PID=""
+    stop_tunnel
     sleep 5
     continue
   fi
