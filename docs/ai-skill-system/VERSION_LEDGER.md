@@ -6,14 +6,15 @@ Revalidate live repository refs and artifact metadata before every source/build 
 |---|---|---|---|---|---|
 | PC Billing DB Android | V12.4.8 | `pc-billing-v12.4.8-DB-Android` | `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19` | `f938c574dfbd17ab84b07ca940115a280d3f8d78` | Windows EXE; verify build metadata from current source |
 | PC Billing recovery — DB1 Direct | V12.4.9 | `recovery/pc-v12.4.9-db1-direct-20261114` | `bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19` | `0565a8a225793e8785ca17f9079a15b753a834f1` | Windows portable EXE; `com.anigames.billing.v12test`; legacy `productName` unchanged |
-| Admin DB Android | V12.1.50 | `admin-v12.1.50-DB-Android` | `9460e8dcbdbf69706408dd0507016cf0037ff153` | `3ebc8b1912aef13a4833f113c9e7a4914554b146` | versionCode 78; applicationId `com.anigames.billingadmin.v150` |
+| Admin DB Android source baseline | V12.1.50 | `admin-v12.1.50-DB-Android` | `9460e8dcbdbf69706408dd0507016cf0037ff153` | `3ebc8b1912aef13a4833f113c9e7a4914554b146` | Historical isolated baseline; versionCode 78; applicationId `com.anigames.billingadmin.v150` |
+| Admin DB Android staging candidate | V12.1.53 | `fix/admin-db-android-clean-single-db-v1.53` | `8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5` | `1177b018725822a671fe3a2b9b9facedf75240b7` | versionCode 81; applicationId `com.anigames.billingadmin.v150db`; device acceptance pending |
 | Reseller DB Android | V1.0.6 | `reseller-v1.0.6-DB-Android` | `a67c2f6318230671a7d7776bf6040c39bca6ff97` | `62e14e8caea62c50269cd62f4122efeed19e8731` | versionCode 136; applicationId must be re-read from source/build |
 | Redmi DB Android standalone server/API | API/schema v1 | `backend/db-android-core-v1` | PC DB Android baseline `f938c574dfbd17ab84b07ca940115a280d3f8d78` | `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9` | Termux Node API + PostgreSQL schema 000,002–011; device install validation pending |
 | Redmi DB Android API contract hotfix | server hotfix 2026-11-16 | `fix/db-android-core-api-contracts-20261116` | backend baseline `d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9` | `85a8be9534f5739f732c6ee6f25b4b8225eaf5f3` | Server-only patch; no database schema change |
 
 ## Build workflow caveats
 - PC V12.4.8 workflow push trigger is the original `fix/pc-v12.4.8-timer-size-sync` branch, not the DB Android branch.
-- Admin V12.1.50 workflow remains Supabase/dual-DB and excludes `admin-v12.1.50-DB-Android` from automatic push.
+- The legacy Admin V12.1.50 workflow remains Supabase/dual-DB and is not the Redmi installer. The dedicated V12.1.53 workflow now triggers only on `fix/admin-db-android-clean-single-db-v1.53`.
 - Reseller V1.0.6 workflow remains Supabase DB1/DB2 and excludes `reseller-v1.0.6-DB-Android` from automatic push.
 - No APK/EXE was built, downloaded or verified during the 2026-11-14 activation audit.
 
@@ -34,14 +35,14 @@ Revalidate live repository refs and artifact metadata before every source/build 
 - Master and backend baseline were not modified; the fix branch remains separate.
 
 ## Artifact ledger
-No new APK/EXE artifact was produced. The infrastructure helper artifact above is separate from application releases; Redmi runtime acceptance is still pending.
+Admin DB Android V12.1.53 APK is now built and verified as a staging/debug-signed candidate; its artifact details are recorded below. Device-side login and feature acceptance remain pending.
 
  
 ## 2026-11-16 — Current Admin login/global gateway work candidates (not released)
 
 | Track | Repository | Branch | Current head | Base comparison | Package / status |
 |---|---|---|---|---|---|
-| Admin DB Android login repair | anigamesready/Admin-Ani-Games | fix/admin-db-android-login-gate-v1.51 | 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5 | admin-v12.1.50-DB-Android at 3ebc8b1912aef13a4833f113c9e7a4914554b146; 5 ahead, 0 behind | Candidate V12.1.51; versionCode 79; applicationId com.anigames.billingadmin.v150db; no verified APK artifact yet |
+| Admin DB Android clean single-DB candidate | anigamesready/Admin-Ani-Games | fix/admin-db-android-clean-single-db-v1.53 | 1177b018725822a671fe3a2b9b9facedf75240b7 | fix/admin-db-android-login-gate-v1.51 at 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5; 10 ahead, 0 behind | V12.1.53; versionCode 81; applicationId com.anigames.billingadmin.v150db; CI run 43879706639 SUCCESS; valid APK artifact 14231274085; install/login acceptance pending |
 | DB Android global-access gateway | anigamesready/PC-Billing | infra/db-android-cloudflare-global-stage-20261116 | 8c39f86410a3cd6b0ce3521029e689d63984752e | fix/db-android-core-api-contracts-20261116 at f16d97a3dfd96f2f3598396976c3ee5d63c60e6d; 10 ahead, 0 behind | Source/CI candidate only; no verified Termux ZIP or Redmi runtime success yet |
 
 - The old infra/db-android-cloudflare-gateway-stage branch at d1c8a4dde3ec791e29e41a32604dd15c20de14b8 is divergent from the API fix branch (49 ahead/17 behind) and must not be used as a direct install source.
@@ -60,4 +61,19 @@ No new APK/EXE artifact was produced. The infrastructure helper artifact above i
 - GitHub Actions: run 43831355655, conclusion SUCCESS.
 - Local verification: worker/agent Node syntax PASS; 12/12 Worker/relay regression tests PASS; 3 Bash scripts syntax PASS.
 - Redmi final Termux ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip, size 11,437 bytes, SHA-256 e7b448b678819b3d811c3503dfdb04d90e1b7dbb54be98f9caad836acd633a95.
-- No app/APK version applies. No Admin APK built or changed. Worker secret, Redmi agent installation, live /health, API end-to-end, Wi-Fi/cellular login and 24-hour tests remain pending.
+- Admin DB Android V12.1.53 now uses this Worker URL as its default gateway. User-reported Redmi health shows agent/Worker/API 8788/PostgreSQL online. Auth with valid Admin credentials, all live RPC/device route tests, Wi-Fi/cellular and 24-hour reliability remain pending.
+
+## Admin DB Android V12.1.53 artifact ledger — 2026-11-16
+
+- Repository: anigamesready/Admin-Ani-Games.
+- Work branch: fix/admin-db-android-clean-single-db-v1.53.
+- Work branch HEAD: 1177b018725822a671fe3a2b9b9facedf75240b7.
+- Baseline: fix/admin-db-android-login-gate-v1.51 at 8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5; 10 commits ahead, 0 behind.
+- Workflow: .github/workflows/build-db-android-admin-apk.yml; only this branch is in the push trigger.
+- GitHub Actions run 43879706639 — SUCCESS.
+- Artifact ID 14231274085; archive AniGames-Admin-DB-Android-v12.1.53; 1,295,700 bytes; SHA-256 447a2c825ab8d0dd980f4ee74fece7823552f4a59ea3b1e85275d5931607e72a.
+- Main APK: AniGames-Admin-DB-Android-V12.1.53.apk; 734,881 bytes; SHA-256 3c436460229450b66cdd72752fc65c9d2a2a39e428cc156da0017cc0253dea28; versionName 12.1.53; versionCode 81; applicationId com.anigames.billingadmin.v150db.
+- Safe-test APK: AniGames-Admin-DB-Android-V12.1.53-SAFE-TEST.apk; 734,889 bytes; SHA-256 8e0cb141d634dcd9d9a79cc58eee1fa89ababfebb2c607f5f57d2f716882ea38; applicationId com.anigames.billingadmin.v150dbtest.
+- Both are CI debug-signed with APK Signature Scheme v2; not production release-signed.
+- APK integrity, identity, single-DB cleanup, three page JS syntax, key Admin markers and separate WoL sidecar static checks passed.
+- Fresh device install, valid Admin login, role/org, Admin CRUD, PC commands/ack, exports/reports and WoL functional smoke tests remain open.
