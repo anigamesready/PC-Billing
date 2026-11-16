@@ -1,0 +1,33 @@
+name: Test Ani Games Ready DB Android WebSocket Relay Stage
+
+on:
+  push:
+    branches:
+      - infra/db-android-ws-relay-stage-20261116
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relay-stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Worker syntax and regression tests
+        run: |
+          node --check db-android-core/ws-relay-stage/worker.mjs
+          node --test db-android-core/ws-relay-stage/worker.test.mjs
+      - name: Secret scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE 'ANI_EDGE_PROXY_SECRET=[a-f0-9]{64}|sb_secret_[A-Za-z0-9_-]{20,}|service_role[_-]key|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' db-android-core/ws-relay-stage; then
+            echo "Potential credential found in source."
+            exit 1
+          fi
+          echo "PASS: no known secret patterns."
