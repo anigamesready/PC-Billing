@@ -147,3 +147,18 @@
 - Worker secret creation via the Cloudflare automation tool was blocked; no bypass was attempted. Secret must be entered by the user through Cloudflare Dashboard. No secret values are recorded in state.
 - Final Termux ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip, SHA-256 e7b448b678819b3d811c3503dfdb04d90e1b7dbb54be98f9caad836acd633a95; source ZIP SHA-256 f67826e2031772d312d909758d552d517fb05cc6a3b5f36dd9051333c2cac1b2.
 - Runtime boundaries unchanged: local API stays loopback 8788; PostgreSQL loopback 5432; main API 8787, production data, Supabase DB1/DB2 and Blynk/WoL relay are untouched. No SQL schema change or migration was executed. No Admin APK was changed.
+
+ 
+## Admin DB Android V12.1.53 — 2026-11-16
+
+- Current isolated Admin candidate: V12.1.53, branch `fix/admin-db-android-clean-single-db-v1.53`, head `1177b018725822a671fe3a2b9b9facedf75240b7`.
+- Source lineage: the V12.1.51 login-gate candidate `8d0c241ac86ca53b9a6c2a4a76720169a0e1aee5`, itself 5 commits ahead of V12.1.50 DB Android source head `3ebc8b1912aef13a4833f113c9e7a4914554b146). V12.1.53 is 10 commits ahead / 0 behind the V12.1.51 baseline.
+- V12.1.53 makes the dedicated Redmi HTTPS Worker URL the default for Admin and Billing Control login and physically removes the legacy DB1/DB2 selector/sync/route-control UI/state from the Admin page.
+- Remaining Supabase client uses explicitly named `RELAY_SUPABASE_*` values only for the separate Blynk/WoL relay sidecar. Admin rental/auth/device/report paths use the local DB Android API. No `sb.from(` table reads remain in Admin UI.
+- Core static feature checks passed for Admin auth/context, device list, global rental CRUD, PC command/status, detailed/monthly/period reports and theme save. Three WebView JavaScript syntax checks passed.
+- GitHub Actions run `43879706639` completed SUCCESS. Main APK and safe-test APK compiled, both v2 signature verified. Main package: `com.anigames.billingadmin.v150db`, versionCode 81, V12.1.53. Safe package: `com.anigames.billingadmin.v150dbtest`.
+- Main APK SHA-256: `3c436460229450b66cdd72752fc65c9d2a2a39e428cc156da0017cc0253dea28`; artifact ZIP SHA-256: `447a2c825ab8d0dd980f4ee74fece7823552f4a59ea3b1e85275d5931607e72a`; artifact ID 14231274085.
+- This is a CI debug-signed staging candidate, not a production-key-signed release.
+- Latest user-provided runtime check before the build showed Worker relay/agent, API staging port 8788 and PostgreSQL online; old port 8787 was closed separately. No server process, .env, schema/data, PostgreSQL or WoL relay was altered by the APK build.
+- Device acceptance is still pending: install, login with a valid Admin account, token refresh/logout, dashboard, role/org guards, Admin rental operations, PC commands/ack, reports/exports and independent WoL operations over Wi-Fi/cellular. Empty-body login probe had returned 401 INVALID_CREDENTIALS; no valid credential test has been performed.
+- Prior stable Admin package and master branches remain untouched; V12.1.53 uses a separate applicationId and can be installed alongside the stable Admin app.
