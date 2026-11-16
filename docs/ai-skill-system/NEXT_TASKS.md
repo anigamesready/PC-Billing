@@ -76,3 +76,40 @@
 - all three clients pass relevant regression tests;
 - artifact provenance is recorded;
 - production cutover has separate explicit approval and rollback plan.
+
+ 
+## Priority 0 — Admin login + DB Android global access (target: Sunday 2026-11-22)
+
+### Verified so far
+- [x] Capture the user's Admin screenshot and identify the configured endpoint 127.0.0.1:8788 plus Failed to fetch before login.
+- [x] Confirm the latest Admin candidate branch and reject the divergent login-click branch.
+- [x] Audit the deployed Cloudflare Worker, secret binding names, KV namespace and current upstream state without reading secret values.
+- [x] Confirm that the Worker is deployed but its Redmi upstream KV key is absent; no named Cloudflare Tunnel or zone is configured in this account.
+- [x] Create an isolated gateway branch based on current API-fix branch, not the diverged old gateway branch.
+- [x] Add Admin API fetch diagnostic/preflight-reduction patch and connect it to the dedicated V12.1.51 build workflow.
+- [x] Record the 2026-11-22 target and acceptance matrix in project state.
+
+### Still required — complete in this order
+- [ ] Verify GitHub Actions status for Admin V12.1.51 and gateway branch; fetch logs and artifacts. Do not install an APK unless version/package/commit/checksum are verified.
+- [ ] Run static regression on the Admin patch against the actual extracted source pages; validate JavaScript in all three Admin WebViews and Android manifest/network security policy.
+- [ ] Review MainActivity.java WebView origin policy. Confirm the app actually presents the expected Origin: null; the Worker rejects any non-opaque browser origin. Adjust only through a narrow, tested origin policy if needed.
+- [ ] Build final AniGames-Admin-DB-Android-V12.1.51.apk on the dedicated workflow, verify package ID com.anigames.billingadmin.v150db, versionCode 79, signature, size, commit provenance and SHA-256.
+- [ ] User installs/replaces the APK on Android while keeping the prior Admin APK as rollback; test server health, Admin username/password login, token refresh, dashboard load, Admin Billing User CRUD and role boundary.
+- [ ] Recheck Redmi Termux stage API/DB using a sanitized health response. If the API is down, use only the existing stage start/stop scripts and verify port 8787 remains untouched.
+- [ ] Complete the gateway branch CI, including worker tests, clean API patch, synthetic Redmi-local additions (net import and ANI_EDGE_PROXY_SECRET), idempotence, Node syntax, shell syntax and runner smoke test. Fix failures before packaging.
+- [ ] Build a secret-free Termux gateway ZIP from the verified gateway branch. Confirm exact ZIP filename, contents, README commands, checksums, no .env, token, password, private key or DB data.
+- [ ] On Redmi only, verify presence of required gateway secret variable names without printing their values. If they are absent/mismatched, configure them privately using the package instructions; never paste secrets into chat or GitHub.
+- [ ] Apply gateway configuration to ~/ani-games-db-android-stage only after CI/artifact checks. Require timestamped backups of .env and server.mjs, verify API remains 127.0.0.1:8788, then restart only the staging API if needed.
+- [ ] Start the Quick Tunnel runner; verify Worker registry health and public /health returns HTTP 200 with both api:online and database:online. Current upstream is absent, so public access remains offline until this passes.
+- [ ] Enter the HTTPS Worker URL in the Admin APK Server Address. Test login from cellular data and Wi-Fi (the same HTTPS gateway works over either internet connection after the origin tunnel is active).
+- [ ] Add separate direct LAN access only if required: design a private-LAN listener and explicit ANI_ALLOWED_ORIGINS/host checks independently. Never use an unreviewed 0.0.0.0 bind or expose PostgreSQL 5432.
+- [ ] Test 24-hour operational behavior: screen off, Doze/battery restrictions, network handover, Termux process recovery, phone reboot, runner reconnect, Worker upstream expiry/refresh. Record real results; don't promise 24/7 from an Android phone until these pass.
+- [ ] Test failure/rollback: stop tunnel (only tunnel), verify API local health persists, restore last server file/.env backups if patch failure occurs, and prove port 8787/DB data/WoL relay are unchanged.
+- [ ] Final acceptance report: Admin login success, HTTPS public health, mobile-network login, Wi-Fi test, role/RPC checks, hashes and rollback proof.
+
+### Hard safety gates
+- [ ] Never expose TCP 5432 or database credentials.
+- [ ] Never set API bind to 0.0.0.0 just to get login working.
+- [ ] Do not edit/stop main service port 8787, production DB, Supabase DB1/DB2 or Blynk/WoL relay.
+- [ ] No SQL migration, data reset, initdb, restore or destructive sync in this task.
+- [ ] Mark done only after the device acceptance tests above pass; GitHub CI alone is not runtime acceptance.
