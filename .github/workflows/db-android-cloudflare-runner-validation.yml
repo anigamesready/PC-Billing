@@ -1,0 +1,43 @@
+name: DB Android Cloudflare Runner Validation
+
+on:
+  push:
+    branches:
+      - infra/db-android-cloudflare-global-stage-20261116
+    paths:
+      - "db-android-core/cloudflare-gateway-stage/*.sh"
+      - "db-android-core/cloudflare-gateway-stage/*.py"
+      - ".github/workflows/db-android-cloudflare-runner-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isolated DB Android branch
+        uses: actions/checkout@v4
+        with:
+          ref: infra/db-android-cloudflare-global-stage-20261116
+      - name: Validate Termux shell scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
+          bash -n db-android-core/cloudflare-gateway-stage/start-online-proot.sh
+          bash -n db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh
+          bash -n db-android-core/stop-stage.sh
+          echo "PASS: all changed shell scripts parse."
+      - name: Check runner safety anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'ANI_BIND' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          grep -Fq '127.0.0.1' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          ! grep -Eq '0\.0\.0\.0' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          grep -Fq 'API local dan port 8787 tidak disentuh' db-android-core/cloudflare-gateway-stage/start-online.sh
+          grep -Fq 'proot-distro kill "$PROOT_CONTAINER"' db-android-core/cloudflare-gateway-stage/start-online.sh
+          ! grep -Eq 'stop_tunnel[[:space:]]*$' <(sed -n '/^stop_tunnel\(\) {/,/^}/p' db-android-core/cloudflare-gateway-stage/start-online.sh | sed '1d;$d')
+          echo "PASS: loopback, port isolation and cleanup safety anchors verified."
