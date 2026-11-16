@@ -126,3 +126,15 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 - The app defaults to the dedicated HTTPS Worker URL `https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev` on Admin, login and Billing Control pages. Manual API URL override remains. No local `127.0.0.1:8787` or `:8788` default is shipped.
 - This is an isolated staging/debug-signed APK. Stable Admin, main branch, Redmi server/database/schema, port 8787, Supabase runtime and Blynk/WoL relay were not changed by the APK build.
 - Device-side install, valid credential login, Admin CRUD/PC commands/reports/WoL end-to-end, Wi-Fi/cellular and 24-hour acceptance remain pending. User-reported health at the last Termux check showed the WSS agent, Worker, stage API 8788 and PostgreSQL online; port 8787 was separately closed. Do not mark the APK operationally accepted until device tests pass.
+
+
+## Live GitHub verification — 2026-11-16: DB Android Owner bootstrap recovery
+
+- Source baseline: `infra/db-android-ws-relay-stage-20261116` at `d86e7ecfa82d7af29bb53d067a316984b1fef69b`.
+- Isolated work branch: `fix/db-android-stage-bootstrap-recovery-20261116`; current head `8ac5491a5f7ca81a6af85256ce5a2a815a888adc`, 5 commits ahead / 0 behind the source baseline.
+- Changed files on the recovery branch: `db-android-core/repair-stage-bootstrap.sh`, `db-android-core/tests/repair-stage-bootstrap.test.sh`, `.github/workflows/test-db-android-stage-bootstrap-recovery.yml`, and `db-android-core/BOOTSTRAP-RECOVERY-ID.md`.
+- Leading cause: the original stage installer seeds the singleton token-hash row using `ON CONFLICT DO NOTHING`. A pre-existing stale row can therefore remain inconsistent with the token in the local stage `.env`; SQL then rejects Owner setup even while GET `/setup` returns 200. This is the leading source-based diagnosis, not yet a confirmed live-row observation from Redmi.
+- Recovery helper verifies localhost API/DB health, stage PID/CWD, local env and bootstrap state. It updates only the token hash while bootstrap remains unconsumed and no active SUPER_ADMIN exists. It refuses if Owner exists or bootstrap was already consumed. It uses an invalid-input POST probe to prove the bootstrap gate without creating an account.
+- GitHub Actions run `43896105470` SUCCESS; branch helper syntax, regression guard cases and safety-pattern scan passed. Latest README commit followed the tested helper commit without changing executable code.
+- Secret-free Termux package SHA-256: `374b6b49b45f7cb706f069ca1467a9810a66483a1d8767bf228c93046e386287`; archive integrity check passed.
+- On-device helper run, actual Owner creation, valid Admin login, and Admin functional acceptance are pending. Keep API loopback-only and PostgreSQL private. Main port 8787, Supabase DB1/DB2 and Blynk/WoL remain untouched.
