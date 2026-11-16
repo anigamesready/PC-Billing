@@ -77,3 +77,17 @@ Admin DB Android V12.1.53 APK is now built and verified as a staging/debug-signe
 - Both are CI debug-signed with APK Signature Scheme v2; not production release-signed.
 - APK integrity, identity, single-DB cleanup, three page JS syntax, key Admin markers and separate WoL sidecar static checks passed.
 - Fresh device install, valid Admin login, role/org, Admin CRUD, PC commands/ack, exports/reports and WoL functional smoke tests remain open.
+
+
+## DB Android Owner bootstrap recovery helper — 2026-11-16
+
+- Repository: `anigamesready/PC-Billing`.
+- Base branch/commit: `infra/db-android-ws-relay-stage-20261116` / `d86e7ecfa82d7af29bb53d067a316984b1fef69b`.
+- Isolated work branch: `fix/db-android-stage-bootstrap-recovery-20261116`; final branch HEAD `8ac5491a5f7ca81a6af85256ce5a2a815a888adc`; 5 ahead / 0 behind.
+- Helper source: `db-android-core/repair-stage-bootstrap.sh`; current blob SHA `ea15fce579e5acb0ea5feae60186633b3904cd98`.
+- Guide: `db-android-core/BOOTSTRAP-RECOVERY-ID.md`; current blob SHA `b096a4d2d6ece290caf309a8aad49da8132af658`.
+- Regression script: `db-android-core/tests/repair-stage-bootstrap.test.sh`; CI workflow: `.github/workflows/test-db-android-stage-bootstrap-recovery.yml`.
+- GitHub Actions run `43896105470`, conclusion SUCCESS at helper hardening commit `91618fc083c202e08da41549ab3e0c830ee6d013`. Shell syntax, four mocked safety cases and destructive-command/secret-pattern scan passed.
+- Final package: `ANI-GAMES-READY-DB-ANDROID-BOOTSTRAP-RECOVERY-20261116.zip`; 4 files; ZIP integrity PASS; SHA-256 `374b6b49b45f7cb706f069ca1467a9810a66483a1d8767bf228c93046e386287`.
+- Per-file SHA-256: helper `fd45df4267be06318ac4b261d964a5de16129a123fb777bb28a1129365b40e75`; README `b300a55d82d10a5b4bd8c63c06efd36246dd2ba7ad35f6763dd4c5d5479bcaf6`; regression test `610f9dc087cf221620f57d16058d651f16d38ccea3f107da73056f94ec722ecf`.
+- Status: source/CI/package complete; Redmi helper execution, Owner creation and V12.1.53 login acceptance pending. This is a staging repair utility, not an application release.
