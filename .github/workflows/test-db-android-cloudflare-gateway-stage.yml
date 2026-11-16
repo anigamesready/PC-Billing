@@ -50,11 +50,11 @@ jobs:
           crypto = 'import crypto from "node:crypto";'
           if s.count(crypto) != 1:
               raise SystemExit("Synthetic fixture crypto import anchor mismatch")
-          s = s.replace(crypto, crypto + '\\nimport net from "node:net";', 1)
+          s = s.replace(crypto, crypto + '\nimport net from "node:net";', 1)
           bootstrap = 'const BOOTSTRAP_TOKEN = process.env.ANI_ADMIN_BOOTSTRAP_TOKEN || "";'
           if s.count(bootstrap) != 1:
               raise SystemExit("Synthetic fixture bootstrap anchor mismatch")
-          s = s.replace(bootstrap, bootstrap + "\\nconst EDGE_PROXY_SECRET = process.env.ANI_EDGE_PROXY_SECRET || '';", 1)
+          s = s.replace(bootstrap, bootstrap + "\nconst EDGE_PROXY_SECRET = process.env.ANI_EDGE_PROXY_SECRET || '';", 1)
           p.write_text(s, encoding="utf-8")
           PY
           python3 db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py /tmp/ani-stage-local/server
