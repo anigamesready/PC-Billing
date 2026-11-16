@@ -71,6 +71,8 @@ jobs:
           set -euo pipefail
           bash -n db-android-core/cloudflare-gateway-stage/configure-online.sh
           bash -n db-android-core/cloudflare-gateway-stage/start-online.sh
+          bash -n db-android-core/cloudflare-gateway-stage/start-online-proot.sh
+          bash -n db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh
           bash -n db-android-core/cloudflare-gateway-stage/runner-smoke.sh
           bash db-android-core/cloudflare-gateway-stage/runner-smoke.sh
           grep -Fq 'API_SOURCE_PATCH_APPLIED' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
@@ -92,6 +94,9 @@ jobs:
           cp db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/configure-online.sh "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/start-online.sh "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/start-online-proot.sh "$OUT/"
+          cp db-android-core/cloudflare-gateway-stage/DEPLOYMENT.md "$OUT/"
           cat > "$OUT/README-ID.txt" <<'EOF'
           ANI GAMES READY — DB ANDROID HTTPS STAGE GATEWAY
           This is a staging gateway, not a production 24/7 guarantee.
@@ -100,8 +105,11 @@ jobs:
           idle-pool handling and safe SQLSTATE startup diagnostics, then safely restarts
           only the PID-tracked staging API if changed.
           The API remains loopback-only at 127.0.0.1:8788; no unknown process is killed.
-          The runner installs native Termux cloudflared/dnsutils packages if missing,
-          runs cloudflared directly (no proot/chroot), tests Cloudflare SRV DNS, and checks public /health.
+          Native Termux cloudflared remains the default.
+          When Android Go DNS resolves to [::1]:53, the optional rootless PRoot fallback
+          runs only cloudflared in Debian; PostgreSQL and Node API remain native Termux.
+          setup-proot-cloudflared.sh verifies the official Cloudflared release SHA-256.
+          The runner tests Cloudflare SRV DNS, registers Quick Tunnel upstream, and checks public /health.
           It retains a slow tunnel during health retries and prints HTTP failure details.
           The Cloudflare Worker proxies only health/auth/RPC/device API routes.
           /setup and /api/admin/bootstrap are denied publicly.
