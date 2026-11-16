@@ -73,6 +73,22 @@ else
   fi
 fi
 
+if [ "$CLOUDFLARED_MODE" = "proot" ]; then
+  echo "[ANI ONLINE] Menguji akses Linux guest ke API Termux 127.0.0.1:8788..."
+  GUEST_LOCAL_HEALTH="$("$PREFIX/bin/proot-distro" login "$PROOT_CONTAINER" -- \
+    /usr/bin/curl -fsS --connect-timeout 3 --max-time 5 \
+    http://127.0.0.1:8788/health 2>/dev/null || true)"
+  if ! printf '%s' "$GUEST_LOCAL_HEALTH" | \
+      grep -Eq '"api"[[:space:]]*:[[:space:]]*"online"' || \
+      ! printf '%s' "$GUEST_LOCAL_HEALTH" | \
+      grep -Eq '"database"[[:space:]]*:[[:space:]]*"online"'; then
+    echo "[ANI ONLINE] STOP: Linux guest belum dapat membaca API/DB Termux di 127.0.0.1:8788."
+    printf '%s\\n' "${GUEST_LOCAL_HEALTH:-respons kosong}"
+    echo "[ANI ONLINE] API dan PostgreSQL tidak diubah; tunnel tidak dijalankan."
+    exit 1
+  fi
+  echo "[ANI ONLINE] PASS: Linux guest terhubung ke API dan database Termux."
+fi
 
 echo "[ANI ONLINE] Menguji DNS SRV Cloudflare melalui resolver Termux..."
 DNS_OK=0
