@@ -9,8 +9,7 @@
 - Current work branch head at source handover: 7aed650a0705e20302719012fd440f4c245622d6
 - Worker: ani-games-db-android-stage-ws-relay at https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev
 - Durable Object: RelayHub, SQLite namespace d3deb95247764649a63e05aa94962c45.
-- Local installer ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip, SHA-256 fc7a65e2899fd6a16fd274a61b3c65269ba6ca2ec353e3d24c39be35d70d4b4f.
-- Source ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-SOURCE.zip, SHA-256 f67826e2031772d312d909758d552d517fb05cc6a3b5f36dd9051333c2cac1b2.
+- Local final Termux ZIP: ANI-GAMES-READY-DB-ANDROID-WS-RELAY-TERMUX-FINAL.zip, SHA-256 e7b448b678819b3d811c3503dfdb04d90e1b7dbb54be98f9caad836acd633a95.
 
 ## What was inspected
 - Current repository source lineage and branch head of gateway/API hotfix stage.
