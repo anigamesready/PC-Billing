@@ -30,6 +30,6 @@ Durable Object: `RelayHub` (SQLite), namespace terpisah.
 ## Installer Redmi
 Paket instalasi Android disediakan terpisah dalam artifact percakapan bernama:
 `ANI-GAMES-READY-DB-ANDROID-WS-RELAY-STAGE-INSTALLER.zip`.
-Installer hanya memasang agent dan script kontrol, membuat backup .env lalu menambahkan `ANI_DB_RELAY_URL`. API dan PostgreSQL tidak direstart.
+Installer memasang agent dan script kontrol, membuat backup timestamp `.env`, memverifikasi `ANI_EDGE_PROXY_SECRET` yang sudah ada, membuat salinan sementara rahasia itu dengan izin file privat untuk dimasukkan manual ke Worker sebagai `RELAY_SHARED_SECRET`, lalu menambahkan atau memperbarui hanya `ANI_DB_RELAY_URL`. Nilai secret di `.env` tidak diganti; API dan PostgreSQL tidak direstart.
 
 Status implementasi: Worker telah terpasang; agent Redmi dan secret Worker belum dikonfigurasi, sehingga relay belum diklaim online.
