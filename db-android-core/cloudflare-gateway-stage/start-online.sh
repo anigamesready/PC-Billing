@@ -137,7 +137,7 @@ while [ "$STOPPING" -eq 0 ]; do
   for _ in $(seq 1 60); do
     # Accept only an issued Quick Tunnel hostname (random label is 8-63 chars).
     # Do not mistake Cloudflare's API endpoint api.trycloudflare.com for an upstream.
-    UPSTREAM="$(grep -Eo 'https://[a-zA-Z0-9-]{8,63}\\.trycloudflare\\.com' "$TUNNEL_LOG" | tail -n 1 || true)"
+    UPSTREAM="$(grep -Eo 'https://[a-zA-Z0-9-]{8,63}\.trycloudflare\.com' "$TUNNEL_LOG" | tail -n 1 || true)"
     [ -n "$UPSTREAM" ] && break
     kill -0 "$TUNNEL_PID" 2>/dev/null || break
     sleep 1
