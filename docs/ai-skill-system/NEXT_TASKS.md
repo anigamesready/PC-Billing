@@ -128,7 +128,7 @@
 - [x] Create isolated branch infra/db-android-ws-relay-stage-20261116 from verified gateway stage parent 388fe1808a32ac13ffeeeae6fff49cbef8e7f177.
 - [x] Implement outbound Node.js WSS relay agent and Worker/SQLite Durable Object hub; keep API 8788 and PostgreSQL 5432 loopback-only.
 - [x] Deploy new Worker and SQLite DO namespace; enable workers.dev and disable previews.
-- [x] Run local 12-test regression suite and syntax checks; GitHub CI run 43829292289 PASS.
+- [x] Run local 12-test regression suite and syntax checks; GitHub CI run 43831355655 PASS.
 - [x] Prepare secret-free Redmi installer/source archives.
 
 ### Remaining — do not skip
