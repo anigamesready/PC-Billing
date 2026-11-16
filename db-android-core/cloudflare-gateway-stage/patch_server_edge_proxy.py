@@ -18,7 +18,7 @@ pool_marker = "ANI-DB-ANDROID-PG-POOL-ERROR-HANDLER-V1"
 if edge_marker not in source:
     # A previous local patch may already have added these declarations without
     # installing the full edge-trust marker. Reuse them instead of duplicating
-    # Python-injected JavaScript imports/constants.
+    # JavaScript imports/constants.
     net_import = 'import net from "node:net";'
     net_count = source.count(net_import)
     if net_count > 1:
@@ -27,21 +27,21 @@ if edge_marker not in source:
         crypto_import = 'import crypto from "node:crypto";'
         if source.count(crypto_import) != 1:
             raise SystemExit("NODE_CRYPTO_IMPORT_ANCHOR_MISMATCH")
-        source = source.replace(crypto_import, crypto_import + "\\n" + net_import, 1)
+        source = source.replace(crypto_import, crypto_import + "\n" + net_import, 1)
 
     secret_decl = "const EDGE_PROXY_SECRET = process.env.ANI_EDGE_PROXY_SECRET || '';"
-    existing_secret_decls = re.findall(r"(?m)^const\\s+EDGE_PROXY_SECRET\\s*=.*?;\\s*$", source)
+    existing_secret_decls = re.findall(r"(?m)^const\s+EDGE_PROXY_SECRET\s*=.*?;\s*$", source)
     if len(existing_secret_decls) > 1:
         raise SystemExit("DUPLICATE_EDGE_PROXY_SECRET_DECLARATION")
     if len(existing_secret_decls) == 0:
         anchor = 'const BOOTSTRAP_TOKEN = process.env.ANI_ADMIN_BOOTSTRAP_TOKEN || "";'
         if source.count(anchor) != 1:
             raise SystemExit("BOOTSTRAP_CONFIG_ANCHOR_MISMATCH")
-        source = source.replace(anchor, anchor + "\\n" + secret_decl, 1)
+        source = source.replace(anchor, anchor + "\n" + secret_decl, 1)
     elif "process.env.ANI_EDGE_PROXY_SECRET" not in existing_secret_decls[0]:
         raise SystemExit("EXISTING_EDGE_PROXY_SECRET_SOURCE_MISMATCH")
 
-    new_ip = r\"\"\"// ANI-DB-ANDROID-CLOUDFLARE-EDGE-TRUST-V1
+    new_ip = r"""// ANI-DB-ANDROID-CLOUDFLARE-EDGE-TRUST-V1
 function clientIp(req) {
   const remote = String(req.socket.remoteAddress || "unknown").replace(/^::ffff:/, "").slice(0, 128);
   const remoteIsLoopback = ["127.0.0.1", "::1", "localhost"].includes(remote);
@@ -55,9 +55,9 @@ function clientIp(req) {
   }
   // Ignore X-Forwarded-For and all unverified forwarding headers.
   return remote;
-}\"\"\"
+}"""
     source, count = re.subn(
-        r'function clientIp\\(req\\) \\{.*?\\n\\}',
+        r'function clientIp\(req\) \{.*?\n\}',
         new_ip,
         source,
         count=1,
@@ -66,7 +66,7 @@ function clientIp(req) {
     if count != 1:
         raise SystemExit("CLIENT_IP_FUNCTION_PATCH_FAILED")
 
-    bootstrap_fn = r\"\"\"function localBootstrapRequestAllowed(req) {
+    bootstrap_fn = r"""function localBootstrapRequestAllowed(req) {
   const remote = String(req.socket.remoteAddress || "").replace(/^::ffff:/, "");
   const fromLoopback = isLoopback && ["127.0.0.1", "::1", "localhost"].includes(remote);
   const hasEdgeIdentity = Boolean(
@@ -75,15 +75,15 @@ function clientIp(req) {
     req.headers["cf-connecting-ip"]
   );
   return fromLoopback && !hasEdgeIdentity;
-}\"\"\"
+}"""
     existing_bootstrap = re.findall(
-        r"(?ms)^function localBootstrapRequestAllowed\\(req\\) \\{.*?^\\}",
+        r"(?ms)^function localBootstrapRequestAllowed\(req\) \{.*?^\}",
         source
     )
     if len(existing_bootstrap) == 0:
         if source.count(new_ip) != 1:
             raise SystemExit("EDGE_CLIENT_IP_PATCH_RESULT_NOT_UNIQUE")
-        source = source.replace(new_ip, new_ip + "\\n" + bootstrap_fn, 1)
+        source = source.replace(new_ip, new_ip + "\n" + bootstrap_fn, 1)
     elif len(existing_bootstrap) == 1:
         existing = existing_bootstrap[0]
         if not all(x in existing for x in (
