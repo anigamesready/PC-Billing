@@ -174,3 +174,28 @@ The V12.1.53 branch supersedes the earlier V12.1.51/V12.1.52 APK candidates. Do 
 - [ ] Do not merge the branch or distribute as a production-signed release without separate release-signing/build approval.
 - [ ] Do not change the Redmi .env, DB schema/data, PostgreSQL, port 8787, production Supabase routes or WoL relay during APK acceptance.
 - [ ] No SQL migration, initdb, restore, reset, destructive sync or public PostgreSQL exposure.
+
+
+## Priority 0 — Complete Redmi DB Android Owner bootstrap after ADMIN_BOOTSTRAP_DENIED
+
+### Completed in source/CI
+- [x] Read the current stage API handler, installer, SQL bootstrap function and related runtime guard scripts on the exact active relay branch.
+- [x] Identify the source-level failure path: bootstrap SQL rejects a missing, consumed or stale singleton token hash; installer seed uses `ON CONFLICT DO NOTHING` and cannot repair an old hash.
+- [x] Create isolated branch `fix/db-android-stage-bootstrap-recovery-20261116` from the current relay stage head; preserve master and original relay branch.
+- [x] Add guarded Termux helper that validates local staging identity, no active Owner, unconsumed bootstrap, current PID/health, repairs only the safe token hash and proves POST acceptance with intentionally invalid input.
+- [x] Add four mocked safety regression cases, Bash syntax/security checks and pass GitHub Actions run 43896105470.
+- [x] Package helper, Indonesian instructions, tests and checksums; verify ZIP integrity and SHA-256.
+
+### Remaining on Redmi — execute in order
+- [ ] Keep Termux API staging online; run `bash ~/ani-games-db-android-stage/start-stage.sh`.
+- [ ] Download and run the helper from the isolated branch (instructions in `BOOTSTRAP-RECOVERY-ID.md`); inspect the final output. If it stops on Owner already exists or bootstrap consumed, do not reset DB; report only the sanitized error.
+- [ ] Require helper result `BERHASIL` and safe probe result `ADMIN_BOOTSTRAP_INPUT_INVALID`; this proves the POST token gate without making a user.
+- [ ] On Chrome on the Redmi itself, open `http://127.0.0.1:8788/setup` and create the first Owner with private credentials (password minimum 12 chars). Never send password/token/.env to chat.
+- [ ] Login Admin DB Android V12.1.53 using the new username/password. Confirm the correct HTTPS Worker server setting and valid login response.
+- [ ] Test Admin dashboard, organization/role context, rental create/edit/disable/delete, PC list/status, PC command/ack, reports and theme save; verify relay/WoL remains independent.
+- [ ] Return sanitized helper output and Admin login result. Do not mark operational acceptance until on-device tests pass.
+
+### Hard boundaries
+- [ ] Never rerun `setup-stage.sh` as a repair, reset the staging DB, run migrations or modify owner/bootstrap rows manually.
+- [ ] Do not stop PostgreSQL or main API port 8787; helper can restart only the identified stage API 8788 when its environment is stale.
+- [ ] Do not touch Supabase DB1/DB2, public PostgreSQL exposure, Worker/DO relay or Blynk/WoL configuration.
