@@ -34,7 +34,7 @@ if [[ "$args" != *"-h 127.0.0.1"* || "$args" != *"-p 5432"* ]]; then
   exit 91
 fi
 if [[ "$args" == *"rolsuper"* ]]; then
-  printf '%s\\n' "${MOCK_ADMIN_SUPERUSER:-t}"
+  printf '%s\n' "${MOCK_ADMIN_SUPERUSER:-t}"
   exit 0
 fi
 if [[ "$SQL" == *"INSERT INTO private.admin_bootstrap_control"* ]]; then
@@ -109,7 +109,7 @@ set -e
 printf 'PASS: consumed bootstrap blocks repair; no DB write.\n'
 
 
-printf 'TEST 5 — non-superuser TCP connection safety guard\\n'
+printf 'TEST 5 — non-superuser TCP connection safety guard\n'
 rm -f "$ROOT/updated" "$ROOT/row" "$ROOT/owner" "$ROOT/consumed"
 export MOCK_ADMIN_SUPERUSER=f
 set +e
@@ -119,4 +119,4 @@ set -e
 [[ "$RC" -ne 0 && "$OUT" == *"akun PostgreSQL lokal bukan superuser"* ]]
 [[ ! -f "$ROOT/updated" ]]
 export MOCK_ADMIN_SUPERUSER=t
-printf 'PASS: non-superuser blocked before any database write.\\n'
+printf 'PASS: non-superuser blocked before any database write.\n'
