@@ -124,3 +124,12 @@
 - User ran `curl -sS --max-time 5 http://127.0.0.1:8788/health` in Termux; curl returned error 7, connection refused in 2 ms. This confirms no API listener was accepting connections on stage port 8788 at that moment.
 - It does NOT prove PostgreSQL is offline; API and DB must be checked separately. No restart or DB operation has been run by the assistant.
 - Next safe step: use the previously verified stage-only `~/ani-games-db-android-stage/start-stage.sh`, then recheck `/health`. Do not touch port 8787 or PostgreSQL data.
+
+
+### Runtime diagnosis update — 2026-11-16 09:47 WIB
+- User's repeated localhost health checks still return curl error 7 / connection refused on port 8788.
+- Running the exact stage launcher bash ~/ani-games-db-android-stage/start-stage.sh exits with [ANI STAGE] API belum sehat.
+- Its log tail contains historical successful /health 200 responses and api:online startup lines, but also fatal ECONNREFUSED / REQUEST_FAILED. The stage log is append-only and includes prior runs, so the old 200 lines do not prove the latest attempt is alive.
+- Audited current source db-android-core/start-stage.sh and server/server.mjs on fix/db-android-core-api-contracts-20261116: launcher starts only the staging Node API on 8788 and waits 2 seconds; server startup first runs SELECT 1 against PostgreSQL before opening the HTTP listener. main().catch records fatal errors if that initial DB query fails. Therefore DB reachability at 127.0.0.1:5432 is the next diagnostic, not an Admin APK or Cloudflare change.
+- db-android-core/status-stage.sh is a read-only PID/health check. db-android-core/setup-stage.sh is an installer and MUST NOT be run as a recovery step.
+- No database changes or service restarts beyond the user's attempted stage launcher have been performed by assistant. Next step is read-only pg_isready -h 127.0.0.1 -p 5432, process check and sanitized last log lines. Do not start/reinitialize PostgreSQL or touch port 8787 until the result is known.
