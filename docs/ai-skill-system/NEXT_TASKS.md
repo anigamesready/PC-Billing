@@ -113,3 +113,10 @@
 - [ ] Do not edit/stop main service port 8787, production DB, Supabase DB1/DB2 or Blynk/WoL relay.
 - [ ] No SQL migration, data reset, initdb, restore or destructive sync in this task.
 - [ ] Mark done only after the device acceptance tests above pass; GitHub CI alone is not runtime acceptance.
+
+
+### Latest device result — 2026-11-16 09:45 WIB
+- [x] User rechecked `127.0.0.1:8788/health`; it returned curl error 7 / connection refused.
+- [ ] Start only the staging API using the previously verified `~/ani-games-db-android-stage/start-stage.sh`.
+- [ ] Recheck stage `/health`; determine API and database status separately. Do not infer DB down from API connection refused.
+- [ ] Do not alter port 8787 or run DB initialization/migrations.
