@@ -92,3 +92,12 @@
 - Artifact ID 14231274085, ZIP size 1,295,700 bytes, SHA-256 447a2c825ab8d0dd980f4ee74fece7823552f4a59ea3b1e85275d5931607e72a. The APKs use CI debug signing, not production release signing.
 - User-reported point-in-time stage status before build showed the relay agent/Worker/API 8788/PostgreSQL online; port 8787 was separately closed. APK build did not change Redmi runtime, DB data/schema, .env, Supabase production or WoL relay.
 - Device install, valid Admin login, authorization/role, rental CRUD, commands, reports, WoL and Wi-Fi/cellular tests remain pending. A 401 INVALID_CREDENTIALS response to an empty-body probe does not count as successful login.
+
+
+## 2026-11-16 — DB Android Owner bootstrap recovery helper
+
+- Diagnosed the `ADMIN_BOOTSTRAP_DENIED` path against the exact stage API and SQL source. The installer’s bootstrap-row insert uses `ON CONFLICT DO NOTHING`, so a pre-existing stale hash can persist. This remains the leading hypothesis pending local Redmi database verification.
+- Added an isolated recovery helper and documentation branch based on the active WSS relay stage branch. The helper guards database identity, localhost binding, PID, health, existing Owner and consumed-bootstrap state; it repairs only an unconsumed bootstrap token hash and verifies with a no-account POST probe.
+- Added four mocked regression cases (missing row, stale hash, active Owner, consumed bootstrap) and Bash syntax/security scans. GitHub Actions run 43896105470 SUCCESS.
+- Packaged the helper without credentials or database material. ZIP SHA-256: 374b6b49b45f7cb706f069ca1467a9810a66483a1d8767bf228c93046e386287; ZIP integrity passed.
+- No on-device changes have yet been made by this task. User must run the helper on Redmi, create the Owner account locally, and verify Admin V12.1.53 login. Existing PostgreSQL, main API 8787, Supabase DB1/DB2, Worker/relay and Blynk/WoL remain untouched.
