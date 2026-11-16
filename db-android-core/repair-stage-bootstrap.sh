@@ -56,9 +56,9 @@ HEALTH="$(curl -fsS --max-time 8 "$API_URL/health")" || fail "health API staging
 psql_stage_admin() {
   psql -X -w -h "$DB_HOST" -p "$DB_PORT" "$@"
 }
-ADMIN_CHECK="$(psql_stage_admin -v ON_ERROR_STOP=1 -qAt -d postgres -c \\
-  "SELECT CASE WHEN r.rolsuper THEN 't' ELSE 'f' END FROM pg_roles r WHERE r.rolname=current_user;")" \\
-  || fail "tidak bisa login sebagai admin PostgreSQL melalui TCP $DB_HOST:$DB_PORT. Database belum diubah."
+if ! ADMIN_CHECK="$(psql_stage_admin -v ON_ERROR_STOP=1 -qAt -d postgres -c "SELECT CASE WHEN r.rolsuper THEN 't' ELSE 'f' END FROM pg_roles r WHERE r.rolname=current_user;")"; then
+  fail "tidak bisa login sebagai admin PostgreSQL melalui TCP $DB_HOST:$DB_PORT. Database belum diubah."
+fi
 [[ "$ADMIN_CHECK" == "t" ]] || fail "akun PostgreSQL lokal bukan superuser. Helper tidak akan memakai akun runtime ani_api_stage_login atau menaikkan haknya. Database belum diubah."
 
 TOKEN_HASH="$(printf '%s' "$BOOTSTRAP_TOKEN" | sha256sum | awk '{print $1}')"
