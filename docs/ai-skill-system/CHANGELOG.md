@@ -64,3 +64,8 @@
 - Created infra/db-android-cloudflare-global-stage-20261116 from current API hotfix base f16d97a3dfd96f2f3598396976c3ee5d63c60e6d; latest head 8c39f86410a3cd6b0ce3521029e689d63984752e, 10 ahead/0 behind. Added gateway source, compatibility-safe API patch logic and a CI synthetic fixture for the Redmi's existing net/edge-secret additions.
 - Build/CI status and artifacts for these branches are not verified; no APK or Termux gateway ZIP was claimed delivered. No Redmi process, runtime .env, PostgreSQL, port 8787, production data, Supabase or Worker deployment was modified.
 - Added an acceptance plan with target Sunday 2026-11-22; all on-device/global connectivity criteria remain open.
+
+
+## 2026-11-16 09:45 WIB — Stage API not listening
+- User's live Termux curl to `127.0.0.1:8788/health` returned curl error 7 (connection refused). Stage API is currently not accepting connections. This alone does not establish PostgreSQL status.
+- No runtime restart or DB mutation was performed by assistant. Next step is to start only the stage API with the previously verified start-stage script and recheck health.
