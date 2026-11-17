@@ -199,3 +199,13 @@ The V12.1.53 branch supersedes the earlier V12.1.51/V12.1.52 APK candidates. Do 
 - [ ] Never rerun `setup-stage.sh` as a repair, reset the staging DB, run migrations or modify owner/bootstrap rows manually.
 - [ ] Do not stop PostgreSQL or main API port 8787; helper can restart only the identified stage API 8788 when its environment is stale.
 - [ ] Do not touch Supabase DB1/DB2, public PostgreSQL exposure, Worker/DO relay or Blynk/WoL configuration.
+
+## Priority 0 — Repair Redmi WebSocket agent startup (2026-11-17 incident)
+
+- [ ] Obtain the full installed start-relay-stage.sh and related installer/status scripts from Redmi using a redacted read-only command; never output .env contents or secret values.
+- [ ] Reconcile the installed ZIP's file hashes/provenance against the authoritative relay branch and documented final Termux package before editing. Do not assume the separate conversational ZIP is identical to the repository artifact.
+- [ ] Fix the invalid parameter-length expression in an isolated branch/package; retain the existing ANI_EDGE_PROXY_SECRET, Worker RELAY_SHARED_SECRET binding, and API/database state.
+- [ ] Runtime-test the exact scripts under Bash with absent, empty, valid-placeholder and short-placeholder secret variables; test extracted package layout, start/status/stop behavior, syntax, idempotence and secret-redaction.
+- [ ] Only after package tests pass, provide one corrected package/one-time patch for Redmi. Verify agent process and WebSocket registration; require Worker /_relay/health HTTP 200 with agent_connected:true, api:online, database:online.
+- [ ] If WebSocket handshake returns unauthorized, then privately compare local ANI_EDGE_PROXY_SECRET and existing Cloudflare RELAY_SHARED_SECRET; do not print either value or regenerate it.
+- [ ] Preserve API 8788, PostgreSQL 5432, main API 8787, existing rental data, Supabase and the separate Blynk/WoL relay. No resets, migrations or unrelated restarts.
