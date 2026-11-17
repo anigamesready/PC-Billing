@@ -20,3 +20,7 @@
 | D-015 | The Admin API base URL must be environment-specific and saved as an HTTPS URL for any non-loopback server. | 127.0.0.1 refers to the phone running the Admin APK; it is not a remote server address. Preserve loopback default only for same-device testing. |
 
 Changes to these decisions require an explicit user instruction and a dated explanation; do not silently overwrite them.
+
+| D-016 | DB Android relay must reuse the existing ANI_EDGE_PROXY_SECRET in the staging .env; Worker RELAY_SHARED_SECRET must match it. Do not regenerate or replace an existing secret for a startup bug. | Preserve existing trust configuration and prevent repeated secret creation / unnecessary Worker changes. |
+| D-017 | Every Termux Bash script must pass runtime smoke tests on the affected execution path; bash -n alone is insufficient. | Expansion-time failures such as \${#VAR:-0} are not reliably detected by parse-only checks. |
+| D-018 | Diagnose relay startup, WebSocket authentication, agent registration, Worker health and local API/DB health as separate stages. | Prevent changing secrets or services based on a downstream symptom without evidence. |
