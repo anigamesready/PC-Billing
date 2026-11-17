@@ -124,7 +124,8 @@ jobs:
           $package.build.productName = 'AniGames Billing V12.4.8 DB Android'
           # Explicit runtime allow-list: the retired Supabase admin console, migrations,
           # docs and patch scripts must never enter app.asar.
-          $package.build.files = @('main.js','preload.js','renderer.js','index.html','v11-cloud.js','icon/**/*')
+          $runtimeFiles = @('main.js','preload.js','renderer.js','index.html','v11-cloud.js','icon/**/*')
+          $package.build | Add-Member -NotePropertyName 'files' -NotePropertyValue $runtimeFiles -Force
           $package | ConvertTo-Json -Depth 100 | Set-Content -Path 'package.json' -Encoding utf8
           $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
           $lock.name = 'ani-games-billing-db-android'
