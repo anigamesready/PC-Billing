@@ -186,3 +186,14 @@
 - The installer output reported a private relay-worker-shared-secret.txt file. The authoritative relay README describes this as a temporary copy of the existing ANI_EDGE_PROXY_SECRET, not a newly generated secret; the actual installed script and value equality have not been verified. The installed ZIP filename differs from the documented final Termux ZIP, so its provenance must be compared before patching.
 - Skill safeguards updated on the docs branch: Bash runtime test requirement, no \${#VAR:-default} pattern, preserve existing secret, and diagnose shell startup / handshake / agent registration / Worker health / local API / DB separately.
 - No fix has yet been applied to the Redmi; do not claim relay fixed. No Cloudflare binding change, Worker deployment, .env mutation, API restart, PostgreSQL restart, port 8787 change, SQL change or data operation was performed.
+
+## 2026-11-17 — Redmi WebSocket relay agent online (user-verified)
+
+- User reported the fixed Termux start-relay-stage.sh now passes Bash syntax checks and the runtime secret fixture matrix (unset/empty/short rejected; 32-character dummy accepted).
+- Device's private export was checked without revealing values: existing local ANI_EDGE_PROXY_SECRET is valid and matches the private relay-worker-shared-secret.txt copy; Worker URL matches the staging relay.
+- Agent started successfully on Redmi with PID 12950. status-relay-stage.sh reported Local agent ONLINE.
+- Local 127.0.0.1:8788/health returned api=online, database=online.
+- Public Worker /_relay/health returned HTTP 200: relay=online, agent_connected=true, api=online, database=online.
+- This is the first user-reported end-to-end relay transport acceptance. Keep the Termux agent running; do not re-run installer, rotate secrets, redeploy Worker, restart API/PostgreSQL, or touch main port 8787.
+- Admin APK V12.1.53 remains a separate pending device test. The APK source/build must be re-verified before use; verify its saved API URL because a previously persisted localStorage value may override the newly baked default Worker URL.
+- No Admin login success, dashboard authorization, rental CRUD or business-flow test is claimed yet.
