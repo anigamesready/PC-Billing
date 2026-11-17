@@ -91,3 +91,12 @@ Admin DB Android V12.1.53 APK is now built and verified as a staging/debug-signe
 - Final package: `ANI-GAMES-READY-DB-ANDROID-BOOTSTRAP-RECOVERY-20261116.zip`; 4 files; ZIP integrity PASS; SHA-256 `374b6b49b45f7cb706f069ca1467a9810a66483a1d8767bf228c93046e386287`.
 - Per-file SHA-256: helper `fd45df4267be06318ac4b261d964a5de16129a123fb777bb28a1129365b40e75`; README `b300a55d82d10a5b4bd8c63c06efd36246dd2ba7ad35f6763dd4c5d5479bcaf6`; regression test `610f9dc087cf221620f57d16058d651f16d38ccea3f107da73056f94ec722ecf`.
 - Status: source/CI/package complete; Redmi helper execution, Owner creation and V12.1.53 login acceptance pending. This is a staging repair utility, not an application release.
+
+## 2026-11-17 — DB Android Termux control package
+
+- Package: `ANI-GAMES-READY-DB-ANDROID-CONTROL-1.0.0.zip`
+- Size: 11,168 bytes
+- SHA-256: `d3f51d6528695891bbf8e48f727e87a1ffd0d8e538877f66dbad19a71520aa04`
+- Includes controller, installer, four Termux:Widget shortcut files, README-ID, SHA256SUMS and runtime fixture tests.
+- Local verification: bash syntax PASS; SHA256SUMS PASS; ZIP integrity PASS; mock runtime regression PASS for start order, soft stop, full stop, legacy API 8787 guard, other PostgreSQL client guard, installer output and widget shortcuts.
+- Device application and Termux:Widget one-tap acceptance: PENDING. This is a support tool, not an APK or backend schema release.
