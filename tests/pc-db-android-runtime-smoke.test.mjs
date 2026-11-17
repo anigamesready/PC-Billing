@@ -52,7 +52,7 @@ function harness() {
     crypto:{randomUUID:()=> '00000000-0000-4000-8000-000000000001'},addEventListener:noop,
     electronAPI:{syncWatchdogCredentials:async()=>({ok:true}),getWolNetworkInfo:async()=>({})},
     v11GetUsers:()=>users,v11GetActiveCode:()=>null,v11GetUser:code=>users[code],
-    v11PersistPulledUsers:next=>{for(const k of Object.keys(users))delete users[k];Object.assign(users,{...next});},
+    v11PersistPulledUsers:next=>{const copy={...next};for(const k of Object.keys(users))delete users[k];Object.assign(users,copy);},
     v11ApplyRemoteCommand:async()=>({ok:true}),showCustomModal:noop
   };
   const sandbox={
