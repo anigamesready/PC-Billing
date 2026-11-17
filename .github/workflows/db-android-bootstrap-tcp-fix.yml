@@ -31,3 +31,5 @@ jobs:
           bash db-android-core/tests/repair-stage-bootstrap.test.sh
       - name: Diff whitespace validation
         run: git diff --check
+
+# Re-run validation on corrected TCP helper and Bash conditional.
