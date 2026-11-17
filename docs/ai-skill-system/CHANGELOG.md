@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-17 — Termux WebSocket agent startup incident and prevention
+
+- User-reported execution of the delivered relay-agent package failed at start-relay-stage.sh:32 with Bash bad substitution on \${#ANI_EDGE_PROXY_SECRET:-0}. This is a confirmed script defect; the agent start script exited before the WebSocket connection attempt.
+- The resulting local agent status was OFFLINE and Worker /_relay/health returned HTTP 503 with agent_connected:false. This confirms no agent was registered at that time; it does not establish a shared-secret mismatch.
+- Local API 127.0.0.1:8788/health remained ONLINE with database ONLINE in the same user report. Do not restart PostgreSQL, API 8788, main API 8787, or the separate Blynk/WoL relay to repair this shell expansion.
+- Cloudflare screenshot showed that a RELAY_SHARED_SECRET binding name already exists; the attempted Add flow correctly rejected a duplicate name. No new Cloudflare secret should be added. The deployed relay source documentation specifies reusing existing ANI_EDGE_PROXY_SECRET from the stage .env.
+- Root cause for current connectivity failure: confirmed Bash expansion defect in the installed start script; exact package-to-repository provenance and remaining script behavior still require inspection. Secret value equality is unverified.
+- Preventive updates: Developer Bug Fixer, Troubleshooting Engineer and Regression Tester Skills now require Termux Bash runtime tests (not only bash -n), variable-state fixtures, secret-preservation checks, and staged diagnosis of shell startup vs WebSocket auth vs Worker/API/DB health.
+- No device script was patched, no secret value changed, and no Worker redeploy, SQL migration, database reset, API restart or port 8787 change was performed in this incident review. Device fix remains pending inspection of the sanitized installed script.
+
 ## 2026-11-16 — Redmi DB Android API contract hotfix
 
 - Revalidated the backend baseline at d0f94ec0e9a7f5660029fb3b02d62f7fb9b3b3a9 (123 commits ahead of PC Billing DB Android source head f938c574dfbd17ab84b07ca940115a280d3f8d78, zero behind).
