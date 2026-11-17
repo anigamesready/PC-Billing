@@ -111,3 +111,14 @@
 - Added four mocked regression cases (missing row, stale hash, active Owner, consumed bootstrap) and Bash syntax/security scans. GitHub Actions run 43896105470 SUCCESS.
 - Packaged the helper without credentials or database material. ZIP SHA-256: 374b6b49b45f7cb706f069ca1467a9810a66483a1d8767bf228c93046e386287; ZIP integrity passed.
 - No on-device changes have yet been made by this task. User must run the helper on Redmi, create the Owner account locally, and verify Admin V12.1.53 login. Existing PostgreSQL, main API 8787, Supabase DB1/DB2, Worker/relay and Blynk/WoL remain untouched.
+
+## 2026-11-17 — Redmi WebSocket relay agent online (user-verified)
+
+- User reported the fixed Termux start-relay-stage.sh now passes Bash syntax checks and the runtime secret fixture matrix (unset/empty/short rejected; 32-character dummy accepted).
+- Device's private export was checked without revealing values: existing local ANI_EDGE_PROXY_SECRET is valid and matches the private relay-worker-shared-secret.txt copy; Worker URL matches the staging relay.
+- Agent started successfully on Redmi with PID 12950. status-relay-stage.sh reported Local agent ONLINE.
+- Local 127.0.0.1:8788/health returned api=online, database=online.
+- Public Worker /_relay/health returned HTTP 200: relay=online, agent_connected=true, api=online, database=online.
+- This is the first user-reported end-to-end relay transport acceptance. Keep the Termux agent running; do not re-run installer, rotate secrets, redeploy Worker, restart API/PostgreSQL, or touch main port 8787.
+- Admin APK V12.1.53 remains a separate pending device test. The APK source/build must be re-verified before use; verify its saved API URL because a previously persisted localStorage value may override the newly baked default Worker URL.
+- No Admin login success, dashboard authorization, rental CRUD or business-flow test is claimed yet.
