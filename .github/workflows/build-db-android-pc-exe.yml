@@ -227,7 +227,7 @@ jobs:
           }
           Remove-Item 'index-runtime-check.js' -Force
           Write-Host 'PASS: DB Android transport, actual sync module inclusion, pairing, heartbeat/offline queue, timer, fullscreen, Admin, Windows controls, WoL and shutdown policy.'
-          python scripts/check_pc_db_android_contract.py "$env:PC_PROJECT_DIR" "$env:GITHUB_WORKSPACE/backend-contract/db-android-core/server/server.mjs" "$env:GITHUB_WORKSPACE/backend-contract/db-android-core/schema" "$env:GITHUB_WORKSPACE/backend-contract/db-android-core/ws-relay-stage/worker.mjs"
+          python check_pc_db_android_contract.py "$env:PC_PROJECT_DIR" "$env:GITHUB_WORKSPACE/backend-contract/db-android-core/server/server.mjs" "$env:GITHUB_WORKSPACE/backend-contract/db-android-core/schema" "$env:GITHUB_WORKSPACE/backend-contract/db-android-core/ws-relay-stage/worker.mjs"
           if ($LASTEXITCODE -ne 0) { throw 'PC ↔ Redmi API ↔ SQL ↔ WSS contract check failed.' }
 
       - name: Set up Node.js
