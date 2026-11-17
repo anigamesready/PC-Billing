@@ -301,11 +301,13 @@ jobs:
           - Tests: JS syntax, URL validation/static checks, timer/fullscreen/Admin/WoL regression assertions, Windows portable EXE build
           - Not tested: live connection to Redmi, fresh Windows install/replace, real PC pairing/session, game fullscreen/minimize, live WoL
           "@ | Set-Content -Path 'PC-DB-ANDROID-PROVENANCE.md' -Encoding utf8
-          $asarPath = Join-Path $found.DirectoryName 'resources/app.asar'
-          if (!(Test-Path $asarPath)) { throw 'Packed Electron app.asar not found.' }
+          $unpackedDir = Join-Path $env:PC_PROJECT_DIR 'dist/win-unpacked'
+          if (!(Test-Path $unpackedDir)) { throw 'Portable build unpacked directory missing.' }
+          $asarPath = Join-Path $unpackedDir 'resources/app.asar'
+          if (!(Test-Path $asarPath)) { throw 'Packed Electron app.asar not found in win-unpacked resources.' }
           @'
           const asar = require('@electron/asar');
-          const files = asar.listPackage(process.argv[1]).map(x => x.replace(/^\\//, ''));
+          const files = asar.listPackage(process.argv[1]).map(x => x.replace(/^\/+/, ''));
           const required = ['main.js','preload.js','renderer.js','index.html','v11-cloud.js','icon/logo.png','icon/background.jpg'];
           for (const f of required) if (!files.includes(f)) throw new Error('APP_ASAR_RUNTIME_FILE_MISSING:' + f);
           for (const f of files) if (f === 'admin.html' || f.startsWith('supabase/') || f.startsWith('docs/') || f.startsWith('patch_pc_')) throw new Error('LEGACY_OR_DEV_FILE_BUNDLED:' + f);
@@ -315,7 +317,7 @@ jobs:
           New-Item -ItemType Directory -Path 'output' -Force | Out-Null
           Copy-Item $found.FullName 'output/AniGames Billing V12.4.8 DB Android.exe' -Force
           Copy-Item 'PC-DB-ANDROID-PROVENANCE.md' 'output/PC-DB-ANDROID-PROVENANCE.md' -Force
-          Get-FileHash 'output/AniGames Billing V12.4.8.exe' -Algorithm SHA256 | Format-List
+          Get-FileHash 'output/AniGames Billing V12.4.8 DB Android.exe' -Algorithm SHA256 | Format-List
           @'
           import zipfile
           from pathlib import Path
