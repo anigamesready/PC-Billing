@@ -125,7 +125,7 @@ This registry is a source map, not a permanent truth. Re-fetch branch heads, anc
 - Physical HTML/JS audit removed the old DB1/DB2 route bar, sync/preflight section, tab, route state, switch stubs and DB2-only copy. No direct Supabase table reads remain in Admin UI. Core local Admin auth/rental/command/report/theme RPCs and separate WoL relay sidecar remain.
 - The app defaults to the dedicated HTTPS Worker URL `https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev` on Admin, login and Billing Control pages. Manual API URL override remains. No local `127.0.0.1:8787` or `:8788` default is shipped.
 - This is an isolated staging/debug-signed APK. Stable Admin, main branch, Redmi server/database/schema, port 8787, Supabase runtime and Blynk/WoL relay were not changed by the APK build.
-- Device-side install, valid credential login, Admin CRUD/PC commands/reports/WoL end-to-end, Wi-Fi/cellular and 24-hour acceptance remain pending. User-reported health at the last Termux check showed the WSS agent, Worker, stage API 8788 and PostgreSQL online; port 8787 was separately closed. Do not mark the APK operationally accepted until device tests pass.
+- Superseding device update — 2026-11-17: user confirms V12.1.53 successfully logs in through the Redmi HTTPS Worker gateway. This closes the valid-credential login test only. Role/org context, full dashboard, Admin CRUD, PC commands/ack, reports/exports, WoL, Wi-Fi/cellular and 24-hour reliability remain pending. The relay status at the user's successful check was HTTP 200 with agent_connected=true, API/database online.
 
 
 ## Live GitHub verification — 2026-11-16: DB Android Owner bootstrap recovery
