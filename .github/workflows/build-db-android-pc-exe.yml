@@ -1,6 +1,9 @@
 name: Build AniGames PC V12.4.8 DB Android Candidate
 
 on:
+  push:
+    branches:
+      - pc-billing-v12.4.8-db-android-clean-20261117
   workflow_dispatch:
 
 permissions:
@@ -300,10 +303,10 @@ jobs:
           $unpackedDir = Join-Path $env:PC_PROJECT_DIR 'dist/win-unpacked'
           if (!(Test-Path $unpackedDir)) { throw 'Portable build unpacked directory missing.' }
           $asarPath = Join-Path $unpackedDir 'resources/app.asar'
-          if (!(Test-Path $unpackedDir)) { throw 'Portable build unpacked directory missing.' }`n          $asarPath = Join-Path $unpackedDir 'resources/app.asar'`n          if (!(Test-Path $asarPath)) { throw 'Packed Electron app.asar not found in win-unpacked resources.' }
+          if (!(Test-Path $asarPath)) { throw 'Packed Electron app.asar not found in win-unpacked resources.' }
           @'
           const asar = require('@electron/asar');
-          const files = asar.listPackage(process.argv[1]).map(x => x.replace(/^\\/+/, ''));
+          const files = asar.listPackage(process.argv[1]).map(x => x.startsWith('/') ? x.slice(1) : x);
           const required = ['main.js','preload.js','renderer.js','index.html','v11-cloud.js','icon/logo.png','icon/background.jpg'];
           for (const f of required) if (!files.includes(f)) throw new Error('APP_ASAR_RUNTIME_FILE_MISSING:' + f);
           for (const f of files) if (f === 'admin.html' || f.startsWith('supabase/') || f.startsWith('docs/') || f.startsWith('patch_pc_')) throw new Error('LEGACY_OR_DEV_FILE_BUNDLED:' + f);
