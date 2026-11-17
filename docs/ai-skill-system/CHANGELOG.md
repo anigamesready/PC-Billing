@@ -122,3 +122,13 @@
 - This is the first user-reported end-to-end relay transport acceptance. Keep the Termux agent running; do not re-run installer, rotate secrets, redeploy Worker, restart API/PostgreSQL, or touch main port 8787.
 - Admin APK V12.1.53 remains a separate pending device test. The APK source/build must be re-verified before use; verify its saved API URL because a previously persisted localStorage value may override the newly baked default Worker URL.
 - No Admin login success, dashboard authorization, rental CRUD or business-flow test is claimed yet.
+
+## 2026-11-17 — DB Android one-touch Termux controller package 1.0.0
+
+- Audited the live relay-stage branch `infra/db-android-ws-relay-stage-20261116` at `d86e7ecfa82d7af29bb53d067a316984b1fef69b` and exact `start-stage.sh`, `status-stage.sh`, `stop-stage.sh`, stage README, and WSS relay README. Confirmed stage API 8788 is separate from legacy 8787; WSS agent is a separate process; PostgreSQL 5432 is private and may host other database clients.
+- Prepared `ANI-GAMES-READY-DB-ANDROID-CONTROL-1.0.0.zip` (11,168 bytes, SHA-256 `d3f51d6528695891bbf8e48f727e87a1ffd0d8e538877f66dbad19a71520aa04`).
+- Added controller menu and four launcher scripts: DB-ANDROID-ON, DB-ANDROID-OFF, DB-ANDROID-FULL-OFF, DB-ANDROID-STATUS. Installer copies only the controller/shortcut scripts under the user's home; it does not edit `.env`, start/stop services, migrate SQL, or reset data.
+- Safety behavior: ON starts existing PostgreSQL, then API 8788, then WSS agent and checks Worker HTTP 200. Normal OFF stops agent then API but keeps PostgreSQL running. FULL OFF asks for typed confirmation and only stops PostgreSQL if legacy 8787 and old-server process checks are clear and no other client backend remains in pg_stat_activity; uncertain states leave PostgreSQL ON.
+- Regression evidence: bash syntax checks PASS; per-file SHA-256 checks PASS; ZIP integrity PASS; local mock runtime tests PASS for ON, normal OFF, safe FULL OFF, DB-session guard and legacy-8787 guard; installer simulation PASS in disposable HOME. No live Redmi service was changed in this work.
+- Termux:Widget official documentation was checked. It can show executable scripts in `~/.shortcuts`; the user's Termux:Widget install/source and home-screen behavior remain to be accepted on the device.
+- Admin DB Android V12.1.53 login was user-confirmed successful after the Worker/agent returned online. Dashboard feature acceptance and PC Billing/Reseller migration remain separate tasks.
