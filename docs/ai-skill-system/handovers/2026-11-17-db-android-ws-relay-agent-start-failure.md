@@ -21,3 +21,13 @@
   3. Apply a minimal isolated fix and test exact extracted layout with placeholder secrets, including unset/empty/present/short cases.
   4. Only then provide a corrected package or narrowly guarded patch and recheck public health.
 - Acceptance: Worker `/_relay/health` HTTP 200 with `relay=online`, `agent_connected=true`, `api=online`, `database=online`; Admin login remains a separate pending device test.
+
+## 2026-11-17 — Follow-up: relay agent successfully connected
+
+- User's subsequent Termux output confirms the repaired agent process started as PID 12950 and status-relay-stage.sh reported Local agent: ONLINE.
+- The same device output confirms local API 8788 and database ONLINE.
+- The Worker health endpoint returned HTTP 200 with relay=online, agent_connected=true, api=online, and database=online.
+- The secret validation was done privately in the Termux command: the existing ANI_EDGE_PROXY_SECRET is valid and its temporary private export matches. No secret was shown in chat.
+- The Bash runtime fixture tests passed for missing, empty, too-short and 32-character dummy values.
+- Transport layer is now user-verified ONLINE. Do not ask the user to repeat installer/secret setup or restart services. Preserve agent process and existing Worker binding.
+- Next independent acceptance: Admin APK V12.1.53 correct package, version, URL persistence, WebView fetch/CORS and valid Owner/Admin login; then read-only dashboard load.
