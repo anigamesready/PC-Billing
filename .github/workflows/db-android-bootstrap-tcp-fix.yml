@@ -1,0 +1,33 @@
+name: DB Android Bootstrap TCP Recovery Tests
+
+on:
+  push:
+    branches:
+      - fix/db-android-stage-bootstrap-tcp-fix-20261117
+    paths:
+      - 'db-android-core/repair-stage-bootstrap.sh'
+      - 'db-android-core/tests/repair-stage-bootstrap.test.sh'
+      - '.github/workflows/db-android-bootstrap-tcp-fix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bash syntax validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n db-android-core/repair-stage-bootstrap.sh
+          bash -n db-android-core/tests/repair-stage-bootstrap.test.sh
+      - name: Safe bootstrap recovery regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash db-android-core/tests/repair-stage-bootstrap.test.sh
+      - name: Diff whitespace validation
+        run: git diff --check
