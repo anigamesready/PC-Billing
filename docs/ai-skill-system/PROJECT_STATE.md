@@ -176,3 +176,13 @@
 - Secret-free package `ANI-GAMES-READY-DB-ANDROID-BOOTSTRAP-RECOVERY-20261116.zip`: SHA-256 `374b6b49b45f7cb706f069ca1467a9810a66483a1d8767bf228c93046e386287`; ZIP integrity PASS. Contents: recovery helper, Indonesian README, mock regression test, SHA256SUMS.
 - The helper has NOT yet been run on the Redmi. No Owner has been created by the helper/probe. On-device bootstrap, Admin APK login, and all business-flow acceptance remain pending. No PostgreSQL service, main API port 8787, schema migration/reset, Supabase DB1/DB2, Worker/DO relay, or Blynk/WoL configuration was changed.
 - Next step: user downloads/runs the helper on the Redmi. Only after it prints `BERHASIL`, user opens `http://127.0.0.1:8788/setup` on the Redmi itself, creates their private Owner credentials, then tests login in Admin DB Android V12.1.53.
+
+## 2026-11-17 — WebSocket relay agent startup failure (device evidence)
+
+- User's Redmi Termux execution of ~/ani-games-db-android-stage/ws-relay-agent/start-relay-stage.sh failed at line 32: bad substitution for \${#ANI_EDGE_PROXY_SECRET:-0}.
+- The same output showed Local agent OFFLINE, Worker health relay:offline, agent_connected:false, HTTP 503, while local API staging health returned api:online and database:online.
+- Confirmed interpretation: the Bash error stops the start script before the agent can establish its WebSocket connection. The Worker 503 is consistent with no registered agent; it is not proof of a secret mismatch.
+- User screenshot showed Cloudflare Add Environment Variable rejected RELAY_SHARED_SECRET because a binding with that name already exists. Do not add another binding. The relay branch README says reuse the existing ANI_EDGE_PROXY_SECRET from the Redmi stage .env as the value for Worker RELAY_SHARED_SECRET; exact value equality has not been verified.
+- The installer output reported a private relay-worker-shared-secret.txt file. The installed package's full script contents and exact provenance have not yet been inspected in this session; request a sanitized read-only view before patching.
+- Skill safeguards updated on the docs branch: Bash runtime test requirement, no \${#VAR:-default} pattern, preserve existing secret, and diagnose shell startup / handshake / agent registration / Worker health / local API / DB separately.
+- No fix has yet been applied to the Redmi; do not claim relay fixed. No Cloudflare binding change, Worker deployment, .env mutation, API restart, PostgreSQL restart, port 8787 change, SQL change or data operation was performed.
