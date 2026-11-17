@@ -215,8 +215,8 @@ The V12.1.53 branch supersedes the earlier V12.1.51/V12.1.52 APK candidates. Do 
 - [ ] Keep the currently running Redmi relay agent (PID 12950) alive; do not re-install or rotate secrets.
 - [ ] Verify the installed APK is AniGames Admin V12.1.53 DB Android, package com.anigames.billingadmin.v150db, versionCode 81. If absent, use the successful workflow artifact from run 43879706639.
 - [ ] On the login screen, verify the saved Alamat Gateway DB Android is https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev; an old saved loopback URL can override the APK's baked default. Save the URL and require the app's health status to show the DB Android server is connected.
-- [ ] Submit the existing Owner/Admin email and password privately; never send credentials in chat.
-- [ ] On success, validate role/organization context and load the dashboard and PC list read-only. Do not start with rental edits, deletes, power commands or WoL.
+- [x] User confirmed successful login with the existing Owner/Admin account through the Redmi HTTPS Worker gateway on 2026-11-17. Credentials were not shared in chat.
+- [ ] Validate role/organization context and load the dashboard and PC list read-only. Do not start with rental edits, deletes, power commands or WoL.
 - [ ] On failure, capture only the sanitized error screen and distinguish fetch/CORS, HTTP/auth, INVALID_CREDENTIALS and role errors; never ask for a password or secret.
 - [ ] Keep API 8788, PostgreSQL 5432, port 8787, rental data, Supabase and Blynk/WoL relay unchanged.
 - [ ] Mark Admin login accepted only after the valid login, correct role context and dashboard load pass on the device.
