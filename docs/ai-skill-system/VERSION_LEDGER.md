@@ -76,7 +76,7 @@ Admin DB Android V12.1.53 APK is now built and verified as a staging/debug-signe
 - Safe-test APK: AniGames-Admin-DB-Android-V12.1.53-SAFE-TEST.apk; 734,889 bytes; SHA-256 8e0cb141d634dcd9d9a79cc58eee1fa89ababfebb2c607f5f57d2f716882ea38; applicationId com.anigames.billingadmin.v150dbtest.
 - Both are CI debug-signed with APK Signature Scheme v2; not production release-signed.
 - APK integrity, identity, single-DB cleanup, three page JS syntax, key Admin markers and separate WoL sidecar static checks passed.
-- Fresh device install, valid Admin login, role/org, Admin CRUD, PC commands/ack, exports/reports and WoL functional smoke tests remain open.
+- User confirmed the Admin APK login succeeds through the Redmi HTTPS Worker gateway on 2026-11-17. Remaining: confirm fresh-install provenance if not already recorded, role/org context, Admin CRUD, PC commands/ack, exports/reports, WoL, Wi-Fi/cellular and 24-hour behavior.
 
 
 ## DB Android Owner bootstrap recovery helper — 2026-11-16
