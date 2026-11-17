@@ -307,8 +307,9 @@ jobs:
           if (!(Test-Path $asarPath)) { throw 'Packed Electron app.asar not found in win-unpacked resources.' }
           @'
           const asar = require(require.resolve('@electron/asar',{paths:[process.env.PC_PROJECT_DIR]}));
-          const files = asar.listPackage(process.argv[2]).map(x => x.startsWith('/') ? x.slice(1) : x);
+          const files = asar.listPackage(process.argv[2]).map(x => String(x).replace(/\\/g, '/').replace(/^\/+/, ''));
           const required = ['main.js','preload.js','renderer.js','index.html','v11-cloud.js','icon/logo.png','icon/background.jpg'];
+          console.log('ASAR entries:', JSON.stringify(files));
           for (const f of required) if (!files.includes(f)) throw new Error('APP_ASAR_RUNTIME_FILE_MISSING:' + f);
           for (const f of files) if (f === 'admin.html' || f.startsWith('supabase/') || f.startsWith('docs/') || f.startsWith('patch_pc_')) throw new Error('LEGACY_OR_DEV_FILE_BUNDLED:' + f);
           console.log('PASS app.asar allow-list:', files.join(', '));
