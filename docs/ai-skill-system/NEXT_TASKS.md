@@ -220,3 +220,19 @@ The V12.1.53 branch supersedes the earlier V12.1.51/V12.1.52 APK candidates. Do 
 - [ ] On failure, capture only the sanitized error screen and distinguish fetch/CORS, HTTP/auth, INVALID_CREDENTIALS and role errors; never ask for a password or secret.
 - [ ] Keep API 8788, PostgreSQL 5432, port 8787, rental data, Supabase and Blynk/WoL relay unchanged.
 - [ ] Mark Admin login accepted only after the valid login, correct role context and dashboard load pass on the device.
+
+## Priority 0 — Install and accept DB Android one-touch controller on Redmi
+
+- [ ] Download `ANI-GAMES-READY-DB-ANDROID-CONTROL-1.0.0.zip` and run the installer from Termux; installer performs file setup only and does not start/stop services.
+- [ ] Run `bash ~/ani-games-db-control/ani-db-control.sh status` first and review PostgreSQL, API 8788, WSS agent, Worker and legacy 8787 status.
+- [ ] Run `bash ~/ani-games-db-control/ani-db-control.sh start`; require PostgreSQL ONLINE, API 8788 api/database online, agent ONLINE, Worker HTTP 200 and agent_connected=true.
+- [ ] Test normal `stop`; verify agent and API 8788 stop while PostgreSQL remains online and legacy 8787 remains untouched.
+- [ ] Test `full-stop` only when no other application is using the PostgreSQL cluster; require typed confirmation and verify safety guards. Do not override a blocked shutdown.
+- [ ] If Termux:Widget is installed from a source compatible with the installed Termux app, add the four `~/.shortcuts` scripts as a Home Screen widget; otherwise continue using the one-command Termux menu.
+- [ ] Re-run ON after OFF and verify Admin V12.1.53 login still works. Do not claim phone-side acceptance until these device checks pass.
+
+## Priority 1 — Continue DB Android client rollout after control acceptance
+
+- [ ] Re-audit latest PC Billing V12.4.8 DB Android branch/artifact and API contract before integrating it with the Redmi local DB Android backend.
+- [ ] After PC Billing passes pairing, heartbeat, rental lookup, session start/end, sync and offline-queue tests, audit the latest Reseller DB Android branch and map reseller-only CRUD/auth flows.
+- [ ] Preserve the stable PC Billing/Admin/Reseller builds and separate Blynk/WoL relay. No production cutover or data migration without backup/restore proof and explicit approval.
