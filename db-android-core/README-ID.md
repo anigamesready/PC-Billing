@@ -28,7 +28,7 @@ Hanya jalankan pada database BARU dan kosong. Urutan file:
 8. `schema/008_local_business_triggers.sql`
 9. `schema/009_admin_db1_business_routines.sql`
 10. `schema/010_billing_reseller_refresh_and_devices.sql`
-11. `schema/011_billing_control_android_rpcs.sql`
+11. `schema/011_billing_control_android_rpcs.sql`\n12. `schema/012_billing_stop_pause_policy.sql`
 
 JANGAN menerapkan `schema/001_db1_catalog_snapshot.sql`. Jangan memasukkan tabel kontrol DB1/DB2, route-quiesce/before-image, Telegram outbox, atau shutdown scheduler sidecar.
 
@@ -56,7 +56,7 @@ Paket Redmi STAGING menggunakan file `setup-stage.sh` dan membuat database/role/
 - `POST /device/pull`
 - `POST /device/sync-cursor`
 - `POST /device/rentals`
-- `POST /device/test-policy`
+- `POST /device/test-policy`\n- `POST /device/session-control-policy` — dibaca PC hanya ketika tombol PAUSE/STOP ditekan
 - `POST /device/rental/lookup`
 - `POST /device/session/start`
 - `POST /device/session/end`
@@ -65,7 +65,7 @@ Paket Redmi STAGING menggunakan file `setup-stage.sh` dan membuat database/role/
 Jalur yang sama tersedia di bawah `/functions/v1/ani-games-api/` untuk kompatibilitas bentuk URL Edge Function lama.
 
 ### Admin
-Login lokal, refresh session, context, daftar perangkat, state, pairing recovery, alerts, policy free test, perintah PC, global rental CRUD, dan laporan periodik tersedia melalui allowlist `/rest/v1/rpc/*`.
+Login lokal, refresh session, context, daftar perangkat, state, pairing recovery, alerts, policy free test, izin PAUSE/STOP Billing, perintah PC, global rental CRUD, dan laporan periodik tersedia melalui allowlist `/rest/v1/rpc/*`.
 
 ### Billing Control pada Admin APK
 Login Billing Control, context, ganti password, daftar perangkat/sesi/rental per PC, tambah/edit/hapus rental, pause/resume/stop, restart Billing, trial, status command, serta putus pairing memakai token Billing Control terpisah. Reseller tidak diberi izin Windows/PC Control.
@@ -98,3 +98,4 @@ Tidak ada data Supabase yang dipindahkan dan belum ada cutover produksi.
 - Sebelum instalasi staging di Redmi, buat dan verifikasi backup PostgreSQL.
 - Hentikan hanya proses Node staging jika perlu rollback. Jangan hentikan PostgreSQL atau relay Blynk/WoL.
 - Jangan drop database lokal untuk rollback. Ekspor data staging sebelum tindakan yang menghapus.
+\n\n## Izin PAUSE / STOP Billing\n\nPengaturan `billing_stop_pause_enabled` disimpan pada `private.admin_feature_settings` dan berlaku global untuk semua PC pada DB Android yang sama. Default OFF. Owner dapat membukanya dari Admin; PC membaca status ke server ketika penyewa menekan PAUSE/STOP atau tombol X. Koneksi gagal atau status tidak valid berarti aksi penyewa ditolak (fail-closed). Timer habis otomatis dan perintah kontrol jarak jauh dari Admin tidak memakai gate ini. Untuk database DB Android yang sudah ada, hentikan sementara server API, jalankan `schema/012_billing_stop_pause_policy.sql` sekali dengan akun PostgreSQL pemilik database, lalu jalankan kembali server terbaru. Migrasi ini hanya menambah pengaturan/fungsi/izin API; tidak mengubah sesi, rental, token, pairing, atau service WoL.\n

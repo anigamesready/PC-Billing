@@ -61,6 +61,29 @@ BEGIN
   END IF;
   PERFORM api.admin_set_free_test_policy(v_token,false);
 
+  -- Owner-controlled PAUSE / STOP policy defaults OFF, can be toggled, and is
+  -- immediately visible through the paired PC device-token endpoint.
+  v_policy := api.admin_get_billing_stop_pause_policy(v_token);
+  IF coalesce((v_policy->>'enabled')::boolean,true) IS NOT FALSE THEN
+    RAISE EXCEPTION 'BILLING_STOP_PAUSE_POLICY_MUST_DEFAULT_DISABLED';
+  END IF;
+  v_policy := api.admin_set_billing_stop_pause_policy(v_token,true);
+  IF coalesce((v_policy->>'enabled')::boolean,false) IS NOT TRUE THEN
+    RAISE EXCEPTION 'BILLING_STOP_PAUSE_POLICY_ENABLE_FAILED';
+  END IF;
+  v_policy := api.device_session_control_policy('CI-ADMIN-SCREEN-DEVICE-TOKEN');
+  IF coalesce((v_policy->>'allow_stop_pause')::boolean,false) IS NOT TRUE THEN
+    RAISE EXCEPTION 'PC_STOP_PAUSE_PERMISSION_DID_NOT_OPEN';
+  END IF;
+  v_policy := api.admin_set_billing_stop_pause_policy(v_token,false);
+  IF coalesce((v_policy->>'enabled')::boolean,true) IS NOT FALSE THEN
+    RAISE EXCEPTION 'BILLING_STOP_PAUSE_POLICY_DISABLE_FAILED';
+  END IF;
+  v_policy := api.device_session_control_policy('CI-ADMIN-SCREEN-DEVICE-TOKEN');
+  IF coalesce((v_policy->>'allow_stop_pause')::boolean,true) IS NOT FALSE THEN
+    RAISE EXCEPTION 'PC_STOP_PAUSE_PERMISSION_DID_NOT_LOCK';
+  END IF;
+
   INSERT INTO public.rental_accounts(org_id,device_id,code,category,remaining_seconds,status,client_label)
   VALUES(v_org,v_device,'CI-ADMIN-PC-RENTAL','reguler',1200,'active','CI Admin PC Member')
   RETURNING id INTO v_rental;

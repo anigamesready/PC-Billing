@@ -15,7 +15,7 @@ const schema = fs.readdirSync(schemaDir)
   .join("\n");
 
 const entries = [...rpcBlock[1].matchAll(/^\s*([A-Za-z0-9_]+):\s*\{\s*auth:\s*"([^"]+)",\s*sql:\s*"([^"]+)",\s*args:\s*\[([^\]]*)\]\s*\}/gm)];
-assert.equal(entries.length, 49, "RPC allowlist entry count changed; review this checker before updating");
+assert.equal(entries.length, 51, "RPC allowlist entry count changed; review this checker before updating");
 
 function splitParameters(signature) {
   const parts = [];
@@ -91,4 +91,6 @@ for (const match of entries) {
   );
 }
 
-console.log("PASS: 49 Node RPC bindings match PostgreSQL parameter count, order and types");
+assert.ok(server.includes('path === "/device/session-control-policy"'), "PC stop/pause policy device route missing");
+assert.ok(schema.includes("api.device_session_control_policy(p_token text)"), "PC stop/pause device SQL function missing");
+console.log("PASS: 51 Node RPC bindings match PostgreSQL parameter count, order and types; PC stop/pause policy route is connected");

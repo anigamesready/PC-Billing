@@ -5,6 +5,7 @@ on:
     branches:
       - backend/db-android-core-v1
       - fix/db-android-core-api-contracts-20261116
+      - feature/db-android-stop-pause-policy-20261118
   workflow_dispatch:
 
 permissions:
@@ -54,6 +55,7 @@ jobs:
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/009_admin_db1_business_routines.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/010_billing_reseller_refresh_and_devices.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/011_billing_control_android_rpcs.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_test -v ON_ERROR_STOP=1 -f db-android-core/schema/012_billing_stop_pause_policy.sql
 
       - name: Run PC pairing, heartbeat, rental, lease, sync and shutdown safety regressions
         env:

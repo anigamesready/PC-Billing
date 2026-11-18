@@ -199,9 +199,11 @@ const RPC = {
   admin_devices: { auth: "admin", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.device_name,x.client_id),'[]'::jsonb) AS result FROM api.admin_devices($1::text,$2::uuid) x", args: ["p_org_id"] },
   admin_disconnect_device: { auth: "admin", sql: "SELECT api.admin_disconnect_device($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
   admin_get_free_test_policy: { auth: "admin", sql: "SELECT api.admin_get_free_test_policy($1::text) AS result", args: [] },
+  admin_get_billing_stop_pause_policy: { auth: "admin", sql: "SELECT api.admin_get_billing_stop_pause_policy($1::text) AS result", args: [] },
   admin_rename_device: { auth: "admin", sql: "SELECT api.admin_rename_device($1::text,$2::uuid,$3::uuid,$4::text) AS result", args: ["p_org_id","p_device_id","p_device_name"] },
   admin_rental_accounts: { auth: "admin", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.code),'[]'::jsonb) AS result FROM api.admin_rental_accounts($1::text,$2::uuid,$3::uuid) x", args: ["p_org_id","p_device_id"] },
   admin_set_free_test_policy: { auth: "admin", sql: "SELECT api.admin_set_free_test_policy($1::text,$2::boolean) AS result", args: ["p_enabled"] },
+  admin_set_billing_stop_pause_policy: { auth: "admin", sql: "SELECT api.admin_set_billing_stop_pause_policy($1::text,$2::boolean) AS result", args: ["p_enabled"] },
   admin_start_trial: { auth: "admin", sql: "SELECT api.admin_start_trial($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
 
   billing_rental_accounts: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.code),'[]'::jsonb) AS result FROM api.billing_rental_accounts($1::text,$2::uuid,$3::uuid) x", args: ["p_org_id","p_device_id"] },
@@ -285,6 +287,7 @@ async function deviceRequest(req, res, path, body) {
   }
   if (path === "/device/disconnect") return send(res,200,{ok:true,...await scalar("SELECT api.device_disconnect($1::text) AS result",[token])});
   if (path === "/device/test-policy") return send(res,200,await scalar("SELECT api.device_free_test_policy($1::text) AS result",[token]));
+  if (path === "/device/session-control-policy") return send(res,200,await scalar("SELECT api.device_session_control_policy($1::text) AS result",[token]));
   if (path === "/device/rental/lookup") return send(res,200,await scalar("SELECT api.device_rental_lookup($1::text,$2::text) AS result",[token,str(body.code,120)]));
   if (path === "/device/session/start") return send(res,200,await scalar("SELECT api.device_start_rental_session($1::text,$2::text,$3::text) AS result",[token,str(body.code,120),body.sourceEventId?str(body.sourceEventId,128):null]));
   if (path === "/device/session/end") return send(res,200,await scalar("SELECT api.device_end_rental_session($1::text,$2::text,$3::bigint,$4::text) AS result",[token,str(body.code,120),int(body.remainingSeconds),body.sourceEventId?str(body.sourceEventId,128):null]));
