@@ -262,3 +262,22 @@ jobs:
           node db-android-core/server/api-smoke.mjs
           node db-android-core/server/api-smoke-billing-refresh.mjs
           node db-android-core/server/api-smoke-login-lookup.mjs
+
+      - name: Package additive PC Billing Stop/Pause backend update
+        run: |
+          set -euo pipefail
+          mkdir -p output/AniGames-DB-Android-Stop-Pause-Patch/db-android-core/server output/AniGames-DB-Android-Stop-Pause-Patch/db-android-core/schema
+          cp db-android-core/server/server.mjs output/AniGames-DB-Android-Stop-Pause-Patch/db-android-core/server/server.mjs
+          cp db-android-core/schema/012_billing_stop_pause_policy.sql output/AniGames-DB-Android-Stop-Pause-Patch/db-android-core/schema/012_billing_stop_pause_policy.sql
+          cp db-android-core/README-ID.md output/AniGames-DB-Android-Stop-Pause-Patch/db-android-core/README-ID.md
+          cp db-android-core/STOP-PAUSE-DEPLOY-ID.md output/AniGames-DB-Android-Stop-Pause-Patch/STOP-PAUSE-DEPLOY-ID.md
+          cd output
+          zip -qr AniGames-DB-Android-Stop-Pause-Patch.zip AniGames-DB-Android-Stop-Pause-Patch
+
+      - name: Upload additive DB Android Stop/Pause patch bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniGames-DB-Android-Stop-Pause-Patch
+          path: output/AniGames-DB-Android-Stop-Pause-Patch.zip
+          if-no-files-found: error
+          retention-days: 30
