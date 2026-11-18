@@ -74,8 +74,7 @@ jobs:
             'patch_pc_v12_4_5_admin_logout_responsive_login.py',
             'patch_pc_v12_4_6_responsive_display_fit.py',
             'patch_pc_v12_4_7_fullscreen_noninterference.py',
-            'patch_pc_v12_4_8_timer_size_sync.py',
-            'patch_pc_v12_4_9_stop_pause_authorization.py'
+            'patch_pc_v12_4_8_timer_size_sync.py'
           )
           foreach ($patch in $patches) {
             if (!(Test-Path $patch)) { throw "Patch file missing: $patch" }
@@ -97,6 +96,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_db_android_runtime_cleanup.py') "$env:PC_PROJECT_DIR"
           if ($LASTEXITCODE -ne 0) { throw 'DB Android runtime cleanup failed.' }
+          python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_v12_4_9_stop_pause_authorization.py')
+          if ($LASTEXITCODE -ne 0) { throw 'V12.4.9 Stop/Pause authorization patch failed.' }
           $index = Get-Content (Join-Path $env:PC_PROJECT_DIR 'index.html') -Raw
           if (!$index.Contains('<script src="v11-cloud.js"></script>') -or $index.Contains('v11-Server DB Android.js')) {
             throw 'The actual V11 DB Android sync module is not connected to Billing HTML.'
