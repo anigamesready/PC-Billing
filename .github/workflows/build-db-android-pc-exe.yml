@@ -96,6 +96,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_db_android_runtime_cleanup.py') "$env:PC_PROJECT_DIR"
           if ($LASTEXITCODE -ne 0) { throw 'DB Android runtime cleanup failed.' }
+          Set-Location $env:PC_PROJECT_DIR
           python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_v12_4_9_stop_pause_authorization.py')
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.9 Stop/Pause authorization patch failed.' }
           $index = Get-Content (Join-Path $env:PC_PROJECT_DIR 'index.html') -Raw
