@@ -1,9 +1,9 @@
-name: Build AniGames PC V12.4.8 DB Android Candidate
+name: Build AniGames PC V12.4.9 DB Android Candidate
 
 on:
   push:
     branches:
-      - pc-billing-v12.4.8-db-android-clean-20261117
+      - feature/pc-v12.4.9-stop-pause-20261118
   workflow_dispatch:
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Extract exact V12.4.8 source and stage verified patch chain
+      - name: Extract exact V12.4.8 master source and stage V12.4.9 patch
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -74,7 +74,8 @@ jobs:
             'patch_pc_v12_4_5_admin_logout_responsive_login.py',
             'patch_pc_v12_4_6_responsive_display_fit.py',
             'patch_pc_v12_4_7_fullscreen_noninterference.py',
-            'patch_pc_v12_4_8_timer_size_sync.py'
+            'patch_pc_v12_4_8_timer_size_sync.py',
+            'patch_pc_v12_4_9_stop_pause_authorization.py'
           )
           foreach ($patch in $patches) {
             if (!(Test-Path $patch)) { throw "Patch file missing: $patch" }
@@ -105,7 +106,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: anigamesready/PC-Billing
-          ref: d86e7ecfa82d7af29bb53d067a316984b1fef69b
+          ref: 9b82889c10298a4574c9bd2781cf91d64b3f6521
           path: backend-contract
           sparse-checkout: |
             db-android-core/server/server.mjs
@@ -120,8 +121,8 @@ jobs:
           Set-Location $env:PC_PROJECT_DIR
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
           $package.name = 'ani-games-billing-db-android'
-          $package.build.appId = 'com.anigames.billing.v1248dbandroid'
-          $package.build.productName = 'AniGames Billing V12.4.8 DB Android'
+          $package.build.appId = 'com.anigames.billing.v1249dbandroid'
+          $package.build.productName = 'AniGames Billing V12.4.9 DB Android'
           # Explicit runtime allow-list: the retired Supabase admin console, migrations,
           # docs and patch scripts must never enter app.asar.
           $runtimeFiles = @('main.js','preload.js','renderer.js','index.html','v11-cloud.js','icon/**/*')
@@ -134,7 +135,7 @@ jobs:
           }
           $lock | ConvertTo-Json -Depth 100 | Set-Content -Path 'package-lock.json' -Encoding utf8
           $verify = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($verify.build.appId -ne 'com.anigames.billing.v1248dbandroid' -or $verify.build.productName -ne 'AniGames Billing V12.4.8 DB Android') {
+          if ($verify.build.appId -ne 'com.anigames.billing.v1249dbandroid' -or $verify.build.productName -ne 'AniGames Billing V12.4.9 DB Android') {
             throw 'Isolated DB Android Electron identity was not applied.'
           }
           $allowed = @('main.js','preload.js','renderer.js','index.html','v11-cloud.js','icon/**/*')
@@ -217,9 +218,14 @@ jobs:
 
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
           $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
-          if ($package.version -ne '12.4.8' -or $lock.version -ne '12.4.8') { throw 'Package metadata is not V12.4.8.' }
-          if ($package.build.appId -ne 'com.anigames.billing.v1248dbandroid' -or $package.build.productName -ne 'AniGames Billing V12.4.8 DB Android') { throw 'Isolated DB Android Electron identity is incorrect.' }
-          if (!$index.Contains('V12.4.8-TIMER-SIZE-SYNC') -or !$renderer.Contains('V12.4.8-TIMER-SIZE-SYNC')) { throw 'V12.4.8 source version markers missing.' }
+          if ($package.version -ne '12.4.9' -or $lock.version -ne '12.4.9') { throw 'Package metadata is not V12.4.9.' }
+          if ($package.build.appId -ne 'com.anigames.billing.v1249dbandroid' -or $package.build.productName -ne 'AniGames Billing V12.4.9 DB Android') { throw 'Isolated DB Android Electron identity is incorrect.' }
+          if (!$index.Contains('V12.4.9-STOP-PAUSE-AUTHORIZATION') -or !$renderer.Contains('V12.4.9-STOP-PAUSE-AUTHORIZATION')) { throw 'V12.4.9 source version markers missing.' }
+          if (!$cloud.Contains("request('/device/session-control-policy'") -or !$cloud.Contains('window.v11CheckStopPausePermission')) { throw 'PC stop/pause authorization endpoint/helper missing.' }
+          foreach ($token in @('function authorizeStopPauseAndStop','setStopPauseAuthorizationVisual','pauseStopSessionFromTimer(event)','finishSessionFromTimer(event)')) {
+            if (!$index.Contains($token)) { throw "Renter Stop/Pause authorization handler missing: $token" }
+          }
+          if (!$index.Contains('function pauseSession(showNotif = false)') -or !$index.Contains('if (remaining <= 0)')) { throw 'Automatic expiry/session engine must remain intact.' }
 
           Get-ChildItem -Path 'patch_pc_*.py' -File | ForEach-Object {
             python -m py_compile $_.Name
@@ -271,7 +277,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $found = Get-ChildItem (Join-Path $env:PC_PROJECT_DIR 'dist') -Filter '*.exe' -File | Select-Object -First 1
           if (!$found) { throw 'No Windows portable EXE produced.' }
-          $canonical = Join-Path $found.DirectoryName 'AniGames Billing V12.4.8 DB Android.exe'
+          $canonical = Join-Path $found.DirectoryName 'AniGames Billing V12.4.9 DB Android.exe'
           if ($found.FullName -ne $canonical) {
             Move-Item -LiteralPath $found.FullName -Destination $canonical -Force
             $found = Get-Item -LiteralPath $canonical
@@ -289,10 +295,10 @@ jobs:
           - Baseline: fix/pc-v12.4.8-timer-size-sync @ bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19
           - Redmi API + SQL + WSS contract commit: $backendSha
           - Input source ZIP SHA-256: $sourceHash
-          - EXE: AniGames Billing V12.4.8 DB Android.exe
+          - EXE: AniGames Billing V12.4.9 DB Android.exe
           - EXE SHA-256: $exeHash
-          - Electron appId: com.anigames.billing.v1248dbandroid
-          - Electron productName: AniGames Billing V12.4.8 DB Android
+          - Electron appId: com.anigames.billing.v1249dbandroid
+          - Electron productName: AniGames Billing V12.4.9 DB Android
           - Database transport: one local PostgreSQL DB Android API through the verified HTTPS Cloudflare WSS relay
           - Default server: https://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev
           - Packaging: explicit Electron runtime allow-list; legacy admin.html/Supabase files excluded
@@ -316,13 +322,13 @@ jobs:
           '@ | node - $asarPath
           if ($LASTEXITCODE -ne 0) { throw 'Packed app.asar contains missing runtime or legacy Supabase/dev files.' }
           New-Item -ItemType Directory -Path 'output' -Force | Out-Null
-          Copy-Item $found.FullName 'output/AniGames Billing V12.4.8 DB Android.exe' -Force
+          Copy-Item $found.FullName 'output/AniGames Billing V12.4.9 DB Android.exe' -Force
           Copy-Item 'PC-DB-ANDROID-PROVENANCE.md' 'output/PC-DB-ANDROID-PROVENANCE.md' -Force
-          Get-FileHash 'output/AniGames Billing V12.4.8 DB Android.exe' -Algorithm SHA256 | Format-List
+          Get-FileHash 'output/AniGames Billing V12.4.9 DB Android.exe' -Algorithm SHA256 | Format-List
           @'
           import zipfile
           from pathlib import Path
-          output=Path("AniGames-PC-V12.4.8-DB-Android-FINAL.zip")
+          output=Path("AniGames-PC-V12.4.9-DB-Android-FINAL.zip")
           with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
               for item in Path("output").iterdir():
                   if item.is_file(): z.write(item,item.name)
@@ -334,6 +340,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AniGames-PC-V12.4.8-DB-Android-FINAL
-          path: AniGames-PC-V12.4.8-DB-Android-FINAL.zip
+          path: AniGames-PC-V12.4.9-DB-Android-FINAL.zip
           if-no-files-found: error
           retention-days: 14
