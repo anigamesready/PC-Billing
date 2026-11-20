@@ -136,7 +136,7 @@ BEGIN
     WHERE r->>'rental_account_id'=rental_id::text
       AND r->>'permission_enabled'='true'
       AND r->>'activation_issued'='true'
-      AND r->>'client_logged_in'='false'
+      AND r->>'client_logged_in'='true'
   ) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_ADMIN_RENTAL_STATUS_MISSING';
   END IF;
@@ -158,6 +158,7 @@ BEGIN
     WHERE r->>'rental_account_id'=rental_id::text
       AND r->>'permission_enabled'='false'
       AND r->>'activation_issued'='false'
+      AND r->>'client_logged_in'='false'
   ) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_ADMIN_PERMISSION_REVOCATION_NOT_VISIBLE';
   END IF;
@@ -174,6 +175,17 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_OLD_ACTIVATION_CREDENTIAL_REACTIVATED';
   END IF;
+
+  BEGIN
+    PERFORM api.remote_play_login(
+      'CI-REMOTE-PLAY-RENTAL',activation_code,'CI-REMOTE-PLAY-CLIENT-RELOGIN'
+    );
+    RAISE EXCEPTION 'REMOTE_PLAY_REVOKED_ACTIVATION_LOGIN_SUCCEEDED';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    IF SQLERRM <> 'REMOTE_PLAY_INVALID_CREDENTIALS' THEN
+      RAISE;
+    END IF;
+  END;
 END;
 $$;
 
