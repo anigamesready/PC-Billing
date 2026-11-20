@@ -126,7 +126,20 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_ADMIN_PERMISSION_REVOCATION_NOT_VISIBLE';
   END IF;
+
+  -- Re-enable the feature: the previously issued activation credential must
+  -- remain revoked and must never become usable again.
+  PERFORM api.admin_remote_play_set_rental_permission(owner_token,rental_id,true);
+  dashboard := api.admin_remote_play_dashboard(owner_token,200);
+  IF NOT EXISTS(
+    SELECT 1 FROM jsonb_array_elements(dashboard->'rental_accounts') r
+    WHERE r->>'rental_account_id'=rental_id::text
+      AND r->>'permission_enabled'='true'
+      AND r->>'activation_issued'='false'
+  ) THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_OLD_ACTIVATION_CREDENTIAL_REACTIVATED';
+  END IF;
 END;
-$$;
+$;
 
 SELECT 'PASS: Owner-only Remote Play dashboard, per-PC/per-rental permissions, host enrollment and one-time activation issuance' AS result;
