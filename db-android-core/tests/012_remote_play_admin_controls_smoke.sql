@@ -2,7 +2,6 @@
 -- Runs only on a fresh disposable PostgreSQL CI database.
 DO $$
 DECLARE
-  bootstrap jsonb;
   login_result jsonb;
   host_permission jsonb;
   rental_permission jsonb;
@@ -19,18 +18,11 @@ DECLARE
   rental_id uuid;
   activation_code text;
 BEGIN
-  INSERT INTO private.admin_bootstrap_control(singleton,token_hash)
-  VALUES(true,encode(extensions.digest('CI-Remote-Play-Owner-Token','sha256'),'hex'));
-
-  bootstrap := api.admin_bootstrap_owner(
-    'CI-Remote-Play-Owner-Token',
-    'CI-REMOTE-PLAY-OWNER',
-    'CI-Remote-Play-Strong-Password-2026',
-    'CI Remote Play Owner'
-  );
-  org_id := (bootstrap->>'org_id')::uuid;
-  login_result := api.admin_login('CI-REMOTE-PLAY-OWNER','CI-Remote-Play-Strong-Password-2026');
+  -- Reuse the Owner provisioned by 004_admin_local_auth_smoke.sql.
+  -- That test consumes the single-use bootstrap and rotates the password.
+  login_result := api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
   owner_token := login_result->>'token';
+  org_id := (login_result->>'org_id')::uuid;
 
   IF coalesce(owner_token,'')='' OR org_id IS NULL THEN
     RAISE EXCEPTION 'REMOTE_PLAY_OWNER_TEST_SESSION_NOT_CREATED';
