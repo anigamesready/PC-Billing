@@ -219,7 +219,7 @@ const RPC = {
   remote_play_request_session: { auth: "remote_client", sql: "SELECT api.remote_play_request_session($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_idempotency_key"] },
   remote_play_session_heartbeat: { auth: "remote_client", sql: "SELECT api.remote_play_session_heartbeat($1::text,$2::uuid) AS result", args: ["p_session_id"] },
   remote_play_end_session: { auth: "remote_client", sql: "SELECT api.remote_play_end_session($1::text,$2::uuid,$3::text) AS result", args: ["p_session_id","p_reason"] },
-  remote_play_pairing_prepare: { auth: "remote_client", sql: "SELECT api.remote_play_pairing_prepare($1::text,$2::uuid,$3::text,$4::text) AS result", args: ["p_session_id","p_pin","p_client_name"] },
+  remote_play_pairing_prepare: { auth: "remote_client", sql: "SELECT api.remote_play_pairing_prepare($1::text,$2::uuid,$3::text,$4::text,$5::inet) AS result", args: ["p_session_id","p_pin","p_client_name","p_client_address"] },
 
   remote_play_host_enroll: { sql: "SELECT api.remote_play_host_enroll($1::text,$2::text) AS result", args: ["p_enrollment_code","p_agent_version"] },
   remote_play_host_heartbeat: { auth: "remote_host", sql: "SELECT api.remote_play_host_heartbeat($1::text,$2::boolean,$3::inet,$4::text) AS result", args: ["p_sunshine_ready","p_media_address","p_agent_version"] },
