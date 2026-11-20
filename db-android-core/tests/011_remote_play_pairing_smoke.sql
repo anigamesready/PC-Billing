@@ -9,9 +9,14 @@ DECLARE
   v_rental_id uuid := gen_random_uuid();
   v_client_session_id uuid := gen_random_uuid();
   v_remote_session_id uuid := gen_random_uuid();
+  v_pair_session_id uuid := gen_random_uuid();
+  v_pair_challenge_id uuid;
   v_client_token text := encode(extensions.gen_random_bytes(32),'hex');
   v_host_token text := encode(extensions.gen_random_bytes(32),'hex');
   watchdog_result jsonb;
+  pair_prepare_result jsonb;
+  pair_poll_result jsonb;
+  pair_complete_result jsonb;
 BEGIN
   IF to_regclass('remote_play.pairing_challenges') IS NULL THEN
     RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_TABLE_MISSING';
@@ -101,6 +106,37 @@ BEGIN
   END IF;
   IF (SELECT remaining_seconds FROM public.rental_accounts WHERE id=v_rental_id)>=7200 THEN
     RAISE EXCEPTION 'REMOTE_PLAY_WATCHDOG_USAGE_NOT_SETTLED';
+  END IF;
+
+  -- Exercise the complete authorized challenge path using distinct client/host tokens.
+  INSERT INTO remote_play.sessions(
+    id,org_id,rental_account_id,device_id,client_session_id,status,
+    started_at,deadline_at,last_client_heartbeat_at,starting_balance_seconds,idempotency_key
+  ) VALUES(v_pair_session_id,v_org_id,v_rental_id,v_device_id,v_client_session_id,'active',
+    now(),now()+interval '1 hour',now(),7000,'ci-pair:'||v_pair_session_id::text);
+
+  pair_prepare_result := api.remote_play_pairing_prepare(
+    v_client_token,v_pair_session_id,'1234','ANI-AABBCCDDEEFF');
+  v_pair_challenge_id := (pair_prepare_result->>'challenge_id')::uuid;
+  IF pair_prepare_result->>'status' <> 'pending' OR v_pair_challenge_id IS NULL THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_PREPARE_DID_NOT_CREATE_CHALLENGE';
+  END IF;
+
+  pair_poll_result := api.remote_play_host_pairing_poll(v_host_token,v_pair_session_id);
+  IF NOT coalesce((pair_poll_result->>'pending')::boolean,false)
+     OR pair_poll_result->>'pin' <> '1234'
+     OR pair_poll_result->>'client_name' <> 'ANI-AABBCCDDEEFF' THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_HOST_DID_NOT_RECEIVE_EXACT_PAIRING_CHALLENGE';
+  END IF;
+
+  pair_complete_result := api.remote_play_host_pairing_complete(
+    v_host_token,v_pair_session_id,v_pair_challenge_id,true,'0123456789abcdef0123456789abcdef',NULL);
+  IF pair_complete_result->>'status' <> 'paired' OR NOT EXISTS (
+    SELECT 1 FROM remote_play.pairing_challenges
+    WHERE id=v_pair_challenge_id AND status='paired'
+      AND sunshine_pairing_id='0123456789abcdef0123456789abcdef'
+  ) THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_COMPLETION_NOT_PERSISTED';
   END IF;
 
   -- Ensure the client/host pairing RPCs compile and reject missing bearer tokens
