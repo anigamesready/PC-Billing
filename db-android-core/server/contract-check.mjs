@@ -14,8 +14,8 @@ const schema = fs.readdirSync(schemaDir)
   .map(name => fs.readFileSync(path.join(schemaDir, name), "utf8"))
   .join("\n");
 
-const entries = [...rpcBlock[1].matchAll(/^\s*([A-Za-z0-9_]+):\s*\{\s*auth:\s*"([^"]+)",\s*sql:\s*"([^"]+)",\s*args:\s*\[([^\]]*)\]\s*\}/gm)];
-assert.equal(entries.length, 51, "RPC allowlist entry count changed; review this checker before updating");
+const entries = [...rpcBlock[1].matchAll(/^\s*([A-Za-z0-9_]+):\s*\{\s*(?:auth:\s*"([^"]+)",\s*)?sql:\s*"([^"]+)",\s*args:\s*\[([^\]]*)\]\s*\}/gm)];
+assert.equal(entries.length, 66, "RPC allowlist entry count changed; review this checker before updating");
 
 function splitParameters(signature) {
   const parts = [];
