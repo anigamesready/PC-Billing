@@ -674,9 +674,12 @@ BEGIN
     RAISE EXCEPTION 'REMOTE_PLAY_INVALID_CREDENTIALS';
   END IF;
 
+  SELECT count(*) INTO matched_accounts FROM public.rental_accounts
+  WHERE upper(trim(code))=upper(trim(p_rental_code));
+  IF matched_accounts<>1 THEN RAISE EXCEPTION 'REMOTE_PLAY_INVALID_CREDENTIALS'; END IF;
   SELECT * INTO r FROM public.rental_accounts
   WHERE upper(trim(code))=upper(trim(p_rental_code))
-  ORDER BY created_at DESC LIMIT 1 FOR UPDATE;
+  FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'REMOTE_PLAY_INVALID_CREDENTIALS'; END IF;
 
   SELECT * INTO credential FROM remote_play.client_credentials
@@ -821,6 +824,7 @@ DECLARE
   h remote_play.host_registrations%ROWTYPE;
   s remote_play.sessions%ROWTYPE;
   previous_cooldown timestamptz;
+  matched_accounts integer;
   deadline timestamptz;
   command_id uuid;
   media_address text;
@@ -838,7 +842,7 @@ BEGIN
   WHERE client_session_id=c.id AND idempotency_key=p_idempotency_key
   LIMIT 1;
   IF FOUND AND s.status IN ('starting','active') AND s.settled_at IS NULL THEN
-    SELECT host(p_media) INTO media_address FROM remote_play.host_registrations WHERE device_id=s.device_id;
+    SELECT host(media_address) INTO media_address FROM remote_play.host_registrations WHERE device_id=s.device_id;
     RETURN jsonb_build_object('ok',true,'idempotent',true,'session_id',s.id,'status',s.status,
       'deadline_at',s.deadline_at,'media_address',media_address);
   END IF;
@@ -1002,7 +1006,6 @@ $function$;
 
 -- Grant only API entry points. Helper functions and schema tables stay private.
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA remote_play FROM PUBLIC;
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA private FROM ani_api_runtime;
 REVOKE ALL ON FUNCTION private.remote_play_require_admin(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.remote_play_get_client(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.remote_play_get_host(text) FROM PUBLIC;
