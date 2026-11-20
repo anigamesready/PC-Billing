@@ -577,12 +577,30 @@ BEGIN
 
   SELECT * INTO active_session FROM remote_play.sessions
   WHERE device_id=h.device_id AND status IN ('starting','active') AND settled_at IS NULL
-  ORDER BY started_at DESC LIMIT 1;
+  ORDER BY started_at DESC LIMIT 1 FOR UPDATE;
+
+  -- Host-side watchdog is independent of the Android app process. It enforces the
+  -- hard deadline and closes orphan sessions when the client heartbeat disappears.
+  IF FOUND AND (
+      active_session.deadline_at<=now()
+      OR active_session.last_client_heartbeat_at<now()-interval '90 seconds'
+  ) THEN
+    PERFORM private.remote_play_settle_session(
+      active_session.id,
+      CASE WHEN active_session.deadline_at<=now()
+        THEN 'deadline_expired' ELSE 'client_heartbeat_timeout' END,
+      true
+    );
+    RETURN jsonb_build_object('ok',true,'permission_enabled',true,
+      'sunshine_ready',coalesce(p_sunshine_ready,false),'server_time',now(),
+      'active_session',NULL,'watchdog_settled',true);
+  END IF;
+
   RETURN jsonb_build_object('ok',true,'permission_enabled',true,
     'sunshine_ready',coalesce(p_sunshine_ready,false),'server_time',now(),
     'active_session',CASE WHEN active_session.id IS NULL THEN NULL ELSE
       jsonb_build_object('id',active_session.id,'deadline_at',active_session.deadline_at,
-        'status',active_session.status) END);
+        'status',active_session.status) END,'watchdog_settled',false);
 END;
 $function$;
 
