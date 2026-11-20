@@ -93,4 +93,4 @@ for (const match of entries) {
 
 assert.ok(server.includes('path === "/device/session-control-policy"'), "PC stop/pause policy device route missing");
 assert.ok(schema.includes("api.device_session_control_policy(p_token text)"), "PC stop/pause device SQL function missing");
-console.log("PASS: 51 Node RPC bindings match PostgreSQL parameter count, order and types; PC stop/pause policy route is connected");
+console.log("PASS: 66 Node RPC bindings match PostgreSQL parameter count, order and types; existing PC stop/pause policy route is connected");
