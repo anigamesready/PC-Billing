@@ -1,0 +1,43 @@
+name: Export Admin Android source for Remote Play integration review
+
+on:
+  push:
+    branches:
+      - feature/remote-play-pairing-api-v0.2
+    paths:
+      - ".github/workflows/export-admin-source-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-admin-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect and export the latest Admin Android source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip"
+          test -f "$ARCHIVE"
+          unzip -Z1 "$ARCHIVE" > /tmp/admin-source-files.txt
+          mkdir -p /tmp/admin-source/review
+          cp /tmp/admin-source-files.txt /tmp/admin-source/review/ARCHIVE-FILE-LIST.txt
+          unzip -q "$ARCHIVE" -d /tmp/admin-source/unpacked
+          find /tmp/admin-source/unpacked -type f \
+            \( -name '*.java' -o -name '*.kt' -o -name '*.xml' -o \
+               -name '*.gradle' -o -name '*.gradle.kts' -o -name '*.properties' -o \
+               -name '*.pro' -o -name '*.json' -o -name '*.md' -o -name '*.txt' \) \
+            -not -path '*/build/*' -not -path '*/.gradle/*' \
+            -exec cp --parents '{}' /tmp/admin-source/review/ \;
+          echo "Exported source files: $(find /tmp/admin-source/review -type f | wc -l)"
+          cd /tmp/admin-source/review
+          zip -qr "$GITHUB_WORKSPACE/Admin-Android-Source-Review.zip" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admin-android-source-review
+          path: Admin-Android-Source-Review.zip
+          if-no-files-found: error
+          retention-days: 7
