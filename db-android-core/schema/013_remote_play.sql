@@ -662,6 +662,7 @@ SECURITY DEFINER
 SET search_path TO 'public','remote_play','extensions','pg_catalog'
 AS $function$
 DECLARE
+  matched_accounts bigint;
   r public.rental_accounts%ROWTYPE;
   credential remote_play.client_credentials%ROWTYPE;
   raw_token text := encode(extensions.gen_random_bytes(32),'hex');
