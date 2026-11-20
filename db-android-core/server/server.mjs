@@ -211,6 +211,7 @@ const RPC = {
   admin_remote_play_issue_client_credential: { auth: "admin", sql: "SELECT api.admin_remote_play_issue_client_credential($1::text,$2::uuid) AS result", args: ["p_rental_account_id"] },
   admin_remote_play_issue_host_enrollment: { auth: "admin", sql: "SELECT api.admin_remote_play_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
   admin_remote_play_sessions: { auth: "admin", sql: "SELECT api.admin_remote_play_sessions($1::text,$2::integer) AS result", args: ["p_limit"] },
+  admin_remote_play_dashboard: { auth: "admin", sql: "SELECT api.admin_remote_play_dashboard($1::text,$2::integer) AS result", args: ["p_limit"] },
 
   remote_play_refresh: { sql: "SELECT api.remote_play_refresh($1::text) AS result", args: ["p_refresh_token"] },
   remote_play_logout: { auth: "remote_client", sql: "SELECT api.remote_play_logout($1::text) AS result", args: [] },
