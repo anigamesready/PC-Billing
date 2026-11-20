@@ -66,11 +66,23 @@ BEGIN
     RAISE EXCEPTION 'REMOTE_PLAY_HOST_ENROLLMENT_FAILED';
   END IF;
 
-  host_heartbeat := api.remote_play_host_heartbeat(host_token,true,'10.20.30.40'::inet,'ci-admin-controls');
+  host_heartbeat := api.remote_play_host_heartbeat(host_token,true,'100.96.23.45'::inet,'ci-admin-controls');
   IF host_heartbeat->>'permission_enabled' <> 'true'
      OR host_heartbeat->>'sunshine_ready' <> 'true' THEN
     RAISE EXCEPTION 'REMOTE_PLAY_HOST_HEARTBEAT_NOT_READY';
   END IF;
+
+  -- Cloudflare Mesh /12 is permitted, but adjacent CGNAT space must remain denied.
+  BEGIN
+    PERFORM api.remote_play_host_heartbeat(
+      host_token,true,'100.95.255.254'::inet,'ci-admin-controls'
+    );
+    RAISE EXCEPTION 'REMOTE_PLAY_MESH_ALLOWLIST_ACCEPTED_NEIGHBORING_CGNAT';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    IF SQLERRM <> 'REMOTE_PLAY_MEDIA_ADDRESS_MUST_BE_APPROVED_OVERLAY' THEN
+      RAISE;
+    END IF;
+  END;
 
   client_credential := api.admin_remote_play_issue_client_credential(owner_token,rental_id);
   activation_code := client_credential->>'activation_code';
@@ -92,6 +104,7 @@ BEGIN
       AND h->>'agent_enrolled'='true'
       AND h->>'sunshine_ready'='true'
       AND h->>'media_path_ready'='true'
+      AND h->>'media_address'='100.96.23.45'
       AND h->>'pending_enrollment'='false'
   ) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_ADMIN_HOST_STATUS_MISSING';
