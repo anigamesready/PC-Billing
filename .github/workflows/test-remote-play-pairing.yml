@@ -1,0 +1,112 @@
+name: Test Remote Play and Sunshine pairing on PostgreSQL
+
+on:
+  push:
+    branches:
+      - feature/remote-play-pairing-api-v0.2
+    paths:
+      - "db-android-core/schema/**"
+      - "db-android-core/server/**"
+      - "db-android-core/tests/011_remote_play_pairing_smoke.sql"
+      - ".github/workflows/test-remote-play-pairing.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-remote-play:
+    name: Fresh PostgreSQL Remote Play / pairing regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ani_games_remote_play_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ani_games_remote_play_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout isolated DB Android Remote Play branch
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply existing DB Android schema and Remote Play migrations to disposable PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          for file in \
+            db-android-core/schema/000_prerequisites.sql \
+            db-android-core/schema/002_core_business_schema.sql \
+            db-android-core/schema/003_pc_device_api_functions.sql \
+            db-android-core/schema/004_billing_reseller_api.sql \
+            db-android-core/schema/005_runtime_privileges.sql \
+            db-android-core/schema/006_admin_local_auth_and_rpc.sql \
+            db-android-core/schema/007_billing_control_commands.sql \
+            db-android-core/schema/008_local_business_triggers.sql \
+            db-android-core/schema/009_admin_db1_business_routines.sql \
+            db-android-core/schema/010_billing_reseller_refresh_and_devices.sql \
+            db-android-core/schema/011_billing_control_android_rpcs.sql \
+            db-android-core/schema/012_billing_stop_pause_policy.sql \
+            db-android-core/schema/013_remote_play.sql \
+            db-android-core/schema/014_remote_play_pairing.sql; do
+              echo "Applying $file"
+              psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
+          done
+          # 001_db1_catalog_snapshot.sql is intentionally excluded; it is not a replayable migration.
+
+      - name: Run existing DB Android regression suite
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          for file in \
+            db-android-core/tests/001_pc_device_api_smoke.sql \
+            db-android-core/tests/002_billing_reseller_api_smoke.sql \
+            db-android-core/tests/003_runtime_privileges_smoke.sql \
+            db-android-core/tests/004_admin_local_auth_smoke.sql \
+            db-android-core/tests/005_billing_control_commands_smoke.sql \
+            db-android-core/tests/006_local_business_triggers_smoke.sql \
+            db-android-core/tests/007_admin_device_policy_smoke.sql \
+            db-android-core/tests/008_admin_enrollment_reports_theme_smoke.sql \
+            db-android-core/tests/009_admin_billing_user_crud_smoke.sql \
+            db-android-core/tests/010_billing_refresh_smoke.sql; do
+              echo "Testing $file"
+              psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
+          done
+
+      - name: Test Remote Play login and Sunshine pairing contracts/privileges
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/011_remote_play_pairing_smoke.sql
+
+      - name: Validate all DB Android Node RPC bindings against PostgreSQL schema
+        run: |
+          set -euo pipefail
+          node db-android-core/server/contract-check.mjs
+
+      - name: Install Node dependency and syntax-check DB Android API gateway
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check API source
+        working-directory: db-android-core/server
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
