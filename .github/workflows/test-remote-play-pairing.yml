@@ -1,4 +1,5 @@
 name: Test Remote Play and Sunshine pairing on PostgreSQL
+# Updated: include permanent activation-code revocation regression coverage.
 
 on:
   push:
