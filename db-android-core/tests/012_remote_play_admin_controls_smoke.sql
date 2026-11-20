@@ -140,6 +140,6 @@ BEGIN
     RAISE EXCEPTION 'REMOTE_PLAY_OLD_ACTIVATION_CREDENTIAL_REACTIVATED';
   END IF;
 END;
-$;
+$$;
 
 SELECT 'PASS: Owner-only Remote Play dashboard, per-PC/per-rental permissions, host enrollment and one-time activation issuance' AS result;
