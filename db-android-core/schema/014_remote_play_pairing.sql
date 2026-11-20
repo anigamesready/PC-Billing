@@ -225,39 +225,7 @@ BEGIN
     RAISE EXCEPTION 'REMOTE_PLAY_HOST_DISABLED';
   END IF;
 
-  IF coalesce(p_success,false) AND coalesce(p_sunshine_pairing_id,'') !~ '^[0-9a-fA-F]{32}
-    RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_ID_INVALID';
-  END IF;
-
-  UPDATE remote_play.pairing_challenges
-  SET status=CASE WHEN p_success THEN 'paired' ELSE 'failed' END,
-      completed_at=now(),
-      sunshine_pairing_id=CASE WHEN p_success THEN lower(p_sunshine_pairing_id) ELSE NULL END,
-      failure_reason=CASE WHEN p_success THEN NULL ELSE left(coalesce(p_failure_reason,'pairing_failed'),80) END
-  WHERE id=challenge.id;
-
-  INSERT INTO remote_play.audit_events(org_id,actor_family,actor_id,event_name,target_id,payload)
-  VALUES(challenge.org_id,'host',h.device_id::text,
-    CASE WHEN p_success THEN 'pairing_completed' ELSE 'pairing_failed' END,
-    challenge.session_id::text,
-    jsonb_build_object('challenge_id',challenge.id,'sunshine_pairing_id',
-      CASE WHEN p_success THEN lower(p_sunshine_pairing_id) ELSE NULL END));
-
-  RETURN jsonb_build_object('ok',true,'challenge_id',challenge.id,
-    'status',CASE WHEN p_success THEN 'paired' ELSE 'failed' END);
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION api.remote_play_pairing_prepare(text,uuid,text,text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION api.remote_play_host_pairing_poll(text,uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION api.remote_play_host_pairing_complete(text,uuid,uuid,boolean,text,text) FROM PUBLIC;
-
-GRANT EXECUTE ON FUNCTION api.remote_play_pairing_prepare(text,uuid,text,text) TO ani_api_runtime;
-GRANT EXECUTE ON FUNCTION api.remote_play_host_pairing_poll(text,uuid) TO ani_api_runtime;
-GRANT EXECUTE ON FUNCTION api.remote_play_host_pairing_complete(text,uuid,uuid,boolean,text,text) TO ani_api_runtime;
-
-COMMIT;
- THEN
+  IF coalesce(p_success,false) AND coalesce(p_sunshine_pairing_id,'') !~ '^[0-9a-fA-F]{32}$' THEN
     RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_ID_INVALID';
   END IF;
 
