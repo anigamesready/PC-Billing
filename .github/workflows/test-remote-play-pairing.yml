@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - feature/remote-play-pairing-api-v0.2
+      - feature/remote-play-admin-controls-v0.3
     paths:
       - "db-android-core/schema/**"
       - "db-android-core/server/**"
       - "db-android-core/tests/011_remote_play_pairing_smoke.sql"
+      - "db-android-core/tests/012_remote_play_admin_controls_smoke.sql"
       - ".github/workflows/test-remote-play-pairing.yml"
   workflow_dispatch:
 
@@ -62,7 +64,8 @@ jobs:
             db-android-core/schema/011_billing_control_android_rpcs.sql \
             db-android-core/schema/012_billing_stop_pause_policy.sql \
             db-android-core/schema/013_remote_play.sql \
-            db-android-core/schema/014_remote_play_pairing.sql; do
+            db-android-core/schema/014_remote_play_pairing.sql \
+            db-android-core/schema/015_remote_play_admin_controls.sql; do
               echo "Applying $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -94,6 +97,13 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/011_remote_play_pairing_smoke.sql
+
+      - name: Test Owner Remote Play dashboard, permissions, enrollment and activation issuance
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/012_remote_play_admin_controls_smoke.sql
 
       - name: Validate all DB Android Node RPC bindings against PostgreSQL schema
         run: |
