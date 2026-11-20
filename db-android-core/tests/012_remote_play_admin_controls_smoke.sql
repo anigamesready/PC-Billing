@@ -9,6 +9,8 @@ DECLARE
   host_enroll_result jsonb;
   host_heartbeat jsonb;
   client_credential jsonb;
+  client_login jsonb;
+  client_dashboard jsonb;
   dashboard jsonb;
   sessions_result jsonb;
   owner_token text;
@@ -17,6 +19,7 @@ DECLARE
   device_id uuid;
   rental_id uuid;
   activation_code text;
+  client_token text;
 BEGIN
   -- Reuse the Owner provisioned by 004_admin_local_auth_smoke.sql.
   -- That test consumes the single-use bootstrap and rotates the password.
@@ -88,6 +91,25 @@ BEGIN
   activation_code := client_credential->>'activation_code';
   IF length(coalesce(activation_code,'')) <> 16 THEN
     RAISE EXCEPTION 'REMOTE_PLAY_CLIENT_ACTIVATION_CODE_INVALID';
+  END IF;
+
+  -- The customer dashboard exposes only the approved host address so Android
+  -- can verify that Cloudflare One is connected before it reserves a session.
+  client_login := api.remote_play_login(
+    'CI-REMOTE-PLAY-RENTAL',activation_code,'CI-REMOTE-PLAY-CLIENT'
+  );
+  client_token := client_login->>'access_token';
+  IF length(coalesce(client_token,'')) <> 64 THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_TEST_CLIENT_LOGIN_FAILED';
+  END IF;
+  client_dashboard := api.remote_play_dashboard(client_token);
+  IF NOT EXISTS(
+    SELECT 1 FROM jsonb_array_elements(client_dashboard->'hosts') h
+    WHERE h->>'device_id'=device_id::text
+      AND h->>'media_address'='100.96.23.45'
+      AND h->>'media_path_ready'='true'
+  ) THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_CLIENT_MESH_ADDRESS_NOT_EXPOSED';
   END IF;
 
   dashboard := api.admin_remote_play_dashboard(owner_token,200);
