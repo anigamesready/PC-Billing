@@ -6,6 +6,7 @@ on:
     branches:
       - feature/remote-play-pairing-api-v0.2
       - feature/remote-play-admin-controls-v0.3
+      - feature/remote-play-cloudflare-mesh-v0.4
     paths:
       - "db-android-core/schema/**"
       - "db-android-core/server/**"
