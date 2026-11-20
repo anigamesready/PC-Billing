@@ -35,7 +35,7 @@ BEGIN
   END IF;
 
   IF NOT has_function_privilege('ani_api_runtime',
-      'api.remote_play_pairing_prepare(text,uuid,text,text)','EXECUTE')
+      'api.remote_play_pairing_prepare(text,uuid,text,text,inet)','EXECUTE')
      OR NOT has_function_privilege('ani_api_runtime',
       'api.remote_play_host_pairing_poll(text,uuid)','EXECUTE')
      OR NOT has_function_privilege('ani_api_runtime',
@@ -115,8 +115,18 @@ BEGIN
   ) VALUES(v_pair_session_id,v_org_id,v_rental_id,v_device_id,v_client_session_id,'active',
     now(),now()+interval '1 hour',now(),7000,'ci-pair:'||v_pair_session_id::text);
 
+  -- An address outside the approved private overlays must never create a challenge.
+  BEGIN
+    PERFORM api.remote_play_pairing_prepare(
+      v_client_token,v_pair_session_id,'1234','ANI-AABBCCDDEEFF','100.95.255.254'::inet
+    );
+    RAISE EXCEPTION 'REMOTE_PLAY_UNAPPROVED_CLIENT_IP_ACCEPTED';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    IF SQLERRM <> 'REMOTE_PLAY_PAIRING_CLIENT_ADDRESS_INVALID' THEN RAISE; END IF;
+  END;
+
   pair_prepare_result := api.remote_play_pairing_prepare(
-    v_client_token,v_pair_session_id,'1234','ANI-AABBCCDDEEFF');
+    v_client_token,v_pair_session_id,'1234','ANI-AABBCCDDEEFF','100.96.23.45'::inet);
   v_pair_challenge_id := (pair_prepare_result->>'challenge_id')::uuid;
   IF pair_prepare_result->>'status' <> 'pending' OR v_pair_challenge_id IS NULL THEN
     RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_PREPARE_DID_NOT_CREATE_CHALLENGE';
@@ -125,7 +135,8 @@ BEGIN
   pair_poll_result := api.remote_play_host_pairing_poll(v_host_token,v_pair_session_id);
   IF NOT coalesce((pair_poll_result->>'pending')::boolean,false)
      OR pair_poll_result->>'pin' <> '1234'
-     OR pair_poll_result->>'client_name' <> 'ANI-AABBCCDDEEFF' THEN
+     OR pair_poll_result->>'client_name' <> 'ANI-AABBCCDDEEFF'
+     OR pair_poll_result->>'expected_client_address' <> '100.96.23.45' THEN
     RAISE EXCEPTION 'REMOTE_PLAY_HOST_DID_NOT_RECEIVE_EXACT_PAIRING_CHALLENGE';
   END IF;
 
@@ -142,7 +153,7 @@ BEGIN
   -- Ensure the client/host pairing RPCs compile and reject missing bearer tokens
   -- before reading or returning a PIN/challenge.
   BEGIN
-    PERFORM api.remote_play_pairing_prepare(NULL,NULL,NULL,NULL);
+    PERFORM api.remote_play_pairing_prepare(NULL,NULL,NULL,NULL,NULL);
     RAISE EXCEPTION 'EXPECTED_REMOTE_PLAY_AUTH_REQUIRED';
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
