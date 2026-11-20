@@ -4,6 +4,14 @@ DO $$
 DECLARE
   rls_enabled boolean;
   error_message text;
+  v_org_id uuid := gen_random_uuid();
+  v_device_id uuid := gen_random_uuid();
+  v_rental_id uuid := gen_random_uuid();
+  v_client_session_id uuid := gen_random_uuid();
+  v_remote_session_id uuid := gen_random_uuid();
+  v_client_token text := encode(extensions.gen_random_bytes(32),'hex');
+  v_host_token text := encode(extensions.gen_random_bytes(32),'hex');
+  watchdog_result jsonb;
 BEGIN
   IF to_regclass('remote_play.pairing_challenges') IS NULL THEN
     RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_TABLE_MISSING';
@@ -41,6 +49,59 @@ BEGIN
       RAISE EXCEPTION 'REMOTE_PLAY_LOGIN_SMOKE_FAILED: %', error_message;
     END IF;
   END;
+
+  -- Exercise a real host watchdog lifecycle in a throwaway tenant. An active session
+  -- with no client heartbeat for 90 seconds must be settled and enqueue stop_stream.
+  INSERT INTO public.organizations(id,name,slug,kind)
+  VALUES(v_org_id,'Remote Play CI','remote-play-ci-'||replace(v_org_id::text,'-',''),'owner');
+
+  INSERT INTO public.devices(id,org_id,client_id,device_name,status)
+  VALUES(v_device_id,v_org_id,'REMOTE-PLAY-CI-'||replace(v_device_id::text,'-',''),'CI Sunshine Host','online');
+
+  INSERT INTO public.rental_accounts(id,org_id,code,category,remaining_seconds,status,client_label)
+  VALUES(v_rental_id,v_org_id,'RP-CI-'||replace(v_rental_id::text,'-',''),'remote_play',7200,'active','Remote Play CI');
+
+  INSERT INTO remote_play.client_sessions(
+    id,rental_account_id,token_hash,refresh_token_hash,client_install_id,expires_at,refresh_expires_at
+  ) VALUES(v_client_session_id,v_rental_id,
+    encode(extensions.digest(v_client_token,'sha256'),'hex'),
+    encode(extensions.digest(v_client_token||'-refresh','sha256'),'hex'),
+    'ci-remote-play-install',now()+interval '12 hours',now()+interval '30 days');
+
+  INSERT INTO remote_play.host_permissions(device_id,org_id,enabled)
+  VALUES(v_device_id,v_org_id,true);
+
+  INSERT INTO remote_play.host_registrations(
+    device_id,org_id,token_hash,agent_version,sunshine_ready,media_address,last_heartbeat_at
+  ) VALUES(v_device_id,v_org_id,
+    encode(extensions.digest(v_host_token,'sha256'),'hex'),
+    'ci-smoke',true,'10.20.30.40'::inet,now());
+
+  INSERT INTO remote_play.sessions(
+    id,org_id,rental_account_id,device_id,client_session_id,status,
+    started_at,deadline_at,last_client_heartbeat_at,starting_balance_seconds,idempotency_key
+  ) VALUES(v_remote_session_id,v_org_id,v_rental_id,v_device_id,v_client_session_id,'active',
+    now()-interval '2 minutes',now()+interval '1 hour',now()-interval '2 minutes',7200,'ci:'||v_remote_session_id::text);
+
+  watchdog_result := api.remote_play_host_heartbeat(v_host_token,true,'10.20.30.40'::inet,'ci-smoke');
+  IF NOT coalesce((watchdog_result->>'watchdog_settled')::boolean,false) THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_HOST_WATCHDOG_DID_NOT_SETTLE_STALE_CLIENT';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM remote_play.sessions
+    WHERE id=v_remote_session_id AND status='ended' AND settled_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_WATCHDOG_SESSION_NOT_SETTLED';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM remote_play.commands
+    WHERE session_id=v_remote_session_id AND command='stop_stream' AND status='queued'
+  ) THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_WATCHDOG_STOP_COMMAND_NOT_QUEUED';
+  END IF;
+  IF (SELECT remaining_seconds FROM public.rental_accounts WHERE id=v_rental_id)>=7200 THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_WATCHDOG_USAGE_NOT_SETTLED';
+  END IF;
 
   -- Ensure the client/host pairing RPCs compile and reject missing bearer tokens
   -- before reading or returning a PIN/challenge.
