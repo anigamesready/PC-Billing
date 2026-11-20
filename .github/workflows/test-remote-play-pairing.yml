@@ -66,7 +66,8 @@ jobs:
             db-android-core/schema/012_billing_stop_pause_policy.sql \
             db-android-core/schema/013_remote_play.sql \
             db-android-core/schema/014_remote_play_pairing.sql \
-            db-android-core/schema/015_remote_play_admin_controls.sql; do
+            db-android-core/schema/015_remote_play_admin_controls.sql \
+            db-android-core/schema/016_remote_play_cloudflare_mesh.sql; do
               echo "Applying $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -98,6 +99,13 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/011_remote_play_pairing_smoke.sql
+
+      - name: Test Cloudflare Mesh /12 address allowlist and adjacent CGNAT rejection
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/012_remote_play_admin_controls_smoke.sql
 
       - name: Test Owner Remote Play dashboard, permissions, enrollment and activation issuance
         env:
