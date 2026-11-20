@@ -56,7 +56,20 @@ BEGIN
   IF coalesce(p_pin,'') !~ '^[0-9]{4}$' THEN
     RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_PIN_INVALID';
   END IF;
-  IF coalesce(p_client_name,'') !~ '^ANI-[A-F0-9]{12}
+  IF coalesce(p_client_name,'') !~ '^ANI-[A-F0-9]{12}$' THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_CLIENT_NAME_INVALID';
+  END IF;
+  IF p_client_address IS NULL OR NOT (
+    (family(p_client_address)=4 AND (
+      p_client_address <<= inet '10.0.0.0/8'
+      OR p_client_address <<= inet '172.16.0.0/12'
+      OR p_client_address <<= inet '192.168.0.0/16'
+      OR p_client_address <<= inet '100.96.0.0/12'
+    ))
+    OR (family(p_client_address)=6 AND p_client_address <<= inet 'fc00::/7')
+  ) THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_PAIRING_CLIENT_ADDRESS_INVALID';
+  END IF;
 
   SELECT * INTO s
   FROM remote_play.sessions
