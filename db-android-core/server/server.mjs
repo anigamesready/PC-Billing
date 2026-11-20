@@ -218,11 +218,14 @@ const RPC = {
   remote_play_request_session: { auth: "remote_client", sql: "SELECT api.remote_play_request_session($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_idempotency_key"] },
   remote_play_session_heartbeat: { auth: "remote_client", sql: "SELECT api.remote_play_session_heartbeat($1::text,$2::uuid) AS result", args: ["p_session_id"] },
   remote_play_end_session: { auth: "remote_client", sql: "SELECT api.remote_play_end_session($1::text,$2::uuid,$3::text) AS result", args: ["p_session_id","p_reason"] },
+  remote_play_pairing_prepare: { auth: "remote_client", sql: "SELECT api.remote_play_pairing_prepare($1::text,$2::uuid,$3::text,$4::text) AS result", args: ["p_session_id","p_pin","p_client_name"] },
 
   remote_play_host_enroll: { sql: "SELECT api.remote_play_host_enroll($1::text,$2::text) AS result", args: ["p_enrollment_code","p_agent_version"] },
   remote_play_host_heartbeat: { auth: "remote_host", sql: "SELECT api.remote_play_host_heartbeat($1::text,$2::boolean,$3::inet,$4::text) AS result", args: ["p_sunshine_ready","p_media_address","p_agent_version"] },
   remote_play_host_next_command: { auth: "remote_host", sql: "SELECT api.remote_play_host_next_command($1::text) AS result", args: [] },
   remote_play_host_ack: { auth: "remote_host", sql: "SELECT api.remote_play_host_ack($1::text,$2::uuid,$3::text,$4::jsonb) AS result", args: ["p_command_id","p_status","p_result"] },
+  remote_play_host_pairing_poll: { auth: "remote_host", sql: "SELECT api.remote_play_host_pairing_poll($1::text,$2::uuid) AS result", args: ["p_session_id"] },
+  remote_play_host_pairing_complete: { auth: "remote_host", sql: "SELECT api.remote_play_host_pairing_complete($1::text,$2::uuid,$3::uuid,$4::boolean,$5::text,$6::text) AS result", args: ["p_session_id","p_challenge_id","p_success","p_sunshine_pairing_id","p_failure_reason"] },
 
   billing_rental_accounts: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.code),'[]'::jsonb) AS result FROM api.billing_rental_accounts($1::text,$2::uuid,$3::uuid) x", args: ["p_org_id","p_device_id"] },
   billing_create_rental: { auth: "billing", sql: "SELECT api.billing_create_rental($1::text,$2::uuid,$3::uuid,$4::text,$5::text,$6::bigint,$7::text,$8::timestamptz) AS result", args: ["p_org_id","p_device_id","p_code","p_category","p_minutes","p_client_label","p_expiry_at"] },
@@ -278,6 +281,17 @@ async function rpcRequest(req, res, name, body) {
   if (name === "billing_login") {
     const data = await billingLogin(val(body,"p_username"), val(body,"p_password"), req);
     return send(res, 200, data);
+  }
+  if (name === "remote_play_pairing_prepare") {
+    const token = bearer(req);
+    if (!token) return send(res, 401, { message: "AUTH_REQUIRED" });
+    const sessionId = str(val(body,"p_session_id"),80);
+    const key = bucketHash("remote-play-pairing",clientIp(req),token.slice(0,24),sessionId);
+    await callRateLimit(key,4);
+    const spec = RPC[name];
+    const result = await scalar(spec.sql,[token,...spec.args.map(k => val(body,k))]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
   }
   const spec = RPC[name];
   if (!spec) return send(res, 404, { message: "RPC_NOT_ALLOWED" });
