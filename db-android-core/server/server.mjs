@@ -117,10 +117,10 @@ const int = (value, min = 0, max = Number.MAX_SAFE_INTEGER) => Math.max(min, Mat
 function httpStatus(error) {
   if (error.status) return error.status;
   const m = String(error.message || "");
-  if (/INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|ADMIN_NOT_AUTHENTICATED|ADMIN_SESSION_EXPIRED|ADMIN_REFRESH_EXPIRED|ADMIN_ACCOUNT_DISABLED|INVALID_CREDENTIALS|BILLING_NOT_AUTHENTICATED|BILLING_SESSION_EXPIRED|BILLING_ACCOUNT_DISABLED/.test(m)) return 401;
-  if (/OWNER_ONLY|ORG_ACCESS_DENIED|ADMIN_ORG_ACCESS_DENIED|DEVICE_ACCESS_DENIED|DEVICE_DISABLED|RESELLER_FEATURE_NOT_AVAILABLE|COMMAND_NOT_ALLOWED|FREE_TEST_DISABLED|ADMIN_BOOTSTRAP_DENIED/.test(m)) return 403;
+  if (/REMOTE_PLAY_AUTH_REQUIRED|REMOTE_PLAY_SESSION_EXPIRED|REMOTE_PLAY_REFRESH_EXPIRED|REMOTE_PLAY_HOST_AUTH_REQUIRED|REMOTE_PLAY_HOST_REVOKED|REMOTE_PLAY_INVALID_CREDENTIALS|REMOTE_PLAY_ENROLLMENT_INVALID|INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|ADMIN_NOT_AUTHENTICATED|ADMIN_SESSION_EXPIRED|ADMIN_REFRESH_EXPIRED|ADMIN_ACCOUNT_DISABLED|INVALID_CREDENTIALS|BILLING_NOT_AUTHENTICATED|BILLING_SESSION_EXPIRED|BILLING_ACCOUNT_DISABLED/.test(m)) return 401;
+  if (/REMOTE_PLAY_DISABLED|REMOTE_PLAY_ACCOUNT_DISABLED|REMOTE_PLAY_HOST_DISABLED|REMOTE_PLAY_HOST_PERMISSION_REQUIRED|REMOTE_PLAY_RENTAL_PERMISSION_REQUIRED|OWNER_ONLY|ORG_ACCESS_DENIED|ADMIN_ORG_ACCESS_DENIED|DEVICE_ACCESS_DENIED|DEVICE_DISABLED|RESELLER_FEATURE_NOT_AVAILABLE|COMMAND_NOT_ALLOWED|FREE_TEST_DISABLED|ADMIN_BOOTSTRAP_DENIED/.test(m)) return 403;
   if (/NOT_FOUND|RENTAL_NOT_FOUND|COMMAND_NOT_FOUND|RECOVERY_DEVICE_NOT_FOUND/.test(m)) return 404;
-  if (/ACTIVE_TIMER_LOCKED|ACTIVE_OFFLINE_LEASE|OFFLINE_LEASE_HELD|CODE_ALREADY_EXISTS|RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|PC_OFFLINE_COMMAND_BLOCKED|SHUTDOWN_TIMER_DISABLED|ADMIN_BOOTSTRAP_ALREADY_CONFIGURED/.test(m)) return 409;
+  if (/REMOTE_PLAY_SESSION_ACTIVE|REMOTE_PLAY_BILLING_SESSION_ACTIVE|REMOTE_PLAY_HOST_BUSY|REMOTE_PLAY_COOLDOWN_ACTIVE|REMOTE_PLAY_HOST_OFFLINE_OR_MEDIA_UNAVAILABLE|RENTAL_ACTIVE_ON_REMOTE_PLAY|ACTIVE_TIMER_LOCKED|ACTIVE_OFFLINE_LEASE|OFFLINE_LEASE_HELD|CODE_ALREADY_EXISTS|RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|PC_OFFLINE_COMMAND_BLOCKED|SHUTDOWN_TIMER_DISABLED|ADMIN_BOOTSTRAP_ALREADY_CONFIGURED/.test(m)) return 409;
   if (/RATE_LIMITED/.test(m)) return 429;
   if (/ECONNREFUSED|ETIMEDOUT|57P01|08006|08001/.test(m)) return 503;
   return 400;
@@ -206,6 +206,24 @@ const RPC = {
   admin_set_billing_stop_pause_policy: { auth: "admin", sql: "SELECT api.admin_set_billing_stop_pause_policy($1::text,$2::boolean) AS result", args: ["p_enabled"] },
   admin_start_trial: { auth: "admin", sql: "SELECT api.admin_start_trial($1::text,$2::uuid,$3::uuid) AS result", args: ["p_org_id","p_device_id"] },
 
+  admin_remote_play_set_host_permission: { auth: "admin", sql: "SELECT api.admin_remote_play_set_host_permission($1::text,$2::uuid,$3::boolean) AS result", args: ["p_device_id","p_enabled"] },
+  admin_remote_play_set_rental_permission: { auth: "admin", sql: "SELECT api.admin_remote_play_set_rental_permission($1::text,$2::uuid,$3::boolean) AS result", args: ["p_rental_account_id","p_enabled"] },
+  admin_remote_play_issue_client_credential: { auth: "admin", sql: "SELECT api.admin_remote_play_issue_client_credential($1::text,$2::uuid) AS result", args: ["p_rental_account_id"] },
+  admin_remote_play_issue_host_enrollment: { auth: "admin", sql: "SELECT api.admin_remote_play_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
+  admin_remote_play_sessions: { auth: "admin", sql: "SELECT api.admin_remote_play_sessions($1::text,$2::integer) AS result", args: ["p_limit"] },
+
+  remote_play_refresh: { sql: "SELECT api.remote_play_refresh($1::text) AS result", args: ["p_refresh_token"] },
+  remote_play_logout: { auth: "remote_client", sql: "SELECT api.remote_play_logout($1::text) AS result", args: [] },
+  remote_play_dashboard: { auth: "remote_client", sql: "SELECT api.remote_play_dashboard($1::text) AS result", args: [] },
+  remote_play_request_session: { auth: "remote_client", sql: "SELECT api.remote_play_request_session($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_idempotency_key"] },
+  remote_play_session_heartbeat: { auth: "remote_client", sql: "SELECT api.remote_play_session_heartbeat($1::text,$2::uuid) AS result", args: ["p_session_id"] },
+  remote_play_end_session: { auth: "remote_client", sql: "SELECT api.remote_play_end_session($1::text,$2::uuid,$3::text) AS result", args: ["p_session_id","p_reason"] },
+
+  remote_play_host_enroll: { sql: "SELECT api.remote_play_host_enroll($1::text,$2::text) AS result", args: ["p_enrollment_code","p_agent_version"] },
+  remote_play_host_heartbeat: { auth: "remote_host", sql: "SELECT api.remote_play_host_heartbeat($1::text,$2::boolean,$3::inet,$4::text) AS result", args: ["p_sunshine_ready","p_media_address","p_agent_version"] },
+  remote_play_host_next_command: { auth: "remote_host", sql: "SELECT api.remote_play_host_next_command($1::text) AS result", args: [] },
+  remote_play_host_ack: { auth: "remote_host", sql: "SELECT api.remote_play_host_ack($1::text,$2::uuid,$3::text,$4::jsonb) AS result", args: ["p_command_id","p_status","p_result"] },
+
   billing_rental_accounts: { auth: "billing", sql: "SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.code),'[]'::jsonb) AS result FROM api.billing_rental_accounts($1::text,$2::uuid,$3::uuid) x", args: ["p_org_id","p_device_id"] },
   billing_create_rental: { auth: "billing", sql: "SELECT api.billing_create_rental($1::text,$2::uuid,$3::uuid,$4::text,$5::text,$6::bigint,$7::text,$8::timestamptz) AS result", args: ["p_org_id","p_device_id","p_code","p_category","p_minutes","p_client_label","p_expiry_at"] },
   billing_edit_rental: { auth: "billing", sql: "SELECT api.billing_edit_rental($1::text,$2::uuid,$3::uuid,$4::text,$5::bigint,$6::text,$7::timestamptz) AS result", args: ["p_org_id","p_rental_id","p_category","p_minutes","p_client_label","p_expiry_at"] },
@@ -236,6 +254,26 @@ async function rpcRequest(req, res, name, body) {
   if (name === "admin_login") {
     const data = await adminLogin(val(body,"p_username",val(body,"username",val(body,"email"))), val(body,"p_password",val(body,"password")), req);
     return send(res, 200, data);
+  }
+  if (name === "remote_play_login") {
+    const rentalCode = str(val(body,"p_rental_code"),120).toUpperCase();
+    const key = bucketHash("remote-play-login",clientIp(req),rentalCode);
+    await callRateLimit(key,5);
+    const result = await scalar("SELECT api.remote_play_login($1::text,$2::text,$3::text) AS result",[
+      str(val(body,"p_rental_code"),120),str(val(body,"p_activation_code"),128),str(val(body,"p_client_install_id"),128)
+    ]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
+  }
+  if (name === "remote_play_host_enroll") {
+    const enrollmentCode = str(val(body,"p_enrollment_code"),128).toLowerCase();
+    const key = bucketHash("remote-play-host-enroll",clientIp(req),enrollmentCode);
+    await callRateLimit(key,10);
+    const result = await scalar("SELECT api.remote_play_host_enroll($1::text,$2::text) AS result",[
+      enrollmentCode,str(val(body,"p_agent_version"),80)
+    ]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
   }
   if (name === "billing_login") {
     const data = await billingLogin(val(body,"p_username"), val(body,"p_password"), req);
