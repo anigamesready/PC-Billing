@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - backend/db-android-core-v1
+      - feature/remote-play-cloudflare-mesh-v0.4
   workflow_dispatch:
 
 permissions:
@@ -50,7 +51,7 @@ jobs:
           cp db-android-core/stop-stage.sh "$OUT/stop-stage.sh"
           cp db-android-core/start-quick-tunnel-test.sh "$OUT/start-quick-tunnel-test.sh"
           cp db-android-core/schema/000_prerequisites.sql "$OUT/schema/"
-          for n in 002 003 004 005 006 007 008 009 010 011; do
+          for n in 002 003 004 005 006 007 008 009 010 011 012 013 014 015 016 017; do
             file=$(find db-android-core/schema -maxdepth 1 -type f -name "${n}_*.sql" -print -quit)
             test -n "$file"
             cp "$file" "$OUT/schema/"
@@ -88,7 +89,7 @@ jobs:
           Existing API: port 8787 is not targeted
           Supabase DB1/DB2: not modified
           Blynk/WoL relay: not modified
-          Schema: 000 and 002-011 only; catalog snapshot 001 excluded
+          Schema: 000 and 002-017 only; catalog snapshot 001 excluded
           EOF
           find "$OUT" -type f ! -name "SHA256SUMS.txt" -print0 | sort -z | xargs -0 sha256sum > "$OUT/SHA256SUMS.txt"
           zip -qr "$OUT.zip" "$OUT"
