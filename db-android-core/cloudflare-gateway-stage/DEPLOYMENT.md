@@ -38,6 +38,67 @@ This is a remote-access staging proof, not a production 24/7 SLA. The public Wor
 - No production DB, Supabase, port 8787 or Blynk/WoL resource was modified. PostgreSQL 5432 must remain loopback-only.
 
 
+
+## Ani Remote Play isolated staging runbook
+
+This branch contains the Remote Play backend through migrations 013–019. Keep this first validation isolated from the existing Ani Games Ready API and rental database.
+
+### 1. Create the isolated DB Android stage on the Redmi
+
+Run from a fresh checkout of this branch in Termux:
+
+```bash
+cd ~/PC-Billing/db-android-core
+bash setup-stage.sh
+bash ~/ani-games-db-android-stage/start-stage.sh
+curl -fsS http://127.0.0.1:8788/health
+```
+
+The setup script is deliberately conservative:
+- It creates only database `ani_games_ready_stage`, role `ani_api_stage_login`, and API port `8788`.
+- It refuses to continue if the stage folder, DB, role, or port already exists.
+- The existing API on `127.0.0.1:8787` and its database are not stopped or modified.
+- The stage API binds only to loopback; PostgreSQL must remain loopback-only.
+- It applies the fresh schema set through `019_remote_play_session_connected.sql`, including watchdog and stream-connected billing.
+- Do not run `server/migrate-local.sh` with a custom `ANI_DB_NAME` against the existing rental database.
+
+### 2. Register the stage API behind the existing Worker
+
+Create `cloudflare-gateway-stage/online-secrets.env` locally in Termux. This file is deliberately not committed and must contain the already-installed Worker secrets:
+
+```bash
+GATEWAY_REGISTER_TOKEN=<the Worker REGISTER_TOKEN>
+EDGE_PROXY_SECRET=<the Worker EDGE_PROXY_SECRET>
+GATEWAY_BASE_URL=https://ani-games-db-android-stage-gateway.anigamesready.workers.dev
+```
+
+Then configure and start the isolated tunnel:
+
+```bash
+cd ~/PC-Billing/db-android-core/cloudflare-gateway-stage
+chmod 600 online-secrets.env
+bash configure-online.sh
+bash start-online.sh
+```
+
+If native Termux Cloudflared cannot resolve DNS, use the isolated PRoot fallback described above. The runner must report both the Worker registry active and public `/health` showing API and database online. A Worker URL by itself is not proof of connectivity.
+
+### 3. First-owner and device enrollment
+
+- Open `http://127.0.0.1:8788/setup` in the Redmi browser and create the stage Owner. Do not use the production Owner account or production database.
+- Use the stage Admin control screen/API to enable the test rental and host, then issue one-time activation and Host Agent enrollment codes.
+- Enroll the Android phone and Windows PC in the same Cloudflare One organization. Confirm both devices receive distinct `100.96.0.0/12` addresses and can reach each other before attempting Sunshine pairing.
+- Install the Windows Host Agent only after the private Mesh path is connected. The installer restricts Sunshine's Web UI/API to the host PC and allows the GameStream media ports only over the private overlay.
+- Test login, dashboard, one-user/one-host session locking, automatic pairing, game launch, stream heartbeat, stop, watchdog recovery, balance settlement, expiry, three-hour cap, and ten-minute cooldown.
+
+### 4. Stop and rollback boundaries
+
+- Stop the stage API with `bash ~/ani-games-db-android-stage/stop-stage.sh`.
+- Stop the Quick Tunnel with CTRL+C in the runner terminal; it clears only the staging Worker KV upstream registration.
+- Do not delete the stage DB or role until stage test records have been reviewed.
+- Do not deploy schema migrations 013–019 to the existing production database until the owner approves a reviewed production migration and rollback plan.
+
+
 ## Compatibility hardening — 2026-11-16
 - This branch is based directly on `fix/db-android-core-api-contracts-20261116`, not the older diverged gateway branch.
 - The API edge patch detects and reuses an existing `node:net` import and `ANI_EDGE_PROXY_SECRET` declaration before adding missing declarations. This avoids duplicate JavaScript bindings in the Redmi's previously customized server.mjs.
