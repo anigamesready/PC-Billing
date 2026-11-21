@@ -461,7 +461,38 @@ async function main() {
   server.listen(PORT,HOST,() => {
     process.stdout.write(JSON.stringify({level:"info",app:"Ani Games Ready Local Server",api:"online",host:HOST,port:PORT,relay:"separate"})+"\n");
   });
+
+  // Internal-only watchdog; deliberately absent from the public REST RPC allowlist.
+  let remotePlayWatchdogBusy = false;
+  const runRemotePlayWatchdog = async () => {
+    if (remotePlayWatchdogBusy) return;
+    remotePlayWatchdogBusy = true;
+    try {
+      const result = await scalar("SELECT api.remote_play_watchdog_sweep() AS result");
+      const settled = Number(result?.settled_sessions || 0);
+      if (settled > 0) {
+        process.stdout.write(JSON.stringify({level:"info",event:"remote_play_watchdog_settled",settled_sessions:settled,checked_sessions:Number(result?.checked_sessions || 0)})+"\n");
+      }
+    } catch (error) {
+      process.stderr.write(JSON.stringify({level:"warn",event:"remote_play_watchdog_failed",error:publicError(error)})+"\n");
+    } finally {
+      remotePlayWatchdogBusy = false;
+    }
+  };
+
+  const watchdogProbe = await query("SELECT to_regprocedure('api.remote_play_watchdog_sweep()') IS NOT NULL AS ready");
+  const remotePlayWatchdogTimer = watchdogProbe.rows[0]?.ready
+    ? setInterval(() => { void runRemotePlayWatchdog(); }, 15000)
+    : null;
+  if (remotePlayWatchdogTimer) {
+    remotePlayWatchdogTimer.unref();
+    await runRemotePlayWatchdog();
+  } else {
+    process.stderr.write(JSON.stringify({level:"warn",event:"remote_play_watchdog_not_installed"})+"\n");
+  }
+
   const stop = async () => {
+    if (remotePlayWatchdogTimer) clearInterval(remotePlayWatchdogTimer);
     server.close(async () => {
       await pool.end();
       process.exit(0);
