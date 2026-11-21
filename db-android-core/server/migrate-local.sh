@@ -29,11 +29,17 @@ for file in \
   008_local_business_triggers.sql \
   009_admin_db1_business_routines.sql \
   010_billing_reseller_refresh_and_devices.sql \
-  011_billing_control_android_rpcs.sql
+  011_billing_control_android_rpcs.sql \
+  012_billing_stop_pause_policy.sql \
+  013_remote_play.sql \
+  014_remote_play_pairing.sql \
+  015_remote_play_admin_controls.sql \
+  016_remote_play_cloudflare_mesh.sql \
+  017_remote_play_dashboard_cooldown.sql
 do
   echo "[ANI DB] Menerapkan $file"
   psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCHEMA/$file"
 done
 
-echo "[ANI DB] Skema DB Android terpasang. Snapshot 001_db1_catalog_snapshot.sql sengaja TIDAK diterapkan."
+echo "[ANI DB] Skema DB Android 000 dan 002–017 terpasang. Snapshot 001_db1_catalog_snapshot.sql sengaja TIDAK diterapkan."
 echo "[ANI DB] Berikutnya jalankan provision-runtime-role.sh."
