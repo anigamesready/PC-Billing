@@ -78,6 +78,11 @@ BEGIN
     RAISE EXCEPTION 'REMOTE_PLAY_HOST_HEARTBEAT_NOT_READY';
   END IF;
 
+  -- The client streaming status follows Host Agent, not PC Billing's own runtime heartbeat.
+  UPDATE public.devices
+  SET status='offline',last_seen_at=now()-interval '10 minutes'
+  WHERE id=device_id;
+
   -- Cloudflare Mesh /12 is permitted, but adjacent CGNAT space must remain denied.
   BEGIN
     PERFORM api.remote_play_host_heartbeat(
@@ -112,6 +117,9 @@ BEGIN
     WHERE h->>'device_id'=device_id::text
       AND h->>'media_address'='100.96.23.45'
       AND h->>'media_path_ready'='true'
+      AND h->>'online'='true'
+      AND h->>'pc_billing_online'='false'
+      AND h->>'available'='true'
   ) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_CLIENT_MESH_ADDRESS_NOT_EXPOSED';
   END IF;
@@ -132,6 +140,9 @@ BEGIN
       AND h->>'media_path_ready'='true'
       AND h->>'media_address'='100.96.23.45'
       AND h->>'pending_enrollment'='false'
+      AND h->>'device_online'='false'
+      AND h->>'host_agent_online'='true'
+      AND h->>'host_agent_ready'='true'
   ) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_ADMIN_HOST_STATUS_MISSING';
   END IF;
