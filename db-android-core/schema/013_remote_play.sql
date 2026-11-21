@@ -862,7 +862,8 @@ BEGIN
   WHERE client_session_id=c.id AND idempotency_key=p_idempotency_key
   LIMIT 1;
   IF FOUND AND s.status IN ('starting','active') AND s.settled_at IS NULL THEN
-    SELECT host(media_address) INTO media_address FROM remote_play.host_registrations WHERE device_id=s.device_id;
+    SELECT host(hr.media_address) INTO media_address
+    FROM remote_play.host_registrations hr WHERE hr.device_id=s.device_id;
     RETURN jsonb_build_object('ok',true,'idempotent',true,'session_id',s.id,'status',s.status,
       'deadline_at',s.deadline_at,'media_address',media_address);
   END IF;
@@ -902,10 +903,10 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM remote_play.host_permissions WHERE device_id=d.id AND org_id=d.org_id AND enabled) THEN
     RAISE EXCEPTION 'REMOTE_PLAY_HOST_DISABLED';
   END IF;
-  SELECT * INTO h FROM remote_play.host_registrations
-  WHERE device_id=d.id AND org_id=d.org_id AND revoked_at IS NULL
-    AND last_heartbeat_at>now()-interval '60 seconds'
-    AND sunshine_ready AND media_address IS NOT NULL;
+  SELECT hr.* INTO h FROM remote_play.host_registrations hr
+  WHERE hr.device_id=d.id AND hr.org_id=d.org_id AND hr.revoked_at IS NULL
+    AND hr.last_heartbeat_at>now()-interval '60 seconds'
+    AND hr.sunshine_ready AND hr.media_address IS NOT NULL;
   IF NOT FOUND THEN RAISE EXCEPTION 'REMOTE_PLAY_HOST_OFFLINE_OR_MEDIA_UNAVAILABLE'; END IF;
 
   -- Expire a stale session on this PC before starting a new rental.
