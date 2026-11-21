@@ -54,14 +54,14 @@ BEGIN
     (v_healthy_device,v_org,encode(extensions.digest(gen_random_uuid()::text,'sha256'),'hex'),'ci',true,'100.96.1.12'::inet,now());
 
   INSERT INTO remote_play.sessions(id,org_id,rental_account_id,device_id,client_session_id,status,
-    started_at,deadline_at,last_client_heartbeat_at,starting_balance_seconds,idempotency_key)
+    started_at,stream_started_at,deadline_at,last_client_heartbeat_at,starting_balance_seconds,idempotency_key)
   VALUES
     (v_host_stale_session,v_org,v_host_stale_rental,v_host_stale_device,v_host_stale_client,'active',
-      now()-interval '30 seconds',now()+interval '1 hour',now(),7200,'wd-host-'||v_host_stale_session::text),
+      now()-interval '30 seconds',now()-interval '30 seconds',now()+interval '1 hour',now(),7200,'wd-host-'||v_host_stale_session::text),
     (v_client_stale_session,v_org,v_client_stale_rental,v_client_stale_device,v_client_stale_client,'active',
-      now()-interval '2 minutes',now()+interval '1 hour',now()-interval '2 minutes',7200,'wd-client-'||v_client_stale_session::text),
+      now()-interval '2 minutes',now()-interval '2 minutes',now()+interval '1 hour',now()-interval '2 minutes',7200,'wd-client-'||v_client_stale_session::text),
     (v_healthy_session,v_org,v_healthy_rental,v_healthy_device,v_healthy_client,'active',
-      now()-interval '30 seconds',now()+interval '1 hour',now(),7200,'wd-ok-'||v_healthy_session::text);
+      now()-interval '30 seconds',now()-interval '30 seconds',now()+interval '1 hour',now(),7200,'wd-ok-'||v_healthy_session::text);
 
   result := api.remote_play_watchdog_sweep();
   IF coalesce((result->>'ok')::boolean,false) IS NOT TRUE
