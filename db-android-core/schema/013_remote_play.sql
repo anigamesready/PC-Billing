@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS remote_play.sessions (
   deadline_at timestamptz NOT NULL,
   last_client_heartbeat_at timestamptz NOT NULL DEFAULT now(),
   host_started_at timestamptz,
+  stream_started_at timestamptz,
   ended_at timestamptz,
   cooldown_until timestamptz,
   starting_balance_seconds bigint NOT NULL CHECK (starting_balance_seconds >= 0),
@@ -255,10 +256,10 @@ BEGIN
   SELECT * INTO r FROM public.rental_accounts WHERE id=s.rental_account_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'RENTAL_NOT_FOUND'; END IF;
 
-  used_seconds := least(
+  used_seconds := CASE WHEN s.stream_started_at IS NULL THEN 0::bigint ELSE least(
     10800::bigint,
-    greatest(0,ceil(extract(epoch FROM (least(now(),s.deadline_at)-s.started_at)))::bigint)
-  );
+    greatest(0,ceil(extract(epoch FROM (least(now(),s.deadline_at)-s.stream_started_at)))::bigint)
+  ) END;
   deducted_seconds := least(greatest(0,r.remaining_seconds),used_seconds);
   balance_after := greatest(0,r.remaining_seconds-deducted_seconds);
   final_status := CASE
