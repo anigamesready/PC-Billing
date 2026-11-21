@@ -35,11 +35,12 @@ for file in \
   014_remote_play_pairing.sql \
   015_remote_play_admin_controls.sql \
   016_remote_play_cloudflare_mesh.sql \
-  017_remote_play_dashboard_cooldown.sql
+  017_remote_play_dashboard_cooldown.sql \
+  018_remote_play_server_watchdog.sql
 do
   echo "[ANI DB] Menerapkan $file"
   psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCHEMA/$file"
 done
 
-echo "[ANI DB] Skema DB Android 000 dan 002–017 terpasang. Snapshot 001_db1_catalog_snapshot.sql sengaja TIDAK diterapkan."
+echo "[ANI DB] Skema DB Android 000 dan 002–018 terpasang. Snapshot 001_db1_catalog_snapshot.sql sengaja TIDAK diterapkan."
 echo "[ANI DB] Berikutnya jalankan provision-runtime-role.sh."
