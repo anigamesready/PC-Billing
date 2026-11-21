@@ -4,7 +4,7 @@
 Cabang ini adalah backend DB Android terpisah. Bukan cutover produksi dan tidak mengubah Supabase DB1/DB2.
 
 - Skema lokal: 24 tabel operasional DB1 tanpa data akun, hash password, token, atau secret produksi.
-- Migrasi yang diizinkan: `000` dan `002–011`; snapshot katalog `001` bukan migrasi.
+- Migrasi yang diizinkan: `000` dan `002–017`; snapshot katalog `001` bukan migrasi.
 - API Node: protokol perangkat PC, pairing, heartbeat, sesi, delta sync, Admin, Billing Control dan Reseller.
 - Hak akses runtime minimum: Node memakai `ani_api_login` atau `ani_api_stage_login`; tidak mendapat akses langsung ke tabel bisnis.
 - Endpoint bawaan server dasar: loopback `127.0.0.1:8787`.
@@ -99,3 +99,6 @@ Tidak ada data Supabase yang dipindahkan dan belum ada cutover produksi.
 - Hentikan hanya proses Node staging jika perlu rollback. Jangan hentikan PostgreSQL atau relay Blynk/WoL.
 - Jangan drop database lokal untuk rollback. Ekspor data staging sebelum tindakan yang menghapus.
 \n\n## Izin PAUSE / STOP Billing\n\nPengaturan `billing_stop_pause_enabled` disimpan pada `private.admin_feature_settings` dan berlaku global untuk semua PC pada DB Android yang sama. Default OFF. Owner dapat membukanya dari Admin; PC membaca status ke server ketika penyewa menekan PAUSE/STOP atau tombol X. Koneksi gagal atau status tidak valid berarti aksi penyewa ditolak (fail-closed). Timer habis otomatis dan perintah kontrol jarak jauh dari Admin tidak memakai gate ini. Untuk database DB Android yang sudah ada, hentikan sementara server API, jalankan `schema/012_billing_stop_pause_policy.sql` sekali dengan akun PostgreSQL pemilik database, lalu jalankan kembali server terbaru. Migrasi ini hanya menambah pengaturan/fungsi/izin API; tidak mengubah sesi, rental, token, pairing, atau service WoL.\n
+
+## Remote Play (Moonlight / Sunshine)
+Remote Play menambah tabel dan RPC pada DB Android yang sama agar rental account dan device yang sudah ada dapat dipakai bersama. Migrasi 013–017 mencakup sesi Remote Play, host enrollment, tantangan pairing Sunshine, izin Admin per PC/per rental, alamat Cloudflare Mesh, dan status cooldown 10 menit. Fungsi Remote Play dipisahkan dari fungsi PC Billing, Admin dan Reseller yang sudah ada. Untuk database staging kosong, server/migrate-local.sh menerapkan urutan lengkap 000 dan 002–017. Jangan menjalankan installer database kosong pada DB aktif yang sudah berisi tabel; untuk DB aktif gunakan migrasi terpisah setelah backup dan review.
