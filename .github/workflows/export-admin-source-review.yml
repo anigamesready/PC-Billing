@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/remote-play-pairing-api-v0.2
+      - feature/remote-play-cloudflare-mesh-v0.4
     paths:
       - ".github/workflows/export-admin-source-review.yml"
   workflow_dispatch:
