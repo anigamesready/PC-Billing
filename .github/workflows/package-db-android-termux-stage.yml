@@ -35,7 +35,10 @@ jobs:
             db-android-core/server/start.sh; do
             bash -n "$file"
           done
+          for file in db-android-core/cloudflare-gateway-stage/configure-online.sh db-android-core/cloudflare-gateway-stage/start-online.sh db-android-core/cloudflare-gateway-stage/start-online-proot.sh db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh db-android-core/cloudflare-gateway-stage/runner-smoke.sh; do bash -n "$file"; done
           node --check db-android-core/server/server.mjs
+          node --check db-android-core/cloudflare-gateway-stage/worker.mjs
+          python3 -m py_compile db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
 
       - name: Assemble approved staging-only package
         shell: bash
