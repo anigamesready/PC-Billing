@@ -25,6 +25,7 @@ jobs:
           set -euo pipefail
           for file in \
             db-android-core/setup-stage.sh \
+            db-android-core/start-remote-play-stage.sh \
             db-android-core/start-stage.sh \
             db-android-core/status-stage.sh \
             db-android-core/stop-stage.sh \
@@ -52,6 +53,7 @@ jobs:
           cp db-android-core/README-ID.md "$OUT/README-ID.txt"
           cp db-android-core/README-STAGE-ID.txt "$OUT/README-STAGE-ID.txt"
           cp db-android-core/setup-stage.sh "$OUT/setup-stage.sh"
+          cp db-android-core/start-remote-play-stage.sh "$OUT/start-remote-play-stage.sh"
           cp db-android-core/start-stage.sh "$OUT/start-stage.sh"
           cp db-android-core/status-stage.sh "$OUT/status-stage.sh"
           cp db-android-core/stop-stage.sh "$OUT/stop-stage.sh"
@@ -78,6 +80,7 @@ jobs:
           test -f "$OUT/schema/019_remote_play_session_connected.sql"
           grep -q "018_remote_play_server_watchdog.sql" "$OUT/server/migrate-local.sh"
           grep -q "019_remote_play_session_connected.sql" "$OUT/server/migrate-local.sh"
+          test -f "$OUT/start-remote-play-stage.sh"
           test -f "$OUT/cloudflare-gateway-stage/start-online.sh"
           test -f "$OUT/cloudflare-gateway-stage/configure-online.sh"
           if find "$OUT" \( -type d -name "__pycache__" -o -type f -name "*.pyc" \) | grep -q .; then
