@@ -1,6 +1,6 @@
 # DB Android Cloudflare Stage Gateway
 
-Branch: `infra/db-android-cloudflare-global-stage-20261116`
+Branch: `feature/remote-play-cloudflare-mesh-v0.4`
 
 ## Architecture
 - Redmi Termux API: `127.0.0.1:8788` only.
@@ -45,14 +45,13 @@ This branch contains the Remote Play backend through migrations 013–019. Keep 
 
 ### 1. Create the isolated DB Android stage on the Redmi
 
-Run from a fresh checkout of this branch in Termux:
+Run from the extracted `Ani-Games-Ready-DB-Android-Termux-STAGE` package in Termux. Copy the separately supplied private `ani-games-db-android-stage-online-secrets.env` into its `cloudflare-gateway-stage/` directory and rename it to `online-secrets.env`, then run:
 
 ```bash
-cd ~/PC-Billing/db-android-core
-bash setup-stage.sh
-bash ~/ani-games-db-android-stage/start-stage.sh
-curl -fsS http://127.0.0.1:8788/health
+bash start-remote-play-stage.sh
 ```
+
+The one-command bootstrap checks prerequisites, creates the isolated stage DB and schema 000/002–019 if absent, applies Worker edge configuration, starts only API port 8788, and runs the tunnel registration loop in the foreground. Leave Termux running until it prints `API PUBLIK BERHASIL` with API and database online.
 
 The setup script is deliberately conservative:
 - It creates only database `ani_games_ready_stage`, role `ani_api_stage_login`, and API port `8788`.
@@ -64,22 +63,7 @@ The setup script is deliberately conservative:
 
 ### 2. Register the stage API behind the existing Worker
 
-Create `cloudflare-gateway-stage/online-secrets.env` locally in Termux. This file is deliberately not committed and must contain the already-installed Worker secrets:
-
-```bash
-GATEWAY_REGISTER_TOKEN=<the Worker REGISTER_TOKEN>
-EDGE_PROXY_SECRET=<the Worker EDGE_PROXY_SECRET>
-GATEWAY_BASE_URL=https://ani-games-db-android-stage-gateway.anigamesready.workers.dev
-```
-
-Then configure and start the isolated tunnel:
-
-```bash
-cd ~/PC-Billing/db-android-core/cloudflare-gateway-stage
-chmod 600 online-secrets.env
-bash configure-online.sh
-bash start-online.sh
-```
+The separately supplied private `ani-games-db-android-stage-online-secrets.env` contains the current Worker credentials. Keep it private; place it at `cloudflare-gateway-stage/online-secrets.env` in the extracted package. The bootstrap sets its permissions to 600 and handles Worker configuration and tunnel startup. Do not put secret values into GitHub or chat.
 
 If native Termux Cloudflared cannot resolve DNS, use the isolated PRoot fallback described above. The runner must report both the Worker registry active and public `/health` showing API and database online. A Worker URL by itself is not proof of connectivity.
 
@@ -90,7 +74,7 @@ If native Termux Cloudflared cannot resolve DNS, use the isolated PRoot fallback
 - Use the stage Admin control screen/API to enable the test rental and host, then issue one-time activation and Host Agent enrollment codes.
 - The Moonlight staging APK is built with the stable stage gateway URL `https://ani-games-db-android-stage-gateway.anigamesready.workers.dev`; it can log in only while this stage API and its registered tunnel are healthy.
 - Enroll the Android phone and Windows PC in the same Cloudflare One organization. Confirm both devices receive distinct `100.96.0.0/12` addresses and can reach each other before attempting Sunshine pairing.
-- For the gateway registration step, copy the separately supplied private `ani-games-db-android-stage-online-secrets.env` file into this folder as `online-secrets.env`; keep it private, set permissions to `600`, and do not commit it to Git.
+- For the gateway registration step, keep the supplied `online-secrets.env` file private; the bootstrap sets mode `600` and loads the current Worker secrets.
 - Install the Windows Host Agent only after the private Mesh path is connected. The installer restricts Sunshine's Web UI/API to the host PC and allows the GameStream media ports only over the private overlay.
 - Test login, dashboard, one-user/one-host session locking, automatic pairing, game launch, stream heartbeat, stop, watchdog recovery, balance settlement, expiry, three-hour cap, and ten-minute cooldown.
 
