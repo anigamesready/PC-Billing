@@ -134,8 +134,7 @@ BEGIN
 
   -- Move the event time backwards to simulate about 50 seconds of real stream time.
   UPDATE remote_play.sessions
-  SET stream_started_at=now()-interval '50 seconds',
-      started_at=now()-interval '50 seconds'
+  SET stream_started_at=now()-interval '50 seconds'
   WHERE id=connected_session_id;
 
   stream_end := api.remote_play_end_session(client_token,connected_session_id,'ci_stream_end');
