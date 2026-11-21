@@ -68,7 +68,7 @@ jobs:
             db-android-core/schema/013_remote_play.sql \
             db-android-core/schema/014_remote_play_pairing.sql \
             db-android-core/schema/015_remote_play_admin_controls.sql \
-            db-android-core/schema/016_remote_play_cloudflare_mesh.sql \\
+            db-android-core/schema/016_remote_play_cloudflare_mesh.sql \
             db-android-core/schema/017_remote_play_dashboard_cooldown.sql; do
               echo "Applying $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
