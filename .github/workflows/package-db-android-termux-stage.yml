@@ -39,12 +39,14 @@ jobs:
           node --check db-android-core/server/server.mjs
           node --check db-android-core/cloudflare-gateway-stage/worker.mjs
           python3 -m py_compile db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
+          node --test db-android-core/cloudflare-gateway-stage/worker.test.mjs
 
       - name: Assemble approved staging-only package
         shell: bash
         run: |
           set -euo pipefail
           OUT="Ani-Games-Ready-DB-Android-Termux-STAGE"
+          rm -rf db-android-core/cloudflare-gateway-stage/__pycache__
           mkdir -p "$OUT/schema" "$OUT/server" "$OUT/tests" "$OUT/cloudflare-gateway-stage"
           cp db-android-core/README-ID.md "$OUT/README-ID.txt"
           cp db-android-core/README-STAGE-ID.txt "$OUT/README-STAGE-ID.txt"
@@ -77,6 +79,10 @@ jobs:
           grep -q "019_remote_play_session_connected.sql" "$OUT/server/migrate-local.sh"
           test -f "$OUT/cloudflare-gateway-stage/start-online.sh"
           test -f "$OUT/cloudflare-gateway-stage/configure-online.sh"
+          if find "$OUT" \( -type d -name "__pycache__" -o -type f -name "*.pyc" \) | grep -q .; then
+            echo "Python cache files must not be included in the Termux stage ZIP."
+            exit 1
+          fi
           if find "$OUT" -type f \( -name '.env' -o -name '*.dump' -o -name '*.backup' -o -name '*.pem' -o -name '*.key' \) | grep -q .; then
             echo "Unexpected secret or backup file in stage package."
             exit 1
