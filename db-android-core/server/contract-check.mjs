@@ -93,4 +93,18 @@ for (const match of entries) {
 
 assert.ok(server.includes('path === "/device/session-control-policy"'), "PC stop/pause policy device route missing");
 assert.ok(schema.includes("api.device_session_control_policy(p_token text)"), "PC stop/pause device SQL function missing");
+assert.ok(
+  schema.includes("CREATE OR REPLACE FUNCTION api.remote_play_watchdog_sweep()"),
+  "Internal Remote Play watchdog SQL function missing"
+);
+assert.ok(
+  server.includes("SELECT api.remote_play_watchdog_sweep() AS result") &&
+  server.includes("setInterval(() => { void runRemotePlayWatchdog(); }, 15000)"),
+  "DB Android API server-side Remote Play watchdog timer is missing"
+);
+assert.ok(
+  !rpcBlock[1].includes("remote_play_watchdog_sweep"),
+  "Internal watchdog must not be exposed through the public REST RPC allowlist"
+);
+
 console.log("PASS: 70 Node RPC bindings match PostgreSQL parameter count, order and types; existing PC stop/pause policy route is connected");
