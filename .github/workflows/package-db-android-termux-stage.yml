@@ -40,6 +40,7 @@ jobs:
           node --check db-android-core/cloudflare-gateway-stage/worker.mjs
           python3 -m py_compile db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
           node --test db-android-core/cloudflare-gateway-stage/worker.test.mjs
+          bash db-android-core/cloudflare-gateway-stage/runner-smoke.sh
 
       - name: Assemble approved staging-only package
         shell: bash
