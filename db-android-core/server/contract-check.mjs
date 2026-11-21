@@ -15,7 +15,7 @@ const schema = fs.readdirSync(schemaDir)
   .join("\n");
 
 const entries = [...rpcBlock[1].matchAll(/^\s*([A-Za-z0-9_]+):\s*\{\s*(?:auth:\s*"([^"]+)",\s*)?sql:\s*"([^"]+)",\s*args:\s*\[([^\]]*)\]\s*\}/gm)];
-assert.equal(entries.length, 70, "RPC allowlist entry count changed; review this checker before updating");
+assert.equal(entries.length, 71, "RPC allowlist entry count changed; review this checker before updating");
 
 function splitParameters(signature) {
   const parts = [];
@@ -107,4 +107,4 @@ assert.ok(
   "Internal watchdog must not be exposed through the public REST RPC allowlist"
 );
 
-console.log("PASS: 70 Node RPC bindings match PostgreSQL parameter count, order and types; existing PC stop/pause policy route is connected");
+console.log("PASS: 71 Node RPC bindings match PostgreSQL parameter count, order and types; existing PC stop/pause policy route is connected");
