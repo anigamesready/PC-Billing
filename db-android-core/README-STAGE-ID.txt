@@ -25,19 +25,16 @@ Pemeriksaan keamanan:
 - Remote Play belum dapat dipakai dari luar HP sampai API stage dan gateway HTTPS terdaftar aktif, serta HP/PC terdaftar pada jaringan media privat Cloudflare Mesh.
 
 Langkah setelah paket diekstrak:
-1. Pastikan PostgreSQL dan Node.js online di Termux.
+1. Pastikan PostgreSQL sudah berjalan di Termux dan Node.js versi 20 atau lebih baru tersedia.
 2. Masuk ke folder hasil ekstrak paket.
-3. Jalankan:
-   bash setup-stage.sh
-4. Jalankan:
-   bash ~/ani-games-db-android-stage/start-stage.sh
-5. Periksa:
-   bash ~/ani-games-db-android-stage/status-stage.sh
-6. Buka browser di Redmi:
-   http://127.0.0.1:8788/setup
-7. Buat Owner staging pertama.
-8. Salin file privat `ani-games-db-android-stage-online-secrets.env` ke folder `cloudflare-gateway-stage/online-secrets.env` dalam paket. File rahasia ini diberikan terpisah dan tidak boleh dimasukkan ke GitHub.
-9. Jalankan `bash cloudflare-gateway-stage/configure-online.sh`, lalu `bash cloudflare-gateway-stage/start-online.sh`. Biarkan Termux aktif dan tunggu sampai pemeriksaan `/health` publik menampilkan API serta database online.
+3. Salin file privat `ani-games-db-android-stage-online-secrets.env` yang diberikan terpisah ke folder `cloudflare-gateway-stage/` di paket, lalu ubah namanya menjadi `online-secrets.env`. Jangan unggah atau kirim file rahasia ini ke GitHub/chat.
+4. Jalankan satu perintah:
+   `bash start-remote-play-stage.sh`
+5. Perintah tersebut memeriksa syarat, membuat database staging baru `ani_games_ready_stage` dengan migrasi 000 dan 002–019 bila belum ada, menyiapkan API port 8788, mengonfigurasi gateway, lalu menyalakan Quick Tunnel. Ia tidak menimpa instalasi staging yang belum lengkap dan tidak menyentuh database/port utama 8787.
+6. Biarkan Termux tetap berjalan sampai keluar pesan `API PUBLIK BERHASIL` dengan API dan database online.
+7. Buka browser Redmi:
+   `http://127.0.0.1:8788/setup`
+8. Buat Owner staging pertama. Jangan gunakan kredensial Owner produksi.
 
 Perintah berikutnya:
 - Status: bash ~/ani-games-db-android-stage/status-stage.sh
