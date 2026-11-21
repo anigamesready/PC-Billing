@@ -20,6 +20,9 @@ DECLARE
   rental_id uuid;
   activation_code text;
   client_token text;
+  client_session_id uuid;
+  cooldown_session_id uuid;
+  cooldown_dashboard jsonb;
 BEGIN
   -- Reuse the Owner provisioned by 004_admin_local_auth_smoke.sql.
   -- That test consumes the single-use bootstrap and rotates the password.
@@ -99,7 +102,8 @@ BEGIN
     'CI-REMOTE-PLAY-RENTAL',activation_code,'CI-REMOTE-PLAY-CLIENT'
   );
   client_token := client_login->>'access_token';
-  IF length(coalesce(client_token,'')) <> 64 THEN
+  client_session_id := (client_login->>'client_session_id')::uuid;
+  IF length(coalesce(client_token,'')) <> 64 OR client_session_id IS NULL THEN
     RAISE EXCEPTION 'REMOTE_PLAY_TEST_CLIENT_LOGIN_FAILED';
   END IF;
   client_dashboard := api.remote_play_dashboard(client_token);
@@ -144,6 +148,24 @@ BEGIN
   sessions_result := api.admin_remote_play_sessions(owner_token,25);
   IF jsonb_typeof(sessions_result->'sessions') <> 'array' THEN
     RAISE EXCEPTION 'REMOTE_PLAY_ADMIN_SESSION_LIST_INVALID';
+  END IF;
+
+  -- A settled session must keep the client blocked for the full 10-minute cooldown.
+  INSERT INTO remote_play.sessions(
+    org_id,rental_account_id,device_id,client_session_id,status,
+    started_at,deadline_at,last_client_heartbeat_at,starting_balance_seconds,idempotency_key
+  )
+  VALUES(org_id,rental_id,device_id,client_session_id,'active',
+    now()-interval '60 seconds',now()+interval '2 hours',now(),7200,'ci-cooldown-'||rental_id::text)
+  RETURNING id INTO cooldown_session_id;
+
+  PERFORM private.remote_play_settle_session(cooldown_session_id,'ci_cooldown_test',false);
+  cooldown_dashboard := api.remote_play_dashboard(client_token);
+  IF coalesce((cooldown_dashboard->>'can_start')::boolean,true) IS NOT FALSE
+     OR coalesce((cooldown_dashboard->>'cooldown_seconds')::bigint,0) NOT BETWEEN 1 AND 600
+     OR (cooldown_dashboard->>'cooldown_until')::timestamptz <= now()
+     OR cooldown_dashboard->'active_session' <> 'null'::jsonb THEN
+    RAISE EXCEPTION 'REMOTE_PLAY_DASHBOARD_DID_NOT_EXPOSE_ACTIVE_COOLDOWN';
   END IF;
 
   -- Revoking permissions must persist and remain visible to the Admin dashboard.
