@@ -164,10 +164,10 @@ BEGIN
   -- A settled session must keep the client blocked for the full 10-minute cooldown.
   INSERT INTO remote_play.sessions(
     org_id,rental_account_id,device_id,client_session_id,status,
-    started_at,deadline_at,last_client_heartbeat_at,starting_balance_seconds,idempotency_key
+    started_at,stream_started_at,deadline_at,last_client_heartbeat_at,starting_balance_seconds,idempotency_key
   )
   VALUES(org_id,rental_id,device_id,client_session_id,'active',
-    now()-interval '60 seconds',now()+interval '2 hours',now(),7200,'ci-cooldown-'||rental_id::text)
+    now()-interval '60 seconds',now()-interval '60 seconds',now()+interval '2 hours',now(),7200,'ci-cooldown-'||rental_id::text)
   RETURNING id INTO cooldown_session_id;
 
   PERFORM private.remote_play_settle_session(cooldown_session_id,'ci_cooldown_test',false);
