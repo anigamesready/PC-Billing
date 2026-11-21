@@ -86,8 +86,11 @@ If native Termux Cloudflared cannot resolve DNS, use the isolated PRoot fallback
 ### 3. First-owner and device enrollment
 
 - Open `http://127.0.0.1:8788/setup` in the Redmi browser and create the stage Owner. Do not use the production Owner account or production database.
+- Admin APK V12.1.53 defaults to the existing/main DB Android API on `http://127.0.0.1:8787`. Before logging in for staging, change the **Alamat API Lokal** field on the Admin login screen to `http://127.0.0.1:8788`, tap **Simpan Alamat Server**, and confirm the local health check reports API/database online. Leaving `8787` selected means the Admin app is talking to the existing main database, not this stage.
 - Use the stage Admin control screen/API to enable the test rental and host, then issue one-time activation and Host Agent enrollment codes.
+- The Moonlight staging APK is built with the stable stage gateway URL `https://ani-games-db-android-stage-gateway.anigamesready.workers.dev`; it can log in only while this stage API and its registered tunnel are healthy.
 - Enroll the Android phone and Windows PC in the same Cloudflare One organization. Confirm both devices receive distinct `100.96.0.0/12` addresses and can reach each other before attempting Sunshine pairing.
+- For the gateway registration step, copy the separately supplied private `ani-games-db-android-stage-online-secrets.env` file into this folder as `online-secrets.env`; keep it private, set permissions to `600`, and do not commit it to Git.
 - Install the Windows Host Agent only after the private Mesh path is connected. The installer restricts Sunshine's Web UI/API to the host PC and allows the GameStream media ports only over the private overlay.
 - Test login, dashboard, one-user/one-host session locking, automatic pairing, game launch, stream heartbeat, stop, watchdog recovery, balance settlement, expiry, three-hour cap, and ten-minute cooldown.
 
