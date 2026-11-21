@@ -36,7 +36,8 @@ for file in \
   015_remote_play_admin_controls.sql \
   016_remote_play_cloudflare_mesh.sql \
   017_remote_play_dashboard_cooldown.sql \
-  018_remote_play_server_watchdog.sql \\\n  019_remote_play_session_connected.sql
+  018_remote_play_server_watchdog.sql \
+  019_remote_play_session_connected.sql
 do
   echo "[ANI DB] Menerapkan $file"
   psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCHEMA/$file"
