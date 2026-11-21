@@ -11,7 +11,8 @@ Komponen:
 - Database staging: ani_games_ready_stage
 - PostgreSQL runtime role: ani_api_stage_login
 - API staging: 127.0.0.1:8788 (loopback-only)
-- Skema: 000 dan 002–011; katalog snapshot 001 dikecualikan.
+- Skema: 000 dan 002–017; katalog snapshot 001 dikecualikan.
+- Remote Play: login rental, dashboard host, sesi maksimum 3 jam, cooldown 10 menit, host enrollment, permission Admin dan pairing Sunshine otomatis.
 - API: PC pairing/heartbeat/sync/sesi, Admin, Billing Control, Reseller.
 - API secret, password runtime dan bootstrap token dibuat acak di perangkat dan hanya disimpan di .env lokal.
 
@@ -20,7 +21,8 @@ Pemeriksaan keamanan:
 - Tidak menimpa database lama.
 - Tidak menghentikan proses pada port 8787.
 - Tidak menyalakan atau mematikan relay Blynk/WoL.
-- API staging hanya menerima koneksi dari localhost sampai HTTPS tunnel/reverse proxy disiapkan.
+- API staging hanya menerima koneksi dari localhost sampai HTTPS gateway/reverse proxy disiapkan.
+- Remote Play belum dapat dipakai dari luar HP sampai gateway HTTPS aktif dan HP/PC terdaftar pada jaringan media privat Cloudflare Mesh.
 
 Langkah setelah paket diekstrak:
 1. Pastikan PostgreSQL dan Node.js online di Termux.
