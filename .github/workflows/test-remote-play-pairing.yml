@@ -13,6 +13,7 @@ on:
       - "db-android-core/tests/011_remote_play_pairing_smoke.sql"
       - "db-android-core/tests/012_remote_play_admin_controls_smoke.sql"
       - "db-android-core/tests/013_remote_play_server_watchdog_smoke.sql"
+      - "db-android-core/tests/014_remote_play_stream_billing_clock_smoke.sql"
       - ".github/workflows/test-remote-play-pairing.yml"
   workflow_dispatch:
 
@@ -71,7 +72,8 @@ jobs:
             db-android-core/schema/015_remote_play_admin_controls.sql \
             db-android-core/schema/016_remote_play_cloudflare_mesh.sql \
             db-android-core/schema/017_remote_play_dashboard_cooldown.sql \
-            db-android-core/schema/018_remote_play_server_watchdog.sql; do
+            db-android-core/schema/018_remote_play_server_watchdog.sql \\
+            db-android-core/schema/019_remote_play_session_connected.sql; do
               echo "Applying $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -118,6 +120,13 @@ jobs:
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/013_remote_play_server_watchdog_smoke.sql
 
+      - name: Test billing clock starts only after an authenticated stream-connected event
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/014_remote_play_stream_billing_clock_smoke.sql
+
       - name: Validate Termux staging migration script on a second fresh database
         env:
           PGPASSWORD: postgres
@@ -129,7 +138,7 @@ jobs:
           set -euo pipefail
           bash -n db-android-core/server/migrate-local.sh
           bash db-android-core/server/migrate-local.sh
-          psql -X -v ON_ERROR_STOP=1 -d ani_games_ready_stage_ci -Atqc "SELECT CASE WHEN to_regprocedure('api.remote_play_dashboard(text)') IS NOT NULL AND to_regprocedure('api.remote_play_host_pairing_poll(text,uuid)') IS NOT NULL AND to_regprocedure('api.remote_play_watchdog_sweep()') IS NOT NULL THEN 'PASS: Termux migration runner installs Remote Play + pairing' ELSE 'FAIL: Remote Play entry point missing' END"
+          psql -X -v ON_ERROR_STOP=1 -d ani_games_ready_stage_ci -Atqc "SELECT CASE WHEN to_regprocedure('api.remote_play_dashboard(text)') IS NOT NULL AND to_regprocedure('api.remote_play_host_pairing_poll(text,uuid)') IS NOT NULL AND to_regprocedure('api.remote_play_watchdog_sweep()') IS NOT NULL AND to_regprocedure('api.remote_play_session_connected(text,uuid)') IS NOT NULL THEN 'PASS: Termux migration runner installs Remote Play + pairing' ELSE 'FAIL: Remote Play entry point missing' END"
 
       - name: Validate all DB Android Node RPC bindings against PostgreSQL schema
         run: |
