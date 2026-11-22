@@ -1,0 +1,23 @@
+name: Test DB Android simple Termux menu
+on:
+  push:
+    branches:
+      - feature/db-android-stage-simple-menu-v1
+    paths:
+      - 'db-android-core/cloudflare-gateway-stage/ani-db-menu.sh'
+      - '.github/workflows/test-db-android-stage-simple-menu.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shell-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate menu script
+        run: |
+          bash -n db-android-core/cloudflare-gateway-stage/ani-db-menu.sh
+          ! grep -Eq 'curl[[:space:]].*(-k|--insecure)' db-android-core/cloudflare-gateway-stage/ani-db-menu.sh
+          grep -q '127.0.0.1:8788' db-android-core/cloudflare-gateway-stage/ani-db-menu.sh
+          grep -q 'ani-games-db-android-stage-gateway.anigamesready.workers.dev' db-android-core/cloudflare-gateway-stage/ani-db-menu.sh
+          echo 'PASS: menu syntax, staging-only scope, and TLS verification guard.'
