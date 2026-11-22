@@ -9,8 +9,8 @@ SERVER_FILE="$STAGE_HOME/server/server.mjs"
 DB_NAME="ani_games_ready_stage"
 LOGIN_ROLE="ani_api_stage_login"
 RUNTIME_ROLE="ani_api_runtime"
-BRANCH="feature/remote-play-cloudflare-mesh-v0.4"
-RAW_ROOT="https://raw.githubusercontent.com/anigamesready/PC-Billing/$BRANCH/db-android-core"
+PATCHER_REF="808404a66fab30b63aaea078077bcea5b4ae108b"
+PATCH_URL="https://raw.githubusercontent.com/anigamesready/PC-Billing/$PATCHER_REF/db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py"
 
 say() { printf '[ANI REPAIR] %s\n' "$*"; }
 fail() { say "STOP: $*"; exit 1; }
@@ -77,7 +77,7 @@ BEGIN
      OR to_regprocedure('api.admin_logout(text)') IS NULL THEN
     RAISE EXCEPTION 'STAGE_ADMIN_LOGIN_SCHEMA_INCOMPLETE';
   END IF;
-END
+END;
 $check$;
 
 GRANT USAGE ON SCHEMA api TO ani_api_runtime;
@@ -103,14 +103,13 @@ BEGIN
      OR NOT has_function_privilege('ani_api_stage_login','api.admin_logout(text)','EXECUTE') THEN
     RAISE EXCEPTION 'STAGE_ADMIN_LOGIN_GRANTS_NOT_READY';
   END IF;
-END
+END;
 $verify$;
 SQL
 say "PASS: hak akses login staging terverifikasi. Tidak ada hak akses tabel langsung yang ditambahkan."
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
-PATCH_URL="$RAW_ROOT/cloudflare-gateway-stage/patch_server_edge_proxy.py"
 say "Memasang patch diagnostik SQLSTATE yang tidak membocorkan query, password atau token..."
 curl -fsSL "$PATCH_URL" -o "$TMP_DIR/patch_server_edge_proxy.py"
 python3 -m py_compile "$TMP_DIR/patch_server_edge_proxy.py"
