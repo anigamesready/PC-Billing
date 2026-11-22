@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - infra/db-android-cloudflare-global-stage-20261116
+      - feature/remote-play-cloudflare-mesh-v0.4
   workflow_dispatch:
 
 permissions:
