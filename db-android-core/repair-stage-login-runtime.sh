@@ -55,6 +55,7 @@ pg_isready -h 127.0.0.1 -p 5432 -d "$DB_NAME" >/dev/null 2>&1 || fail "PostgreSQ
 
 say "Memeriksa fungsi login dan memperbaiki hanya grant runtime yang semestinya..."
 psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
 DO $check$
 DECLARE
   v_super boolean;
@@ -105,6 +106,7 @@ BEGIN
   END IF;
 END;
 $verify$;
+COMMIT;
 SQL
 say "PASS: hak akses login staging terverifikasi. Tidak ada hak akses tabel langsung yang ditambahkan."
 
