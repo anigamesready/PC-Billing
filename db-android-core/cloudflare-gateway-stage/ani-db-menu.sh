@@ -4,6 +4,7 @@
 set -uo pipefail
 
 GATEWAY="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev"
+HOST="ani-games-db-android-stage-gateway.anigamesready.workers.dev"
 STAGE_HOME="${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
 RUNNER="${ANI_DB_STAGE_RUNNER:-$HOME/ani-remote-stage-package/Ani-Games-Ready-DB-Android-Termux-STAGE/cloudflare-gateway-stage/start-online-proot.sh}"
 CA_BUNDLE="${PREFIX:-/data/data/com.termux/files/usr}/etc/tls/cert.pem"
@@ -46,6 +47,8 @@ gateway_health() {
     return 0
   else
     echo "GAGAL TLS/DNS/JARINGAN: alamat Worker tidak dapat diverifikasi."
+    echo "Ringkasan sertifikat dari jaringan saat ini:"
+    curl -Iv --connect-timeout 5 --max-time 8 "$GATEWAY/health" 2>&1 | grep -Ei 'resolve|Connected|subject:|issuer:|subjectAltName|certificate|SSL:|curl:' | tail -12 || true
     echo "Jangan matikan verifikasi SSL dan jangan lanjutkan start tunnel."
     return 1
   fi
