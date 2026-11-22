@@ -53,6 +53,41 @@ command -v curl >/dev/null 2>&1 || fail "curl tidak tersedia di Termux."
 
 pg_isready -h 127.0.0.1 -p 5432 -d "$DB_NAME" >/dev/null 2>&1 || fail "PostgreSQL staging tidak siap; tidak ada perubahan dilakukan."
 
+# Match the running server with the installed Termux PostgreSQL binaries.
+command -v postgres >/dev/null 2>&1 || fail "Binary postgres tidak tersedia."
+command -v pg_ctl >/dev/null 2>&1 || fail "pg_ctl tidak tersedia."
+BIN_VERSION="$(postgres --version | sed -E 's/.*PostgreSQL\) ([0-9]+\.[0-9]+).*/\1/')"
+PGCTL_VERSION="$(pg_ctl --version | sed -E 's/.* ([0-9]+\.[0-9]+)$/\1/')"
+SERVER_VERSION="$(psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -Atqc 'SHOW server_version' | cut -d. -f1-2)"
+[ -n "$BIN_VERSION" ] && [ -n "$PGCTL_VERSION" ] && [ -n "$SERVER_VERSION" ] || fail "Tidak bisa membaca versi PostgreSQL."
+[ "$BIN_VERSION" = "$PGCTL_VERSION" ] || fail "Binary postgres dan pg_ctl berbeda versi; tidak restart otomatis."
+if [ "$SERVER_VERSION" != "$BIN_VERSION" ]; then
+  say "Versi server $SERVER_VERSION berbeda dari binary/library terpasang $BIN_VERSION."
+  DATA_DIR="$(psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -Atqc 'SHOW data_directory')"
+  [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ] || fail "data_directory PostgreSQL tidak ditemukan."
+  case "$DATA_DIR" in
+    "$PREFIX"/*) ;;
+    *) fail "data_directory berada di luar PREFIX Termux; restart otomatis dibatalkan." ;;
+  esac
+  [ -s "$DATA_DIR/PG_VERSION" ] || fail "PG_VERSION tidak ditemukan; cluster tidak disentuh."
+  DATA_MAJOR="$(cut -d. -f1 "$DATA_DIR/PG_VERSION")"
+  BIN_MAJOR="$(printf '%s' "$BIN_VERSION" | cut -d. -f1)"
+  [ "$DATA_MAJOR" = "$BIN_MAJOR" ] || fail "Major version data directory dan binary berbeda; tidak menjalankan upgrade otomatis."
+  say "Restart normal cluster yang sama memakai pg_ctl $PGCTL_VERSION (tanpa initdb/pg_upgrade)..."
+  pg_ctl -D "$DATA_DIR" -m fast -w -t 60 restart || fail "Restart PostgreSQL gagal. Jangan jalankan perintah reset/reinstall."
+  pg_isready -h 127.0.0.1 -p 5432 -d "$DB_NAME" >/dev/null 2>&1 || fail "PostgreSQL belum siap setelah restart."
+  SERVER_VERSION="$(psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -Atqc 'SHOW server_version' | cut -d. -f1-2)"
+  [ "$SERVER_VERSION" = "$BIN_VERSION" ] || fail "Versi server masih tidak cocok sesudah restart."
+  say "PASS: server kini berjalan dengan binary/library $SERVER_VERSION."
+else
+  say "PASS: server dan binary PostgreSQL sama-sama $SERVER_VERSION."
+fi
+say "Menguji PL/pgSQL tanpa mengubah data..."
+psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -v ON_ERROR_STOP=1 -c 'DO $ BEGIN NULL; END $;' >/dev/null \
+  || fail "PL/pgSQL masih gagal dimuat; grant dan API belum diubah."
+say "PASS: PL/pgSQL berhasil dimuat."
+
+
 say "Memeriksa fungsi login dan memperbaiki hanya grant runtime yang semestinya..."
 psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
