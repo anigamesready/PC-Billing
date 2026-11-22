@@ -98,7 +98,7 @@ test("root and normalized health paths proxy to the registered API health endpoi
       ["/health/", "/health"],
       ["/functions/v1/ani-games-api/health", "/functions/v1/ani-games-api/health"]
     ]) {
-      const response = await handleRequest(req(path), env);
+      const response = await handleRequest(req(path, { headers: { "cf-connecting-ip": "203.0.113.17" } }), env);
       assert.equal(response.status, 200, path);
       assert.equal(new URL(captured.url).pathname, expected, path);
     }
