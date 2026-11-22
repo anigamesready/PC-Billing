@@ -41,6 +41,9 @@ jobs:
           grep -A1 "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1" /tmp/ani-stage/server/server.mjs | grep -Eq 'diagnosticCode|error:String'
           grep -q 'error?.code' /tmp/ani-stage/server/server.mjs
           grep -q 'component: "postgres_pool"' /tmp/ani-stage/server/server.mjs
+          grep -q "ANI-DB-ANDROID-REQUEST-SQLSTATE-DIAGNOSTIC-V1" /tmp/ani-stage/server/server.mjs
+          grep -q "DATABASE_PERMISSION_DENIED" /tmp/ani-stage/server/server.mjs
+          grep -q 'sqlstate:/\^\[0-9A-Z\]{5}\$/' /tmp/ani-stage/server/server.mjs
           ! grep -q 'HOST = "0.0.0.0"' /tmp/ani-stage/server/server.mjs
           echo "PASS: patched isolated API syntax, idempotency, loopback bind, bootstrap guards and PostgreSQL pool error handling."
           mkdir -p /tmp/ani-stage-local/server
@@ -76,6 +79,7 @@ jobs:
           bash -n db-android-core/cloudflare-gateway-stage/start-online-proot.sh
           bash -n db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh
           bash -n db-android-core/cloudflare-gateway-stage/runner-smoke.sh
+          bash -n db-android-core/repair-stage-login-runtime.sh
           bash db-android-core/cloudflare-gateway-stage/runner-smoke.sh
           grep -Fq 'API_SOURCE_PATCH_APPLIED' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
           grep -Fq 'PG-POOL-ERROR-HANDLER-V1' db-android-core/cloudflare-gateway-stage/patch_server_edge_proxy.py
@@ -104,12 +108,13 @@ jobs:
           cp db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/start-online-proot.sh "$OUT/"
           cp db-android-core/cloudflare-gateway-stage/DEPLOYMENT.md "$OUT/"
+          cp db-android-core/repair-stage-login-runtime.sh "$OUT/"
           cat > "$OUT/README-ID.txt" <<'EOF'
           ANI GAMES READY — DB ANDROID HTTPS STAGE GATEWAY
           This is a staging gateway, not a production 24/7 guarantee.
           The Redmi API stays bound to 127.0.0.1:8788.
           The runner applies an idempotent API patch for Cloudflare edge trust, PostgreSQL
-          idle-pool handling and safe SQLSTATE startup diagnostics, then safely restarts
+          idle-pool handling, safe SQLSTATE diagnostics and the guarded one-command login repair, then restarts
           only the PID-tracked staging API if changed.
           The API remains loopback-only at 127.0.0.1:8788; no unknown process is killed.
           Native Termux cloudflared remains the default.
