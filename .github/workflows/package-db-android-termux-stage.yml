@@ -36,6 +36,7 @@ jobs:
             db-android-core/server/start.sh; do
             bash -n "$file"
           done
+          bash -n db-android-core/repair-stage-login-runtime.sh
           for file in db-android-core/cloudflare-gateway-stage/configure-online.sh db-android-core/cloudflare-gateway-stage/start-online.sh db-android-core/cloudflare-gateway-stage/start-online-proot.sh db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh db-android-core/cloudflare-gateway-stage/runner-smoke.sh; do bash -n "$file"; done
           node --check db-android-core/server/server.mjs
           node --check db-android-core/cloudflare-gateway-stage/worker.mjs
@@ -58,6 +59,7 @@ jobs:
           cp db-android-core/status-stage.sh "$OUT/status-stage.sh"
           cp db-android-core/stop-stage.sh "$OUT/stop-stage.sh"
           cp db-android-core/start-quick-tunnel-test.sh "$OUT/start-quick-tunnel-test.sh"
+          cp db-android-core/repair-stage-login-runtime.sh "$OUT/repair-stage-login-runtime.sh"
           cp db-android-core/schema/000_prerequisites.sql "$OUT/schema/"
           for n in 002 003 004 005 006 007 008 009 010 011 012 013 014 015 016 017 018 019; do
             file=$(find db-android-core/schema -maxdepth 1 -type f -name "${n}_*.sql" -print -quit)
@@ -81,6 +83,7 @@ jobs:
           grep -q "018_remote_play_server_watchdog.sql" "$OUT/server/migrate-local.sh"
           grep -q "019_remote_play_session_connected.sql" "$OUT/server/migrate-local.sh"
           test -f "$OUT/start-remote-play-stage.sh"
+          test -x "$OUT/repair-stage-login-runtime.sh"
           test -f "$OUT/cloudflare-gateway-stage/start-online.sh"
           test -f "$OUT/cloudflare-gateway-stage/configure-online.sh"
           if find "$OUT" \( -type d -name "__pycache__" -o -type f -name "*.pyc" \) | grep -q .; then
