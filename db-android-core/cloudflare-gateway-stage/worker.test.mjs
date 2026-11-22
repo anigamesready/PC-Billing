@@ -80,6 +80,33 @@ test("public setup and bootstrap paths are always blocked", async () => {
   }
 });
 
+test("root and normalized health paths proxy to the registered API health endpoint", async () => {
+  const { env } = setup();
+  await env.UPSTREAMS.put("ani_games_ready_stage:upstream", JSON.stringify({ url: "https://alpha-bravo-123.trycloudflare.com" }));
+  const originalFetch = globalThis.fetch;
+  let captured;
+  globalThis.fetch = async request => {
+    captured = request;
+    return new Response(JSON.stringify({ api: "online", database: "online" }), {
+      status: 200, headers: { "content-type": "application/json" }
+    });
+  };
+  try {
+    for (const [path, expected] of [
+      ["/", "/health"],
+      ["/health", "/health"],
+      ["/health/", "/health"],
+      ["/functions/v1/ani-games-api/health", "/functions/v1/ani-games-api/health"]
+    ]) {
+      const response = await handleRequest(req(path), env);
+      assert.equal(response.status, 200, path);
+      assert.equal(new URL(captured.url).pathname, expected, path);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("unknown routes and unsupported methods are denied", async () => {
   const { env } = setup();
   assert.equal((await handleRequest(req("/admin"), env)).status, 404);

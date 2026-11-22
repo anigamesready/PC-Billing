@@ -94,17 +94,23 @@ async function controlRequest(request, env, url) {
 
 export async function handleRequest(request, env) {
   const url = new URL(request.url);
+  // Normalize trailing slashes and make the gateway root a safe health-check alias.
+  // This avoids clients landing on the Worker root and receiving ROUTE_NOT_ALLOWED.
+  const incomingPath = url.pathname.replace(/\\/+$/, "") || "/";
+  const routePath = incomingPath === "/" ? "/health" : incomingPath;
+  const routedUrl = new URL(url);
+  routedUrl.pathname = routePath;
   const headers = corsFor(request);
-  if (url.pathname === "/_ani_gateway/health") {
+  if (routePath === "/_ani_gateway/health") {
     const value = await env.UPSTREAMS.get(UPSTREAM_KEY, "json");
     return json({ gateway: "online", upstream_active: Boolean(value?.url) }, value?.url ? 200 : 503);
   }
-  if (url.pathname.startsWith("/_ani_gateway/")) {
-    return controlRequest(request, env, url);
+  if (routePath.startsWith("/_ani_gateway/")) {
+    return controlRequest(request, env, routedUrl);
   }
 
-  if (isLoopbackOnlyRoute(url.pathname)) return json({ error: "LOCAL_ONLY_ROUTE" }, 403, headers);
-  if (!isApiRoute(url.pathname)) return json({ error: "ROUTE_NOT_ALLOWED" }, 404, headers);
+  if (isLoopbackOnlyRoute(routePath)) return json({ error: "LOCAL_ONLY_ROUTE" }, 403, headers);
+  if (!isApiRoute(routePath)) return json({ error: "ROUTE_NOT_ALLOWED" }, 404, headers);
   if (!["GET", "POST", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, headers);
 
   const origin = request.headers.get("Origin");
@@ -125,7 +131,7 @@ export async function handleRequest(request, env) {
     return json({ error: "CLIENT_IP_UNAVAILABLE" }, 400, headers);
   }
 
-  const target = new URL(url.pathname + url.search, current.url);
+  const target = new URL(routePath + url.search, current.url);
   const outgoingHeaders = new Headers(request.headers);
   outgoingHeaders.delete("host");
   outgoingHeaders.delete("cf-connecting-ip");
