@@ -4,7 +4,6 @@
 set -uo pipefail
 
 GATEWAY="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev"
-HOST="ani-games-db-android-stage-gateway.anigamesready.workers.dev"
 STAGE_HOME="${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
 RUNNER="${ANI_DB_STAGE_RUNNER:-$HOME/ani-remote-stage-package/Ani-Games-Ready-DB-Android-Termux-STAGE/cloudflare-gateway-stage/start-online-proot.sh}"
 CA_BUNDLE="${PREFIX:-/data/data/com.termux/files/usr}/etc/tls/cert.pem"
@@ -101,7 +100,7 @@ start_service() {
   echo "Biarkan layar ini aktif sampai muncul: API PUBLIK BERHASIL"
   echo "Kembali dari runner dengan CTRL+C (tunnel saja yang dihentikan)."
   export PROOT_NO_SECCOMP=1
-  exec bash "$RUNNER"
+  bash "$RUNNER"
 }
 repair_ca() {
   echo "Memperbarui CA resmi Termux. Verifikasi SSL tetap aktif."
