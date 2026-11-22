@@ -113,6 +113,31 @@ else:
     if source.count("function localBootstrapRequestAllowed(req)") != 1 or source.count("localBootstrapRequestAllowed(req)") != 3:
         raise SystemExit("EDGE_BOOTSTRAP_GUARDS_INCOMPLETE")
 
+
+# Expose only allowlisted SQLSTATE classes for Admin login failures; never SQL text.
+request_diag_marker = "ANI-DB-ANDROID-REQUEST-SQLSTATE-DIAGNOSTIC-V1"
+if request_diag_marker not in source:
+    public_error_anchor = '  if (error.code === "23505") return "DUPLICATE_VALUE";'
+    if source.count(public_error_anchor) != 1:
+        raise SystemExit("PUBLIC_ERROR_SQLSTATE_ANCHOR_MISMATCH")
+    public_error_map = """  // ANI-DB-ANDROID-REQUEST-SQLSTATE-DIAGNOSTIC-V1
+  const sqlstate = String(error?.code || "");
+  if (sqlstate === "42501") return "DATABASE_PERMISSION_DENIED";
+  if (sqlstate === "42883") return "API_FUNCTION_MISSING";
+  if (sqlstate === "42P01") return "API_TABLE_MISSING";
+  if (sqlstate === "42703") return "API_COLUMN_MISSING";
+  if (sqlstate === "3F000") return "API_SCHEMA_MISSING";
+  if (sqlstate === "23502") return "DATABASE_REQUIRED_FIELD_MISSING";
+"""
+    source = source.replace(public_error_anchor, public_error_map + public_error_anchor, 1)
+    old_request_log = r'    process.stderr.write(JSON.stringify({level:"error",path:url.pathname,code,status,elapsed_ms:Date.now()-started})+"\\n");'
+    new_request_log = r'    process.stderr.write(JSON.stringify({level:"error",path:url.pathname,code,status,sqlstate:/^[0-9A-Z]{5}$/.test(String(error?.code||""))?String(error.code):undefined,elapsed_ms:Date.now()-started})+"\\n");'
+    if source.count(old_request_log) != 1:
+        raise SystemExit("REQUEST_ERROR_LOG_ANCHOR_MISMATCH")
+    source = source.replace(old_request_log, new_request_log, 1)
+elif "DATABASE_PERMISSION_DENIED" not in source or "sqlstate:/" not in source:
+    raise SystemExit("REQUEST_SQLSTATE_DIAGNOSTIC_MARKER_BUT_INCOMPLETE")
+
 # Preserve PostgreSQL SQLSTATE on a failed API boot without exposing connection details.
 startup_marker = "ANI-DB-ANDROID-STARTUP-ERROR-DIAGNOSTIC-V1"
 if startup_marker not in source:
