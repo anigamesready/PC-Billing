@@ -83,7 +83,7 @@ else
   say "PASS: server dan binary PostgreSQL sama-sama $SERVER_VERSION."
 fi
 say "Menguji PL/pgSQL tanpa mengubah data..."
-psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -v ON_ERROR_STOP=1 -c 'DO $ BEGIN NULL; END $;' >/dev/null \
+psql -X -h 127.0.0.1 -p 5432 -d "$DB_NAME" -v ON_ERROR_STOP=1 -c 'DO $plpgsql_probe$ BEGIN NULL; END $plpgsql_probe$;' >/dev/null \
   || fail "PL/pgSQL masih gagal dimuat; grant dan API belum diubah."
 say "PASS: PL/pgSQL berhasil dimuat."
 
