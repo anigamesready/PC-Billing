@@ -37,6 +37,12 @@ jobs:
             bash -n "$file"
           done
           bash -n db-android-core/repair-stage-login-runtime.sh
+          grep -Fq '[ -f "$STAGE_HOME/stop-stage.sh" ]' db-android-core/repair-stage-login-runtime.sh
+          grep -Fq '[ -f "$STAGE_HOME/start-stage.sh" ]' db-android-core/repair-stage-login-runtime.sh
+          grep -Fq 'bash "$STAGE_HOME/stop-stage.sh"' db-android-core/repair-stage-login-runtime.sh
+          grep -Fq 'bash "$STAGE_HOME/start-stage.sh"' db-android-core/repair-stage-login-runtime.sh
+          ! grep -Fq '[ -x "$STAGE_HOME/stop-stage.sh" ]' db-android-core/repair-stage-login-runtime.sh
+
           for file in db-android-core/cloudflare-gateway-stage/configure-online.sh db-android-core/cloudflare-gateway-stage/start-online.sh db-android-core/cloudflare-gateway-stage/start-online-proot.sh db-android-core/cloudflare-gateway-stage/setup-proot-cloudflared.sh db-android-core/cloudflare-gateway-stage/runner-smoke.sh; do bash -n "$file"; done
           node --check db-android-core/server/server.mjs
           node --check db-android-core/cloudflare-gateway-stage/worker.mjs
