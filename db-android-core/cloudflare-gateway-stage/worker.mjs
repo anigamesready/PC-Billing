@@ -96,7 +96,7 @@ export async function handleRequest(request, env) {
   const url = new URL(request.url);
   // Normalize trailing slashes and make the gateway root a safe health-check alias.
   // This avoids clients landing on the Worker root and receiving ROUTE_NOT_ALLOWED.
-  const incomingPath = url.pathname.replace(/\\/+$/, "") || "/";
+  const incomingPath = url.pathname.replace(/\/+$/, "") || "/";
   const routePath = incomingPath === "/" ? "/health" : incomingPath;
   const routedUrl = new URL(url);
   routedUrl.pathname = routePath;
