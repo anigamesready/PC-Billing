@@ -1,0 +1,21 @@
+ANI GAMES READY — MENU DB ANDROID STAGING
+
+File: ani-db-menu.sh
+Install ke: $HOME/ani-db-menu.sh
+
+Menu:
+1. Jalankan / Sambungkan server — memeriksa sertifikat gateway terlebih dahulu, lalu menjalankan runner PRoot yang sudah ada.
+2. Cek status koneksi — memeriksa API lokal 127.0.0.1:8788 dan gateway HTTPS.
+3. Perbaiki CA Termux — memperbarui paket CA resmi, tanpa mematikan verifikasi TLS.
+4. Lihat log error.
+5. Keluar.
+
+Scope keselamatan:
+- Hanya staging API port 8788 dan gateway stage-gateway.
+- Tidak mematikan atau mengubah API produksi port 8787.
+- Tidak membuat database baru, reset DB, atau mengubah rahasia.
+- Tidak memakai curl -k / --insecure.
+- Tidak menjalankan tunnel kedua bila PID runner yang dikenal masih hidup.
+- Jika sertifikat hostname tidak cocok, menu menghentikan proses sebelum membuat tunnel; coba jaringan lain atau periksa VPN/proxy/Private DNS. Jangan abaikan verifikasi TLS.
+
+Menu tidak menjanjikan tunnel online bila jalur HTTPS Worker belum lolos pemeriksaan.
