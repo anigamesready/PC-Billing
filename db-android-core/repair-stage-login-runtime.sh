@@ -18,8 +18,8 @@ fail() { say "STOP: $*"; exit 1; }
 say "Audit staging saja; API utama 8787, PostgreSQL, database produksi, Worker dan secret tidak direset."
 [ -s "$ENV_FILE" ] || fail "File .env staging tidak ditemukan: $ENV_FILE"
 [ -s "$SERVER_FILE" ] || fail "Source API staging tidak ditemukan: $SERVER_FILE"
-[ -x "$STAGE_HOME/stop-stage.sh" ] || fail "stop-stage.sh staging tidak ditemukan."
-[ -x "$STAGE_HOME/start-stage.sh" ] || fail "start-stage.sh staging tidak ditemukan."
+[ -f "$STAGE_HOME/stop-stage.sh" ] || fail "File stop-stage.sh staging tidak ditemukan."
+[ -f "$STAGE_HOME/start-stage.sh" ] || fail "File start-stage.sh staging tidak ditemukan."
 
 python3 - "$ENV_FILE" "$DB_NAME" "$LOGIN_ROLE" <<'PY'
 import sys
