@@ -130,8 +130,8 @@ if request_diag_marker not in source:
   if (sqlstate === "23502") return "DATABASE_REQUIRED_FIELD_MISSING";
 """
     source = source.replace(public_error_anchor, public_error_map + public_error_anchor, 1)
-    old_request_log = r'    process.stderr.write(JSON.stringify({level:"error",path:url.pathname,code,status,elapsed_ms:Date.now()-started})+"\\n");'
-    new_request_log = r'    process.stderr.write(JSON.stringify({level:"error",path:url.pathname,code,status,sqlstate:/^[0-9A-Z]{5}$/.test(String(error?.code||""))?String(error.code):undefined,elapsed_ms:Date.now()-started})+"\\n");'
+    old_request_log = r'    process.stderr.write(JSON.stringify({level:"error",path:url.pathname,code,status,elapsed_ms:Date.now()-started})+"\n");'
+    new_request_log = r'    process.stderr.write(JSON.stringify({level:"error",path:url.pathname,code,status,sqlstate:/^[0-9A-Z]{5}$/.test(String(error?.code||""))?String(error.code):undefined,elapsed_ms:Date.now()-started})+"\n");'
     if source.count(old_request_log) != 1:
         raise SystemExit("REQUEST_ERROR_LOG_ANCHOR_MISMATCH")
     source = source.replace(old_request_log, new_request_log, 1)
