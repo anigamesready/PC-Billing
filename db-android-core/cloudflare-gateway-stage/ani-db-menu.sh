@@ -27,6 +27,12 @@ local_health() {
 }
 gateway_health() {
   local code
+  echo "DNS gateway:"
+  if command -v dig >/dev/null 2>&1; then
+    dig +time=3 +tries=1 +short A "$HOST" @1.1.1.1 || true
+  else
+    echo "Perintah dig belum terpasang (menu tetap dapat memeriksa HTTPS)."
+  fi
   echo "Gateway HTTPS (sertifikat diverifikasi):"
   if code="$(curl -sS --connect-timeout 5 --max-time 12 -o "$TMP" -w '%{http_code}' "$GATEWAY/_ani_gateway/health")"; then
     echo "HTTP $code"
