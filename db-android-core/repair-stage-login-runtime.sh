@@ -3,7 +3,7 @@
 # Does not reset/drop DB, change passwords, alter production API 8787, or stop PostgreSQL.
 set -euo pipefail
 
-STAGE_HOME="\${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
+STAGE_HOME="${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
 ENV_FILE="$STAGE_HOME/server/.env"
 SERVER_FILE="$STAGE_HOME/server/server.mjs"
 DB_NAME="ani_games_ready_stage"
