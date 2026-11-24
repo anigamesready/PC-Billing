@@ -1,10 +1,11 @@
-name: Build AniGames PC V12.4.9 DB Android Candidate
+name: Build AniGames PC V12.5.0 DB Android Stop/Pause Login Fix
 
 on:
   push:
     branches:
       - feature/pc-v12.4.9-stop-pause-20261118
       - audit/pc-v12.4.9-db-android-parity-20261124
+      - fix/pc-v12.5.0-stop-pause-return-login-20261124
   workflow_dispatch:
 
 permissions:
@@ -100,6 +101,8 @@ jobs:
           Set-Location $env:PC_PROJECT_DIR
           python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_v12_4_9_stop_pause_authorization.py')
           if ($LASTEXITCODE -ne 0) { throw 'V12.4.9 Stop/Pause authorization patch failed.' }
+          python (Join-Path $env:PC_PROJECT_DIR 'patch_pc_v12_5_0_stop_pause_return_login.py')
+          if ($LASTEXITCODE -ne 0) { throw 'V12.5.0 Stop/Pause return-to-Login patch failed.' }
           $index = Get-Content (Join-Path $env:PC_PROJECT_DIR 'index.html') -Raw
           if (!$index.Contains('<script src="v11-cloud.js"></script>') -or $index.Contains('v11-Server DB Android.js')) {
             throw 'The actual V11 DB Android sync module is not connected to Billing HTML.'
@@ -239,10 +242,10 @@ jobs:
             if (!$index.Contains($token)) { throw "Existing full/compact timer size missing: $token" }
           }
 
-          foreach ($token in @("ipcMain.handle('hide-billing'","ipcMain.handle('show-billing'","const powerCommands = { logoff: ['/l'], restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'] }","app.requestSingleInstanceLock(","globalShortcut.register('Control+Alt+F12'")) {
+          foreach ($token in @("ipcMain.handle('hide-billing'","ipcMain.handle('show-billing'","ipcMain.handle('return-billing-to-login'","applyLoginKioskMode(mainWindow)","const powerCommands = { logoff: ['/l'], restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'] }","app.requestSingleInstanceLock(","globalShortcut.register('Control+Alt+F12'")) {
             if (!$main.Contains($token)) { throw "Existing Windows/Admin control missing: $token" }
           }
-          foreach ($token in @('hideBilling: () => ipcRenderer.invoke','showBilling: () => ipcRenderer.invoke')) {
+          foreach ($token in @('hideBilling: () => ipcRenderer.invoke','showBilling: () => ipcRenderer.invoke','returnBillingToLogin: () => ipcRenderer.invoke')) {
             if (!$preload.Contains($token)) { throw "Admin Billing bridge missing: $token" }
           }
           foreach ($token in @('ani_games_billing_ui_state','fitLoginBoxToViewport','window.v11ApplyRemoteCommand = async','function openAdminAuth()','async function submitAdminAuth()')) {
@@ -260,11 +263,12 @@ jobs:
 
           $package = Get-Content 'package.json' -Raw | ConvertFrom-Json
           $lock = Get-Content 'package-lock.json' -Raw | ConvertFrom-Json -AsHashtable
-          if ($package.version -ne '12.4.9' -or $lock.version -ne '12.4.9') { throw 'Package metadata is not V12.4.9.' }
+          if ($package.version -ne '12.5.0' -or $lock.version -ne '12.5.0') { throw 'Package metadata is not V12.5.0.' }
           if ($package.build.appId -ne 'com.anigames.billing.v1249dbandroid' -or $package.build.productName -ne 'AniGames Billing V12.4.9 DB Android') { throw 'Isolated DB Android Electron identity is incorrect.' }
-          if (!$index.Contains('V12.4.9-STOP-PAUSE-AUTHORIZATION') -or !$renderer.Contains('V12.4.9-STOP-PAUSE-AUTHORIZATION')) { throw 'V12.4.9 source version markers missing.' }
+          if (!$index.Contains('V12.5.0-STOP-PAUSE-RETURN-LOGIN') -or !$renderer.Contains('V12.5.0-STOP-PAUSE-RETURN-LOGIN')) { throw 'V12.5.0 source version markers missing.' }
+          if (!$cloud.Contains("APP='V12.5.0-DB-ANDROID'")) { throw 'V12.5.0 DB Android sync marker missing.' }
           if (!$cloud.Contains("request('/device/session-control-policy'") -or !$cloud.Contains('window.v11CheckStopPausePermission')) { throw 'PC stop/pause authorization endpoint/helper missing.' }
-          foreach ($token in @('function authorizeStopPauseAndStop','setStopPauseAuthorizationVisual','pauseStopSessionFromTimer(event)','finishSessionFromTimer(event)')) {
+          foreach ($token in @('function authorizeStopPauseAndStop','function ensureBillingLoginViewAfterStopPause','setStopPauseAuthorizationVisual','pauseStopSessionFromTimer(event)','finishSessionFromTimer(event)','window.electronAPI.returnBillingToLogin()')) {
             if (!$index.Contains($token)) { throw "Renter Stop/Pause authorization handler missing: $token" }
           }
           if (!$index.Contains('function pauseSession(showNotif = false)') -or !$index.Contains('if (remaining <= 0)')) { throw 'Automatic expiry/session engine must remain intact.' }
@@ -292,8 +296,9 @@ jobs:
           Set-Location $env:PC_PROJECT_DIR
           New-Item -ItemType Directory -Path 'tests' -Force | Out-Null
           Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'tests/pc-db-android-runtime-smoke.test.mjs') 'tests/pc-db-android-runtime-smoke.test.mjs' -Force
-          node --test tests/pc-db-android-runtime-smoke.test.mjs
-          if ($LASTEXITCODE -ne 0) { throw 'PC DB Android runtime smoke tests failed.' }
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'tests/pc-stop-pause-return-login.test.mjs') 'tests/pc-stop-pause-return-login.test.mjs' -Force
+          node --test tests/pc-db-android-runtime-smoke.test.mjs tests/pc-stop-pause-return-login.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'PC DB Android runtime or Stop/Pause Login regression tests failed.' }
           # Remove old backend/dev material after the patch chain has consumed it.
           Remove-Item 'supabase' -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item 'admin.html' -Force -ErrorAction SilentlyContinue
@@ -332,7 +337,7 @@ jobs:
           $backendSql012Sha = $env:DB_ANDROID_SQL012_BLOB_SHA
           $backendWorkerSha = $env:DB_ANDROID_WSS_WORKER_BLOB_SHA
           @"
-          # Ani Games Ready PC Billing V12.4.9 DB Android
+          # Ani Games Ready PC Billing V12.5.0 DB Android
 
           - Repository: anigamesready/PC-Billing
           - Branch: $($env:GITHUB_REF_NAME)
@@ -373,7 +378,7 @@ jobs:
           @'
           import zipfile
           from pathlib import Path
-          output=Path("AniGames-PC-V12.4.9-DB-Android-FINAL.zip")
+          output=Path("AniGames-PC-V12.5.0-DB-Android-FINAL.zip")
           with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
               for item in Path("output").iterdir():
                   if item.is_file(): z.write(item,item.name)
@@ -384,7 +389,7 @@ jobs:
       - name: Upload isolated PC DB Android candidate
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.4.9-DB-Android-FINAL
-          path: AniGames-PC-V12.4.9-DB-Android-FINAL.zip
+          name: AniGames-PC-V12.5.0-DB-Android-FINAL
+          path: AniGames-PC-V12.5.0-DB-Android-FINAL.zip
           if-no-files-found: error
           retention-days: 14
