@@ -8,7 +8,7 @@
 - Exact source context SHA: bd11d9b4e53ece362715a772f210c7e3b13adba1
 - Reserved isolated work branch: feature/db-android-always-on-guardian-v1.1.0-20261124 (created from source context; candidate package files not yet committed to this branch).
 - Controller source archive: ANI-GAMES-READY-DB-ANDROID-CONTROL-1.0.0.zip; SHA-256 d3f51d6528695891bbf8e48f727e87a1ffd0d8e538877f66dbad19a71520aa04.
-- Candidate artifact: ANI-DB-ANDROID-ALWAYSON-1.1.0.zip; SHA-256 6aacd0d190778affb7bffeef35a6f995179c92d9f7b2ab9c9ed140a1c5d9cee3.
+- Candidate artifact: ANI-DB-ANDROID-ALWAYSON-1.1.0.zip; SHA-256 3f6e39ff7b5c7332891f4db2412d335b260bbd1afc35e4f2036e0be80d112443.
 - Build workflow: local package generation in current task; no GitHub Actions run.
 - App/EXE version: not applicable; Termux controller package v1.1.0.
 - Relevant dependencies: Termux, termux-services/runit, optional Termux:Boot, existing PostgreSQL PGDATA, API stage 8788, WebSocket relay agent.
