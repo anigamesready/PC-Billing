@@ -236,3 +236,23 @@ The V12.1.53 branch supersedes the earlier V12.1.51/V12.1.52 APK candidates. Do 
 - [ ] Re-audit latest PC Billing V12.4.8 DB Android branch/artifact and API contract before integrating it with the Redmi local DB Android backend.
 - [ ] After PC Billing passes pairing, heartbeat, rental lookup, session start/end, sync and offline-queue tests, audit the latest Reseller DB Android branch and map reseller-only CRUD/auth flows.
 - [ ] Preserve the stable PC Billing/Admin/Reseller builds and separate Blynk/WoL relay. No production cutover or data migration without backup/restore proof and explicit approval.
+
+
+## Priority 0 — Install and validate DB Android Always-On Control 1.1.0
+
+- [x] Re-read Master Skill, Project State/Registry/Decisions/Next Tasks/Changelog/Version Ledger and relevant Database Architect, Project Auditor, Troubleshooting Engineer, Regression Tester and Handover Keeper skills.
+- [x] Audit the exact Control 1.0.0 package and identify missing persistent supervisor, desired-state and Termux boot recovery behavior.
+- [x] Create candidate `ANI-DB-ANDROID-ALWAYSON-1.1.0.zip`; verify archive extraction, file checksums, Bash syntax and fixture regression tests.
+- [ ] On Redmi, preserve the existing Termux files; install the candidate ZIP and verify installer backup messages, termux-services/runit guardian and Termux:Boot hook.
+- [ ] Run STATUS before ON; record sanitized PostgreSQL 5432 / API 8788 / relay process / Worker / legacy 8787 outputs.
+- [ ] Select ON once; confirm desired state RUNNING, all three local services healthy, Guardian supervisor running, and Worker status shown separately.
+- [ ] Exit Termux menu, relaunch Termux and confirm local services remain running. Test screen-off and Redmi battery/autostart restrictions.
+- [ ] With a safe maintenance window, verify Android reboot restoration when desired state is RUNNING; then set OFF and verify reboot does not restart the stack.
+- [ ] Verify OFF with no other PG clients; separately test that API 8787 or other PG client sessions prevent PostgreSQL shutdown. Never override the safety guard.
+- [ ] Investigate the remaining Worker/DO proxy HTTP 503 separately. Preserve the local PG/API/agent when the public proxy is degraded.
+- [ ] Record actual results; container fixture PASS is not a substitute for Redmi device acceptance.
+
+### Boundaries
+- Do not delete/reset PGDATA, remove postmaster.pid manually, run initdb, migrate schema or rewrite .env.
+- Do not stop legacy API 8787, DB clients, Supabase, or separate Blynk/WoL relay.
+- Do not claim absolute uptime: phone power, Android Force Stop, storage, ISP/network and Cloudflare availability are outside the Termux supervisor's control.
