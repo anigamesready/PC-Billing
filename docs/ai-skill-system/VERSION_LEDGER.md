@@ -107,3 +107,12 @@ Admin DB Android V12.1.53 APK is now built and verified as a staging/debug-signe
 | Track | Candidate | Source baseline | Artifact | Verification | Status |
 |---|---|---|---|---|---|
 | Redmi DB Android control | Control 1.1.0 | Library Control 1.0.0 archive SHA-256 `d3f51d6528695891bbf8e48f727e87a1ffd0d8e538877f66dbad19a71520aa04`; PC-Billing stage context `bd11d9b4e53ece362715a772f210c7e3b13adba1` | `ANI-DB-ANDROID-ALWAYSON-1.1.0.zip`; SHA-256 `3f6e39ff7b5c7332891f4db2412d335b260bbd1afc35e4f2036e0be80d112443`; 23 KB | Bash syntax PASS; fixture tests PASS; install/runtime on Redmi NOT RUN; reboot test NOT RUN; ShellCheck unavailable | Candidate only — awaiting user install and device verification |
+
+
+## 2026-11-24 — DB Android Always-On Control 1.1.0 candidate
+- Repository `anigamesready/PC-Billing`; isolated work branch `fix/db-android-always-on-supervisor-20261124`; source base `bd11d9b4e53ece362715a772f210c7e3b13adba1`.
+- Release manifest commit `9102a4317b89208fa665318be70b0af8209ba59f` records scope and device acceptance requirements.
+- Package `ANI-GAMES-READY-DB-ANDROID-ALWAYS-ON-1.1.0.zip`; SHA-256 `01c5f25ca2f4774d5209f39b9083e39bf75b74502af9f89d56265c73f75257ac`.
+- Package scripts: controller, watchdog, installer, runit run service, Termux:Boot helper, README, checksum list, fixture tests.
+- 11/11 disposable fixture cases PASS. All included Bash files pass `bash -n`; all package file checksums match; `unzip -t` passes.
+- No Redmi deployment or 24-hour physical test. No DB data/schema, `.env`, secrets, port 8787, Supabase, Worker deployment, or Blynk/WoL setting changed.
