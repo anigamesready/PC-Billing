@@ -105,6 +105,14 @@ jobs:
             throw 'The actual V11 DB Android sync module is not connected to Billing HTML.'
           }
 
+      - name: Audit exact PC runtime endpoints for Supabase, Blynk and WoL
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          python audit_pc_runtime_legacy_sources.py
+          if ($LASTEXITCODE -ne 0) { throw 'PC runtime endpoint audit failed.' }
+
       - name: Checkout the exact Redmi DB Android API and WSS contract
         uses: actions/checkout@v4
         with:
