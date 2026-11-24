@@ -132,3 +132,11 @@
 - Regression evidence: bash syntax checks PASS; per-file SHA-256 checks PASS; ZIP integrity PASS; local mock runtime tests PASS for ON, normal OFF, safe FULL OFF, DB-session guard and legacy-8787 guard; installer simulation PASS in disposable HOME. No live Redmi service was changed in this work.
 - Termux:Widget official documentation was checked. It can show executable scripts in `~/.shortcuts`; the user's Termux:Widget install/source and home-screen behavior remain to be accepted on the device.
 - Admin DB Android V12.1.53 login was user-confirmed successful after the Worker/agent returned online. Dashboard feature acceptance and PC Billing/Reseller migration remain separate tasks.
+
+
+## 2026-11-24 — DB Android Always-On Control 1.1.0 candidate
+- Inspected the exact Control 1.0.0 source archive and current PC-Billing stage context; confirmed old menu's soft-stop/full-stop split and one-shot launcher/no guardian.
+- Produced candidate Control 1.1.0 with persistent RUNNING/STOPPED state, Termux runit guardian, Termux:Boot hook, ON/OFF/STATUS/EXIT menu and safe service recovery.
+- Separated public Worker health from local DB/API/agent health: Worker HTTP 503 does not restart or stop healthy local components.
+- Passed Bash syntax and isolated fixture tests, including preservation of .env bytes and shared PostgreSQL-client safety checks.
+- No phone runtime, live DB, PGDATA, .env, Worker deployment or production service was modified. Device installation/reboot acceptance remains pending.
