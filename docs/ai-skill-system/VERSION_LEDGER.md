@@ -100,3 +100,10 @@ Admin DB Android V12.1.53 APK is now built and verified as a staging/debug-signe
 - Includes controller, installer, four Termux:Widget shortcut files, README-ID, SHA256SUMS and runtime fixture tests.
 - Local verification: bash syntax PASS; SHA256SUMS PASS; ZIP integrity PASS; mock runtime regression PASS for start order, soft stop, full stop, legacy API 8787 guard, other PostgreSQL client guard, installer output and widget shortcuts.
 - Device application and Termux:Widget one-tap acceptance: PENDING. This is a support tool, not an APK or backend schema release.
+
+
+## 2026-11-24 — DB Android Always-On Control 1.1.0 candidate
+
+| Track | Candidate | Source baseline | Artifact | Verification | Status |
+|---|---|---|---|---|---|
+| Redmi DB Android control | Control 1.1.0 | Library Control 1.0.0 archive SHA-256 `d3f51d6528695891bbf8e48f727e87a1ffd0d8e538877f66dbad19a71520aa04`; PC-Billing stage context `bd11d9b4e53ece362715a772f210c7e3b13adba1` | `ANI-DB-ANDROID-ALWAYSON-1.1.0.zip`; SHA-256 `6aacd0d190778affb7bffeef35a6f995179c92d9f7b2ab9c9ed140a1c5d9cee3`; 23 KB | Bash syntax PASS; fixture tests PASS; install/runtime on Redmi NOT RUN; reboot test NOT RUN; ShellCheck unavailable | Candidate only — awaiting user install and device verification |
