@@ -26,6 +26,8 @@ Apabila Termux belum dapat membuka folder Download, jalankan termux-setup-storag
 APA YANG DILAKUKAN SCRIPT
 - Memastikan target tepat DB ani_games_ready_stage dan port 8788.
 - Memastikan API/Database staging sedang online dan PID adalah server.mjs dari folder stage yang benar.
+- Memeriksa konfigurasi .env dan environment proses API yang sedang berjalan: nama database staging, role ani_api_stage_login, host loopback PostgreSQL, API port 8788, dan bind localhost harus cocok.
+- Membandingkan identitas instance PostgreSQL dari koneksi API dengan koneksi lokal yang dipakai untuk backup/migrasi; bila berbeda, installer berhenti sebelum perubahan.
 - Memeriksa prasyarat skema, role, dan fungsi actor Admin sebelum menyentuh database.
 - Membuat backup PostgreSQL format custom dan backup server.mjs sebelum perubahan.
 - Menerapkan migrasi SQL 012 secara transaksional hanya jika fungsi belum ada.
