@@ -140,3 +140,11 @@
 - Separated public Worker health from local DB/API/agent health: Worker HTTP 503 does not restart or stop healthy local components.
 - Passed Bash syntax and isolated fixture tests, including preservation of .env bytes and shared PostgreSQL-client safety checks.
 - No phone runtime, live DB, PGDATA, .env, Worker deployment or production service was modified. Device installation/reboot acceptance remains pending.
+
+
+## 2026-11-24 — DB Android Always-On Control 1.1.0 candidate
+- Built isolated Termux supervisor package for persisted ON state, runit watchdog, Termux:Boot startup, local stack recovery and menu-only OFF.
+- Package: ANI-GAMES-READY-DB-ANDROID-ALWAYS-ON-1.1.0.zip; SHA-256 `01c5f25ca2f4774d5209f39b9083e39bf75b74502af9f89d56265c73f75257ac`.
+- 11/11 isolated fixture tests, Bash syntax checks, per-file checksums and ZIP integrity passed. No real Redmi install, reboot, screen-off or 24-hour test has been performed.
+- Remote Worker HTTP 503 remains a separate degraded path; it must not stop local PostgreSQL/API. No Worker deployment, DB schema/data, PGDATA, `.env`, port 8787, Supabase or Blynk/WoL changes were made.
+- Runtime candidate branch `fix/db-android-always-on-supervisor-20261124` is based on `bd11d9b4e53ece362715a772f210c7e3b13adba1`; release manifest commit `9102a4317b89208fa665318be70b0af8209ba59f`. Device acceptance is pending.
