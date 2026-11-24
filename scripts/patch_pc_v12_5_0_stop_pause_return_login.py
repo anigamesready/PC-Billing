@@ -37,10 +37,12 @@ if "APP='V12.4.9-DB-ANDROID'" not in cloud:
     raise SystemExit("PC V12.4.9 DB Android version anchor mismatch")
 if package.get("version") != "12.4.9" or lock.get("version") != "12.4.9":
     raise SystemExit("PC package metadata is not V12.4.9")
-if package.get("build", {}).get("appId") != "com.anigames.billing.v1249dbandroid":
-    raise SystemExit("Persistent DB Android appId mismatch")
-if package.get("build", {}).get("productName") != "AniGames Billing V12.4.9 DB Android":
-    raise SystemExit("Persistent productName mismatch; refusing to change user-data identity")
+# The source ZIP still carries the stable legacy app identity here.
+# The workflow applies the isolated DB Android identity after all source patches.
+if package.get("build", {}).get("appId") != "com.anigames.billing.v12test":
+    raise SystemExit("Persistent Electron appId mismatch before DB Android identity isolation")
+if package.get("build", {}).get("productName") != "AniGames Billing V12.3.3":
+    raise SystemExit("Persistent productName mismatch before DB Android identity isolation")
 if "function applyLoginKioskMode(w=mainWindow)" not in main:
     raise SystemExit("Existing native Login kiosk transition is missing")
 if "ipcMain.handle('hide-billing'" not in main or "ipcMain.handle('show-billing'" not in main:
