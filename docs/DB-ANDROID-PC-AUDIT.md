@@ -50,3 +50,17 @@ Scope: PC Billing V12.4.9 against the current DB Android staging source and Admi
 ## Safety boundary
 - This audit and parity-refresh patch do not modify Termux, PostgreSQL data, Admin source, Cloudflare Worker secrets, Blynk/WoL relay services, or the existing production/Supabase databases.
 - Runtime PC changes remain additive to the selected DB Android PC branch. No dual-DB Supabase routing is enabled in this PC runtime.
+
+## Runtime inventory: Supabase/Blynk/WoL (2026-11-24)
+- Workflow run 45324894141 extracted the exact V12.4.8 baseline, applied the selected V12.4.9 and DB Android patch chain, then scanned the actual Electron runtime files before packaging.
+- The active `main.js`, `preload.js` and `renderer.js` had zero Supabase, DB1/DB2, Blynk or external API matches.
+- Active `index.html` only referenced Google Fonts, the DB Android Worker URL and the paired-PC WOL relay command contract. Active `v11-cloud.js` used the DB Android Worker as its default API and kept WOL LAN MAC metadata in the normal DB Android heartbeat.
+- A legacy source file `supabase/functions/ani-games-api/index.ts` still contains the old Blynk `iot/status` and `iot/power` handlers with a Supabase-stored Blynk token. This file is copied only into the temporary CI workspace for inspection, then the build explicitly removes `supabase/`; the final app.asar allow-list excludes `supabase/` and `admin.html`. It is not loaded by the PC Billing EXE.
+- The PC build now has a strict runtime gate (commit `2499befc0d714061668caac6a9bad056b5329b06`, workflow gate commit `baaad36e48b23810d747438a78a2dcd0ac1d45f6`) that fails if an active packaged runtime file contains Supabase host/config/routing or Blynk API/secret routes.
+- WOL is deliberately retained as the PC's local Magic Packet sender plus paired-device command/heartbeat metadata through DB Android. The Blynk cloud relay is a separate Admin-side service and is not part of this PC Billing runtime audit.
+
+## Live stage sync status
+- Redmi read-only checks on 2026-11-24 showed the active API process at `~/ani-games-db-android-stage/server`, but its on-disk `server.mjs` did not contain `/device/session-control-policy`; local API and public Worker path returned 404.
+- The four Stop/Pause SQL functions checked on the active DB all returned false (missing).
+- No changes were made to the Redmi API, PostgreSQL DB, Worker deployment, secrets, rentals, sessions, pairing or relay by this audit.
+- A guarded updater is prepared separately. It validates the stage DB and existing Remote Play schema, takes a verified full database dump and server-file backup, applies migration 012 additively, replaces only `server.mjs`, restarts only the stage API PID, then requires the local dummy-token request to return `401 INVALID_DEVICE_TOKEN`. Do not run the fresh-stage installer on the existing database.
