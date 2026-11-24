@@ -14,7 +14,7 @@ CARA PAKAI
 1. Download ZIP dan ekstrak foldernya ke Download di Redmi.
 2. Buka Termux.
 3. Jalankan:
-   cd /sdcard/Download/ANI-GAMES-READY-STOP-PAUSE-RPC-FIX
+   cd /sdcard/Download/ANI-GAMES-READY-STOP-PAUSE-RPC-FIX-INSTALLER
    bash APPLY-STOP-PAUSE-FIX.sh
 4. Tunggu sampai tertulis:
    [ANI STOP/PAUSE FIX] SELESAI.
