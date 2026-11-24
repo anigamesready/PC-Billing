@@ -35,6 +35,7 @@ function harness() {
       case '/device/watchdog': data={ok:true,commands:[]}; break;
       case '/device/ack': data={ok:true,status:body.status||'acknowledged'}; break;
       case '/device/test-policy': data={ok:true,enabled:true}; break;
+      case '/device/session-control-policy': data={ok:true,enabled:true,allow_stop_pause:true,message:'BILLING_STOP_PAUSE_ALLOWED'}; break;
       case '/device/rental/lookup': data={ok:true,id:'rental-smoke',org_id:'org-smoke',device_id:'device-smoke',code:body.code,category:'reguler',remaining_seconds:3600,expiry_at:null,client_label:'Smoke',updated_at:new Date().toISOString(),offline_lease_until:new Date(Date.now()+7200000).toISOString()}; break;
       case '/device/session/start': data={ok:true,session_id:'session-smoke',status:'active',remaining_seconds:3600,deadline_at:new Date(Date.now()+3600000).toISOString()}; break;
       case '/device/session/end': data={ok:true,session_id:'session-smoke',status:'ended',remaining_seconds:body.remainingSeconds}; break;
@@ -83,6 +84,8 @@ test('pairing, rental lifecycle, sync, alerts, heartbeat, ACK and disconnect cal
   const enroll=h.calls.find(x=>x.route==='/device/enroll');
   assert.ok(enroll);assert.equal(enroll.body.token,undefined);
   assert.equal((await h.window.v11CheckFreeTestPermission()).enabled,true);
+  const pausePolicy=await h.window.v11CheckStopPausePermission();
+  assert.equal(pausePolicy.allow_stop_pause,true);
   assert.equal((await h.window.v11LookupRentalCode('TEST01')).ok,true);
   assert.equal((await h.window.v11StartRentalSession('TEST01')).sessionId,'session-smoke');
   assert.equal((await h.window.v11EndRentalSession('TEST01',3500)).ok,true);
@@ -93,7 +96,7 @@ test('pairing, rental lifecycle, sync, alerts, heartbeat, ACK and disconnect cal
   await h.window.v11EmitAdminAlert('session_stopped','Smoke ended',{code:'TEST01'});
   h.setCommand();h.window.v11HeartbeatNow('smoke');await flush();
   assert.ok(h.calls.some(x=>x.route==='/device/ack'));
-  for(const route of ['/device/test-policy','/device/rental/lookup','/device/session/start','/device/session/end','/device/rental/release','/device/sync-cursor','/device/pull','/device/sync','/device/alert','/device/heartbeat','/device/ack'])
+  for(const route of ['/device/test-policy','/device/session-control-policy','/device/rental/lookup','/device/session/start','/device/session/end','/device/rental/release','/device/sync-cursor','/device/pull','/device/sync','/device/alert','/device/heartbeat','/device/ack'])
     assert.ok(h.calls.some(x=>x.route===route),'missing '+route);
   for(const call of h.calls.filter(x=>x.route.startsWith('/device/')&&x.route!='/device/enroll'))
     assert.equal(call.headers.authorization,'Bearer device-token-smoke');
