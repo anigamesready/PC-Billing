@@ -5,9 +5,9 @@ set -Eeuo pipefail
 umask 077
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-STAGE_HOME="\${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
-DB_NAME="\${ANI_DB_STAGE_NAME:-ani_games_ready_stage}"
-API_PORT="\${ANI_DB_STAGE_PORT:-8788}"
+STAGE_HOME="${ANI_DB_STAGE_HOME:-$HOME/ani-games-db-android-stage}"
+DB_NAME="${ANI_DB_STAGE_NAME:-ani_games_ready_stage}"
+API_PORT="${ANI_DB_STAGE_PORT:-8788}"
 SERVER="$STAGE_HOME/server"
 SERVER_MJS="$SERVER/server.mjs"
 ENV_FILE="$SERVER/.env"
@@ -143,6 +143,7 @@ printf '%s' "$HEALTH_AFTER" | node -e 'let s="";process.stdin.on("data",d=>s+=d)
  fail "API/database tidak ONLINE setelah restart; source lama dipulihkan."
 }
 
+# Probe must return 401 AUTH_REQUIRED, never 404 RPC_NOT_ALLOWED.
 probe_rpc() {
  local rpc_name="$1" response_file code
  response_file="$(mktemp)"
