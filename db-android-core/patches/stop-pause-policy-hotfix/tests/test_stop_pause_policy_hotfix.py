@@ -94,13 +94,13 @@ class StopPauseApiHotfixTests(unittest.TestCase):
         self.assertIn("api.device_session_control_policy(p_token text)", sql)
         self.assertIn("REVOKE ALL ON FUNCTION api.admin_get_billing_stop_pause_policy(text) FROM PUBLIC", sql)
         self.assertIn("GRANT EXECUTE ON FUNCTION api.admin_set_billing_stop_pause_policy(text, boolean) TO ani_api_runtime", sql)
-        for forbidden in ("DROP TABLE", "TRUNCATE TABLE", "DELETE FROM public.rental_accounts", "DELETE FROM public.rental_sessions"):
+        for forbidden in ("DROP TABLE", "TRUNCATE TABLE", "DELETE FROM PUBLIC.RENTAL_ACCOUNTS", "DELETE FROM PUBLIC.RENTAL_SESSIONS"):
             self.assertNotIn(forbidden, sql.upper())
 
     def test_termux_installer_is_stage_only_and_checks_backups(self):
         shell = (ROOT / "APPLY-STOP-PAUSE-FIX.sh").read_text(encoding="utf-8")
         self.assertIn("ani_games_ready_stage", shell)
-        self.assertIn('API_PORT="\${ANI_DB_STAGE_PORT:-8788}"', shell)
+        self.assertIn(r'API_PORT="${ANI_DB_STAGE_PORT:-8788}"', shell)
         self.assertIn("pg_dump --format=custom", shell)
         self.assertIn("pg_restore --list", shell)
         self.assertIn("AUTH_REQUIRED", shell)
