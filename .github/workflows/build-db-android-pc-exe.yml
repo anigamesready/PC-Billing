@@ -113,6 +113,14 @@ jobs:
           python audit_pc_runtime_legacy_sources.py
           if ($LASTEXITCODE -ne 0) { throw 'PC runtime endpoint audit failed.' }
 
+      - name: Enforce DB Android-only PC runtime (no Supabase/Blynk routes)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:PC_PROJECT_DIR
+          python assert_pc_runtime_db_android_only.py
+          if ($LASTEXITCODE -ne 0) { throw 'Legacy backend route found in packaged PC runtime.' }
+
       - name: Checkout the exact Redmi DB Android API and WSS contract
         uses: actions/checkout@v4
         with:
