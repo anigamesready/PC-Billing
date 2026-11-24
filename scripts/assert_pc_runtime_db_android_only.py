@@ -7,11 +7,11 @@ import sys
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 runtime_names = ("main.js", "preload.js", "renderer.js", "index.html", "v11-cloud.js")
 forbidden = {
-    "Supabase hostname": re.compile(r"https?://[^\\s\"'<>]*supabase\\.(?:co|in)", re.I),
+    "Supabase hostname": re.compile(r"https?://[^\s\"'<>]*supabase\.(?:co|in)", re.I),
     "legacy Supabase Edge Function": re.compile(r"functions/v1/ani-games-api", re.I),
     "legacy Supabase database routing": re.compile(r"DB1_API_URL|DB1_ANON_KEY|DB2_API_URL|DB2_ANON_KEY|shared-db-gateway|x-db-target-key", re.I),
     "legacy Supabase configuration": re.compile(r"SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_API_NOT_CONFIGURED", re.I),
-    "Blynk API/secret in PC runtime": re.compile(r"blynk\\.cloud|BLYNK_AUTH_TOKEN|BLYNK_POWER_PIN|iot/status|iot/power", re.I),
+    "Blynk API/secret in PC runtime": re.compile(r"blynk\.cloud|BLYNK_AUTH_TOKEN|BLYNK_POWER_PIN|iot/status|iot/power", re.I),
 }
 for name in runtime_names:
     path = root / name
@@ -21,7 +21,7 @@ for name in runtime_names:
     for label, pattern in forbidden.items():
         match = pattern.search(body)
         if match:
-            line = body.count("\\n", 0, match.start()) + 1
+            line = body.count("\n", 0, match.start()) + 1
             raise SystemExit(f"FAIL: {label} remains in active {name}:{line}")
     print("PASS: no legacy Supabase/Blynk route in active " + name)
 
