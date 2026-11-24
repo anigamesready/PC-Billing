@@ -45,6 +45,63 @@ printf '%s' "$HEALTH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("e
 DB_EXISTS="$(psql -X -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='ani_games_ready_stage'")" || fail "Tidak bisa memeriksa PostgreSQL."
 [ "$DB_EXISTS" = "1" ] || fail "Database ani_games_ready_stage tidak ditemukan."
 
+# Fail closed unless the live stage process and its protected .env both target the
+# dedicated stage database, local loopback PostgreSQL, and API port 8788.
+RUNTIME_DB_ID="$(
+  cd "$SERVER"
+  node --input-type=module - "$ENV_FILE" "/proc/$PID/environ" "$DB_NAME" "$API_PORT" <<'NODE'
+import fs from "node:fs";
+import { Client } from "pg";
+
+const [envFile, procFile, expectedDb, expectedPort] = process.argv.slice(2);
+function parsePairs(text, delimiter) {
+  const out = {};
+  for (const line of text.split(delimiter)) {
+    if (!line || line.startsWith("#")) continue;
+    const pos = line.indexOf("=");
+    if (pos <= 0) continue;
+    out[line.slice(0, pos)] = line.slice(pos + 1);
+  }
+  return out;
+}
+function assertStageConfig(vars) {
+  if (!vars.DATABASE_URL || vars.PORT !== expectedPort || vars.ANI_BIND !== "127.0.0.1") {
+    throw new Error("STAGE_API_CONFIG_MISMATCH");
+  }
+  const u = new URL(vars.DATABASE_URL);
+  const db = decodeURIComponent(u.pathname.replace(/^\/+/, ""));
+  if (db !== expectedDb || u.hostname !== "127.0.0.1" ||
+      (u.port || "5432") !== "5432" || decodeURIComponent(u.username) !== "ani_api_stage_login") {
+    throw new Error("STAGE_DATABASE_TARGET_MISMATCH");
+  }
+}
+let client;
+try {
+  const fileEnv = parsePairs(fs.readFileSync(envFile, "utf8"), /\r?\n/);
+  const liveEnv = parsePairs(fs.readFileSync(procFile, "utf8"), "\0");
+  for (const key of ["DATABASE_URL", "PORT", "ANI_BIND"]) {
+    if (fileEnv[key] !== liveEnv[key]) throw new Error("RUNNING_PROCESS_ENV_MISMATCH");
+  }
+  assertStageConfig(fileEnv);
+  assertStageConfig(liveEnv);
+  client = new Client({ connectionString: liveEnv.DATABASE_URL, connectionTimeoutMillis: 5000 });
+  await client.connect();
+  const result = await client.query(
+    "SELECT current_database() AS db, extract(epoch from pg_postmaster_start_time())::bigint AS started"
+  );
+  if (result.rows[0]?.db !== expectedDb) throw new Error("RUNTIME_DATABASE_NAME_MISMATCH");
+  process.stdout.write(result.rows[0].db + "|" + result.rows[0].started);
+} catch {
+  process.stderr.write("STAGE_DATABASE_IDENTITY_CHECK_FAILED\n");
+  process.exitCode = 2;
+} finally {
+  if (client) await client.end().catch(() => {});
+}
+NODE
+)" || fail "Konfigurasi proses API/DB stage tidak cocok; tidak ada perubahan."
+LOCAL_DB_ID="$(psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -Atqc "SELECT current_database() || '|' || extract(epoch from pg_postmaster_start_time())::bigint")" || fail "Identitas PostgreSQL lokal gagal diperiksa."
+[ "$RUNTIME_DB_ID" = "$LOCAL_DB_ID" ] || fail "API stage dan koneksi PostgreSQL lokal bukan instance/database staging yang sama; tidak ada perubahan."
+
 PREREQ="$(psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -Atqc "
 SELECT CASE WHEN
  to_regclass('private.admin_feature_settings') IS NOT NULL
