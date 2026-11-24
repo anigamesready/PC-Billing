@@ -121,7 +121,8 @@ class StopPauseApiHotfixTests(unittest.TestCase):
 
     def _run_runtime_db_guard(self, file_db="ani_games_ready_stage", live_db="ani_games_ready_stage"):
         shell = (ROOT / "APPLY-STOP-PAUSE-FIX.sh").read_text(encoding="utf-8")
-        marker = "node --input-type=module - \"$ENV_FILE\" \"/proc/$PID/environ\" \"$DB_NAME\" \"$API_PORT\" <<'NODE'\n"
+        marker = """node --input-type=module - "$ENV_FILE" "/proc/$PID/environ" "$DB_NAME" "$API_PORT" <<'NODE'
+"""
         start = shell.index(marker) + len(marker)
         end = shell.index("\nNODE\n", start)
         node_source = shell[start:end]
