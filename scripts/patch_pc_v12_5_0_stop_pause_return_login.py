@@ -247,9 +247,11 @@ if "function pauseSession(showNotif = false)" not in html or "if (remaining <= 0
     raise SystemExit("Automatic expiry/session engine was modified or removed")
 if "pauseSession(false);" not in html:
     raise SystemExit("Existing Admin/session-stop path was unexpectedly removed")
-if package.get("build", {}).get("appId") != "com.anigames.billing.v1249dbandroid":
-    raise SystemExit("Persistent Electron appId changed")
-if package.get("build", {}).get("productName") != "AniGames Billing V12.4.9 DB Android":
-    raise SystemExit("Persistent Electron productName changed")
+# Keep the stable source identity intact at patch time. The workflow's
+# dedicated isolation step assigns the already-established DB Android identity.
+if package.get("build", {}).get("appId") != "com.anigames.billing.v12test":
+    raise SystemExit("Persistent Electron appId changed during source patch")
+if package.get("build", {}).get("productName") != "AniGames Billing V12.3.3":
+    raise SystemExit("Persistent Electron productName changed during source patch")
 
 print("PASS: V12.5.0 renter Stop/Pause restores Login DOM + native kiosk; Admin/expiry paths, DB Android pairing, app identity and data paths preserved.")
