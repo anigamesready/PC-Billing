@@ -1,0 +1,65 @@
+name: Package DB Android Stop Pause Stage API Hotfix
+
+on:
+  push:
+    branches:
+      - fix/db-android-stop-pause-policy-runtime-hotfix-20261124
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Test and package safe Termux hotfix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="db-android-core/patches/stop-pause-policy-hotfix"
+          bash -n "$ROOT/APPLY-STOP-PAUSE-FIX.sh"
+          python -m py_compile "$ROOT/apply_stop_pause_policy_api_fix.py"
+          python -m py_compile "$ROOT/tests/test_stop_pause_policy_hotfix.py"
+
+      - name: Regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd db-android-core/patches/stop-pause-policy-hotfix
+          python -m unittest discover -s tests -v
+
+      - name: Package and verify ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="db-android-core/patches/stop-pause-policy-hotfix"
+          mkdir -p output
+          cd "$ROOT"
+          zip -r "$GITHUB_WORKSPACE/output/ANI-GAMES-READY-STOP-PAUSE-RPC-FIX.zip" \
+            README-ID.txt \
+            APPLY-STOP-PAUSE-FIX.sh \
+            apply_stop_pause_policy_api_fix.py \
+            sql/012_billing_stop_pause_policy.sql
+          cd "$GITHUB_WORKSPACE"
+          sha256sum output/ANI-GAMES-READY-STOP-PAUSE-RPC-FIX.zip | tee output/SHA256SUMS.txt
+          unzip -t output/ANI-GAMES-READY-STOP-PAUSE-RPC-FIX.zip
+          ls -lh output/*
+
+      - name: Upload safe hotfix package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ANI-GAMES-READY-STOP-PAUSE-RPC-FIX
+          path: output/*
+          if-no-files-found: error
+          retention-days: 30
