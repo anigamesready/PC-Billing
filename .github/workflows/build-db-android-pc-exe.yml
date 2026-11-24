@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/pc-v12.4.9-stop-pause-20261118
+      - audit/pc-v12.4.9-db-android-parity-20261124
   workflow_dispatch:
 
 permissions:
@@ -41,7 +42,7 @@ jobs:
           Copy-Item 'supabase/functions/ani-games-api/index.ts' (Join-Path $edgeTarget 'index.ts') -Force
           Copy-Item 'supabase/functions/ani-games-api/deno.json' (Join-Path $edgeTarget 'deno.json') -Force
           "PC_PROJECT_DIR=$($project.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "Selected V12.4.8 source: $($project.FullName)"
+          Write-Host "Selected V12.4.8 baseline source: $($project.FullName)"
 
       - name: Apply verified V12.4.5 through V12.4.8 source chain
         shell: pwsh
@@ -108,13 +109,36 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: anigamesready/PC-Billing
-          ref: 9b82889c10298a4574c9bd2781cf91d64b3f6521
+          ref: bd11d9b4e53ece362715a772f210c7e3b13adba1
           path: backend-contract
           sparse-checkout: |
             db-android-core/server/server.mjs
             db-android-core/schema
             db-android-core/ws-relay-stage/worker.mjs
           sparse-checkout-cone-mode: true
+
+      - name: Verify pinned DB Android source, Stop/Pause migration and relay identities
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $backendRoot = Join-Path $env:GITHUB_WORKSPACE 'backend-contract'
+          $expectedHead = 'bd11d9b4e53ece362715a772f210c7e3b13adba1'
+          $expectedServer = '7d0275687629c11faab8ce8080c4f1c0337d1ba1'
+          $expectedSql012 = '5cc5d22191487a52ce1fa0ae38d0db0666101dad'
+          $expectedWorker = '20948e7baf6b1456b154b8f2de4b43e9242e3367'
+          $actualHead = (git -C $backendRoot rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualHead -ne $expectedHead) { throw 'DB Android backend checkout SHA mismatch.' }
+          $serverSha = (git -C $backendRoot rev-parse 'HEAD:db-android-core/server/server.mjs').Trim()
+          if ($LASTEXITCODE -ne 0 -or $serverSha -ne $expectedServer) { throw 'DB Android API server blob SHA mismatch.' }
+          $sql012Sha = (git -C $backendRoot rev-parse 'HEAD:db-android-core/schema/012_billing_stop_pause_policy.sql').Trim()
+          if ($LASTEXITCODE -ne 0 -or $sql012Sha -ne $expectedSql012) { throw 'Stop/Pause SQL migration 012 blob SHA mismatch.' }
+          $workerSha = (git -C $backendRoot rev-parse 'HEAD:db-android-core/ws-relay-stage/worker.mjs').Trim()
+          if ($LASTEXITCODE -ne 0 -or $workerSha -ne $expectedWorker) { throw 'DB Android WebSocket relay worker blob SHA mismatch.' }
+          "DB_ANDROID_BACKEND_SHA=$actualHead" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "DB_ANDROID_SERVER_BLOB_SHA=$serverSha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "DB_ANDROID_SQL012_BLOB_SHA=$sql012Sha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "DB_ANDROID_WSS_WORKER_BLOB_SHA=$workerSha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host 'PASS: PC build is pinned to the latest DB Android API, Stop/Pause migration 012 and WSS relay source.'
 
       - name: Isolate the Windows DB Android application identity
         shell: pwsh
@@ -172,7 +196,7 @@ jobs:
           foreach ($forbidden in @('resolveDbRoute','shared-db-gateway','DB_ENDPOINTS','xcdbipgsvohesxhxydep','x-db-target-key','DB1_API_URL')) {
             if ($cloud.Contains($forbidden) -or $main.Contains($forbidden)) { throw "Supabase DB routing remains in the PC runtime: $forbidden" }
           }
-          foreach ($route in @('/device/enroll','/device/disconnect','/device/heartbeat','/device/ack','/device/sync','/device/pull','/device/test-policy','/device/rental/lookup','/device/session/start','/device/session/end','/device/rental/release','/device/sync-cursor','/device/alert')) {
+          foreach ($route in @('/device/enroll','/device/disconnect','/device/heartbeat','/device/ack','/device/sync','/device/pull','/device/test-policy','/device/rental/lookup','/device/session/start','/device/session/end','/device/rental/release','/device/sync-cursor','/device/alert','/device/session-control-policy')) {
             if (!$cloud.Contains("request('$route'")) { throw "Existing PC device API call missing: $route" }
           }
           foreach ($token in @('billing_v11_outbox','billing_v11_sync_cursor','billing_v11_sync_dirty','function heartbeatOnce()','function pullNow()','function syncNow()','billing_v11_token_rejected_hold')) {
@@ -287,15 +311,18 @@ jobs:
           $exeHash = (Get-FileHash $found.FullName -Algorithm SHA256).Hash
           $sourceHash = (Get-FileHash 'AniGames-PC-V12.1.0-ADMIN-POPUP-FIXED-SOURCE.zip' -Algorithm SHA256).Hash
           $patchSha = $env:GITHUB_SHA
-          $backendSha = 'd86e7ecfa82d7af29bb53d067a316984b1fef69b'
+          $backendSha = $env:DB_ANDROID_BACKEND_SHA
+          $backendServerSha = $env:DB_ANDROID_SERVER_BLOB_SHA
+          $backendSql012Sha = $env:DB_ANDROID_SQL012_BLOB_SHA
+          $backendWorkerSha = $env:DB_ANDROID_WSS_WORKER_BLOB_SHA
           @"
-          # Ani Games Ready PC Billing V12.4.8 DB Android
+          # Ani Games Ready PC Billing V12.4.9 DB Android
 
           - Repository: anigamesready/PC-Billing
-          - Branch: pc-billing-v12.4.8-db-android-clean-20261117
+          - Branch: $($env:GITHUB_REF_NAME)
           - Source commit: $patchSha
           - Baseline: fix/pc-v12.4.8-timer-size-sync @ bc6cd8561998dc0a2ccd8a8ec31b2d53b6a9ea19
-          - Redmi API + SQL + WSS contract commit: $backendSha
+          - DB Android source branch: feature/db-android-stage-simple-menu-v1`n          - DB Android backend commit: $backendSha`n          - DB Android API server blob SHA: $backendServerSha`n          - DB Android Stop/Pause SQL 012 blob SHA: $backendSql012Sha`n          - DB Android WSS relay worker blob SHA: $backendWorkerSha
           - Input source ZIP SHA-256: $sourceHash
           - EXE: AniGames Billing V12.4.9 DB Android.exe
           - EXE SHA-256: $exeHash
@@ -341,7 +368,7 @@ jobs:
       - name: Upload isolated PC DB Android candidate
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-PC-V12.4.8-DB-Android-FINAL
+          name: AniGames-PC-V12.4.9-DB-Android-FINAL
           path: AniGames-PC-V12.4.9-DB-Android-FINAL.zip
           if-no-files-found: error
           retention-days: 14
