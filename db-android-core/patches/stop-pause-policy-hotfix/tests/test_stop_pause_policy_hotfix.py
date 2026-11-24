@@ -100,6 +100,13 @@ class StopPauseApiHotfixTests(unittest.TestCase):
     def test_termux_installer_is_stage_only_and_checks_backups(self):
         shell = (ROOT / "APPLY-STOP-PAUSE-FIX.sh").read_text(encoding="utf-8")
         self.assertIn("ani_games_ready_stage", shell)
+        self.assertIn('/proc/$PID/environ', shell)
+        self.assertIn('decodeURIComponent(u.username) !== "ani_api_stage_login"', shell)
+        self.assertIn('u.hostname !== "127.0.0.1"', shell)
+        self.assertIn('vars.PORT !== expectedPort', shell)
+        self.assertIn('pg_postmaster_start_time()', shell)
+        self.assertIn('[ "$RUNTIME_DB_ID" = "$LOCAL_DB_ID" ]', shell)
+        self.assertLess(shell.index("RUNTIME_DB_ID="), shell.index("pg_dump --format=custom"))
         self.assertIn(r'API_PORT="${ANI_DB_STAGE_PORT:-8788}"', shell)
         self.assertIn("pg_dump --format=custom", shell)
         self.assertIn("pg_restore --list", shell)
