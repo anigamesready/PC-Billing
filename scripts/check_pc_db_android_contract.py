@@ -27,7 +27,7 @@ routines = {
  "/device/disconnect": ("api.device_disconnect",),
  "/device/alert": ("api.device_emit_admin_alert",),
  "/device/test-policy": ("api.device_free_test_policy",),
- "/device/session-control-policy": ("api.device_session_control_policy", "private.is_billing_stop_pause_enabled"),
+ "/device/session-control-policy": ("api.device_session_control_policy",),
  "/device/rental/lookup": ("api.device_rental_lookup",),
  "/device/session/start": ("api.device_start_rental_session",),
  "/device/session/end": ("api.device_end_rental_session",),
@@ -65,6 +65,10 @@ for routine in ("api.admin_get_billing_stop_pause_policy", "api.admin_set_billin
         raise SystemExit("ADMIN_STOP_PAUSE_SQL_ROUTINE_MISSING:" + routine)
 if "billing_stop_pause_enabled" not in schema:
     raise SystemExit("ADMIN_STOP_PAUSE_SETTING_MISSING")
+if not re.search(r"CREATE\s+OR\s+REPLACE\s+FUNCTION\s+private\.is_billing_stop_pause_enabled\s*\(", schema, re.I):
+    raise SystemExit("ADMIN_STOP_PAUSE_POLICY_HELPER_MISSING")
+if not re.search(r"device_session_control_policy\s*\([^)]*\).*?private\.is_billing_stop_pause_enabled\s*\(", schema, re.I | re.S):
+    raise SystemExit("DEVICE_STOP_PAUSE_POLICY_SQL_LINK_MISSING")
 if '<script src="v11-cloud.js"></script>' not in index or 'v11-Server DB Android.js' in index:
     raise SystemExit("PC_BILLING_SYNC_SCRIPT_NOT_LOADED")
 for key in ("billing_v11_cloud_config", "billing_v11_outbox", "billing_v11_session_outbox"):
