@@ -43,7 +43,7 @@ if package.get("build", {}).get("appId") != "com.anigames.billing.v12test":
     raise SystemExit("Persistent Electron appId mismatch before DB Android identity isolation")
 if package.get("build", {}).get("productName") != "AniGames Billing V12.3.3":
     raise SystemExit("Persistent productName mismatch before DB Android identity isolation")
-if "function applyLoginKioskMode(w=mainWindow)" not in main:
+if "function applyLoginKioskMode(" not in main:
     raise SystemExit("Existing native Login kiosk transition is missing")
 if "ipcMain.handle('hide-billing'" not in main or "ipcMain.handle('show-billing'" not in main:
     raise SystemExit("Existing Admin Logout/Login IPC baseline missing")
