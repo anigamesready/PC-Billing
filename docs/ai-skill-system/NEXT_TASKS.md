@@ -256,3 +256,12 @@ The V12.1.53 branch supersedes the earlier V12.1.51/V12.1.52 APK candidates. Do 
 - Do not delete/reset PGDATA, remove postmaster.pid manually, run initdb, migrate schema or rewrite .env.
 - Do not stop legacy API 8787, DB clients, Supabase, or separate Blynk/WoL relay.
 - Do not claim absolute uptime: phone power, Android Force Stop, storage, ISP/network and Cloudflare availability are outside the Termux supervisor's control.
+
+
+## Priority 0 — DB Android Always-On device acceptance (2026-11-24)
+- [ ] Download ANI-GAMES-READY-DB-ANDROID-ALWAYS-ON-1.1.0.zip and verify SHA-256 `01c5f25ca2f4774d5209f39b9083e39bf75b74502af9f89d56265c73f75257ac`.
+- [ ] Perform read-only Termux inventory and confirm current backup/restore evidence before installation; do not run setup/initdb or reset database.
+- [ ] Install isolated runit watchdog package; preserve existing API 8788, WSS agent, `.env`, PGDATA and API 8787.
+- [ ] Verify menu ON, close/reopen Termux menu, screen-off/Doze, Wi-Fi/mobile handover, process crash recovery, Termux:Boot reboot recovery, and explicit menu OFF.
+- [ ] Record the first 24-hour Redmi observation. Do not call the feature 24/7 accepted until real device tests pass.
+- [ ] Diagnose existing Worker 503 separately; confirm local PostgreSQL/API stay online during remote relay failure.
