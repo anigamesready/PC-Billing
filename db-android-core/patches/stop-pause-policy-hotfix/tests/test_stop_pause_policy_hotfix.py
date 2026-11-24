@@ -1,5 +1,7 @@
 from pathlib import Path
 import importlib.util
+import subprocess
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -115,6 +117,58 @@ class StopPauseApiHotfixTests(unittest.TestCase):
         self.assertIn('bash "$START_SCRIPT"', shell)
         self.assertIn("RPC_NOT_ALLOWED", shell)
         self.assertNotIn("ANI_DB_NAME=ani_games_ready", shell)
+
+
+    def _run_runtime_db_guard(self, file_db="ani_games_ready_stage", live_db="ani_games_ready_stage"):
+        shell = (ROOT / "APPLY-STOP-PAUSE-FIX.sh").read_text(encoding="utf-8")
+        marker = 'node --input-type=module - "$ENV_FILE" "/proc/$PID/environ" "$DB_NAME" "$API_PORT" <<\\'NODE\\'\n'
+        start = shell.index(marker) + len(marker)
+        end = shell.index("\nNODE\n", start)
+        node_source = shell[start:end]
+
+        with tempfile.TemporaryDirectory() as temp:
+            server = Path(temp)
+            package = server / "node_modules" / "pg"
+            package.mkdir(parents=True)
+            (package / "package.json").write_text(
+                '{"type":"module","exports":"./index.js"}', encoding="utf-8"
+            )
+            (package / "index.js").write_text(
+                "export class Client { async connect() {} "
+                "async query() { return { rows: [{ db: 'ani_games_ready_stage', started: 123 }] }; } "
+                "async end() {} }",
+                encoding="utf-8",
+            )
+            file_env = server / ".env"
+            proc_env = server / "process-environ"
+            def url(db):
+                return f"postgresql://ani_api_stage_login:abcdef@127.0.0.1:5432/{db}?sslmode=disable"
+            file_env.write_text(
+                f"DATABASE_URL={url(file_db)}\nANI_BIND=127.0.0.1\nPORT=8788\n",
+                encoding="utf-8",
+            )
+            proc_env.write_bytes(
+                f"DATABASE_URL={url(live_db)}\0ANI_BIND=127.0.0.1\0PORT=8788\0".encode()
+            )
+            return subprocess.run(
+                ["node", "--input-type=module", "-", str(file_env), str(proc_env),
+                 "ani_games_ready_stage", "8788"],
+                input=node_source, text=True, capture_output=True, cwd=server, check=False,
+            )
+
+    def test_runtime_db_guard_accepts_exact_stage_target(self):
+        result = self._run_runtime_db_guard()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "ani_games_ready_stage|123")
+
+    def test_runtime_db_guard_rejects_wrong_database_or_live_env_drift(self):
+        wrong_db = self._run_runtime_db_guard(file_db="ani_games_ready")
+        self.assertNotEqual(wrong_db.returncode, 0)
+        self.assertIn("STAGE_DATABASE_IDENTITY_CHECK_FAILED", wrong_db.stderr)
+
+        drift = self._run_runtime_db_guard(live_db="ani_games_ready")
+        self.assertNotEqual(drift.returncode, 0)
+        self.assertIn("STAGE_DATABASE_IDENTITY_CHECK_FAILED", drift.stderr)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
