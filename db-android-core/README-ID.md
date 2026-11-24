@@ -1,104 +1,109 @@
-# Ani Games Ready — DB Android Local API
+# Ani Games Ready — Android DB tunggal
 
-## Status
-Cabang ini adalah backend DB Android terpisah. Bukan cutover produksi dan tidak mengubah Supabase DB1/DB2.
+## Status arsitektur saat ini
 
-- Skema lokal: 24 tabel operasional DB1 tanpa data akun, hash password, token, atau secret produksi.
-- Migrasi yang diizinkan: `000` dan `002–017`; snapshot katalog `001` bukan migrasi.
-- API Node: protokol perangkat PC, pairing, heartbeat, sesi, delta sync, Admin, Billing Control dan Reseller.
-- Hak akses runtime minimum: Node memakai `ani_api_login` atau `ani_api_stage_login`; tidak mendapat akses langsung ke tabel bisnis.
-- Endpoint bawaan server dasar: loopback `127.0.0.1:8787`.
-- Paket STAGING terpisah: database `ani_games_ready_stage`, role `ani_api_stage_login`, API `127.0.0.1:8788`.
-- Blynk/WoL relay tetap service terpisah dan tidak diproxy, dihentikan, atau diubah oleh API database.
-- Source adapter/build PC Billing V12.4.8, Admin V12.1.50 dan Reseller V1.0.6 telah disiapkan di branch DB Android masing-masing.
-- CI PostgreSQL berhasil: migrasi lengkap, role/API allowlist, uji PC/Billing/Reseller/Admin, backup–restore, setup staging, Owner bootstrap, login dan context.
-- Instalasi dan uji perangkat nyata di Redmi belum dilakukan pada saat catatan ini dibuat.
-- Data Supabase DB1 belum diimpor. Database staging baru kosong dan bukan salinan produksi.
+Sistem bisnis Ani Games Ready memakai **satu database Android DB lokal** sebagai sumber data utama. Tidak ada konsep dual DB, pergantian target database, DB1/DB2 routing, atau sinkronisasi rental ke database kedua.
 
-## Aturan migrasi
-Hanya jalankan pada database BARU dan kosong. Urutan file:
+- PostgreSQL lokal Android DB pada Redmi.
+- Node API lokal default 127.0.0.1:8787.
+- Admin, PC Billing, Reseller dan Remote Play memakai database, identitas akun rental dan device_id yang sama.
+- Remote Play menambahkan schema remote_play pada database yang sama.
+- Dompet koin dan top-up dirancang sebagai modul tambahan pada schema remote_play; rancangan berada di drafts dan belum diterapkan.
+- Data aktif tidak boleh dihapus atau ditimpa. migrate-local.sh hanya untuk database baru dan kosong.
+- Source coin-wallet branch ini adalah persiapan desain, bukan deployment ke Redmi.
 
-1. `schema/000_prerequisites.sql`
-2. `schema/002_core_business_schema.sql`
-3. `schema/003_pc_device_api_functions.sql`
-4. `schema/004_billing_reseller_api.sql`
-5. `schema/005_runtime_privileges.sql`
-6. `schema/006_admin_local_auth_and_rpc.sql`
-7. `schema/007_billing_control_commands.sql`
-8. `schema/008_local_business_triggers.sql`
-9. `schema/009_admin_db1_business_routines.sql`
-10. `schema/010_billing_reseller_refresh_and_devices.sql`
-11. `schema/011_billing_control_android_rpcs.sql`\n12. `schema/012_billing_stop_pause_policy.sql`
+Blynk/WoL saat ini masih merupakan sidecar relay tersendiri. Node Android DB mengembalikan 501 RELAY_IS_SEPARATE_SERVICE untuk /wol/* dan /iot/*. Ini bukan database rental kedua; pemindahan relay ke API lokal perlu pekerjaan backend terpisah agar fungsi WoL tidak terputus.
 
-JANGAN menerapkan `schema/001_db1_catalog_snapshot.sql`. Jangan memasukkan tabel kontrol DB1/DB2, route-quiesce/before-image, Telegram outbox, atau shutdown scheduler sidecar.
+## Skema dan urutan migrasi database baru
 
-## Instalasi
-Untuk server dasar setelah PostgreSQL dan Node.js siap:
-```bash
-bash migrate-local.sh
-bash provision-runtime-role.sh
-bash install-deps.sh
-bash start.sh
-```
-Server dasar menggunakan port 8787. Jangan jalankan migrasi pada database yang sudah berisi tabel aplikasi.
+server/migrate-local.sh memeriksa database harus kosong sebelum menjalankan migrasi. Urutan saat ini:
 
-Paket Redmi STAGING menggunakan file `setup-stage.sh` dan membuat database/role/API terpisah pada port 8788. Petunjuk lengkap ada di `README-STAGE-ID.txt`. Setup staging berhenti bila database, role, folder, atau port 8788 sudah digunakan. Layanan lama port 8787 tidak ditargetkan.
+1. schema/000_prerequisites.sql
+2. schema/002_core_business_schema.sql
+3. schema/003_pc_device_api_functions.sql
+4. schema/004_billing_reseller_api.sql
+5. schema/005_runtime_privileges.sql
+6. schema/006_admin_local_auth_and_rpc.sql
+7. schema/007_billing_control_commands.sql
+8. schema/008_local_business_triggers.sql
+9. schema/009_admin_db1_business_routines.sql — nama file historis; fungsi berada pada Android DB yang sama.
+10. schema/010_billing_reseller_refresh_and_devices.sql
+11. schema/011_billing_control_android_rpcs.sql
+12. schema/012_billing_stop_pause_policy.sql
+13. schema/013_remote_play.sql
+14. schema/014_remote_play_pairing.sql
+15. schema/015_remote_play_admin_controls.sql
+16. schema/016_remote_play_cloudflare_mesh.sql
+17. schema/017_remote_play_dashboard_cooldown.sql
+18. schema/018_remote_play_server_watchdog.sql
+19. schema/019_remote_play_session_connected.sql
+
+schema/001_db1_catalog_snapshot.sql adalah snapshot katalog lama, bukan migrasi; jangan diterapkan.
+
+**Penting:** jangan jalankan migrate-local.sh pada database Redmi yang sudah berisi data. Untuk database aktif, setiap migrasi tambahan harus diuji pada PostgreSQL disposable, disertai backup dan verifikasi restore, diperiksa dependensi tabel/trigger/constraint/privilege/API allowlist, dan baru diterapkan setelah review.
+
+## Instalasi database baru / kosong
+
+Setelah PostgreSQL dan Node.js siap pada lingkungan Android, jalankan berurutan:
+
+    bash migrate-local.sh
+    bash provision-runtime-role.sh
+    bash install-deps.sh
+    bash start.sh
+
+Server dasar mendengarkan di loopback 127.0.0.1:8787. Jangan membuka binding ke 0.0.0.0 atau mengirim HTTP biasa melalui LAN. Akses antardevice memerlukan HTTPS gateway/reverse proxy dan CORS/origin terbatas.
 
 ## API
-### PC Billing
-- `POST /device/enroll`
-- `POST /device/heartbeat`
-- `POST /device/disconnect`
-- `POST /device/watchdog`
-- `POST /device/ack`
-- `POST /device/alert`
-- `POST /device/sync`
-- `POST /device/pull`
-- `POST /device/sync-cursor`
-- `POST /device/rentals`
-- `POST /device/test-policy`\n- `POST /device/session-control-policy` — dibaca PC hanya ketika tombol PAUSE/STOP ditekan
-- `POST /device/rental/lookup`
-- `POST /device/session/start`
-- `POST /device/session/end`
-- `POST /device/rental/release`
 
-Jalur yang sama tersedia di bawah `/functions/v1/ani-games-api/` untuk kompatibilitas bentuk URL Edge Function lama.
+Node hanya membuka fungsi yang masuk allowlist. Tidak ada akses langsung ke tabel bisnis melalui endpoint PostgREST generik.
 
-### Admin
-Login lokal, refresh session, context, daftar perangkat, state, pairing recovery, alerts, policy free test, izin PAUSE/STOP Billing, perintah PC, global rental CRUD, dan laporan periodik tersedia melalui allowlist `/rest/v1/rpc/*`.
+- GET /health
+- POST /rest/v1/rpc/<nama_fungsi>
+- Jalur kompatibilitas: /functions/v1/ani-games-api/<nama_fungsi>
+- Endpoint perangkat PC: /device/*
 
-### Billing Control pada Admin APK
-Login Billing Control, context, ganti password, daftar perangkat/sesi/rental per PC, tambah/edit/hapus rental, pause/resume/stop, restart Billing, trial, status command, serta putus pairing memakai token Billing Control terpisah. Reseller tidak diberi izin Windows/PC Control.
+Kelompok API yang tersedia:
+- Admin lokal: login, refresh, context, rental global CRUD, perangkat, laporan, policy dan perintah PC.
+- Billing Control: token terpisah, daftar sesi/rental, CRUD rental, pause/resume/stop, trial, status command dan putus pairing.
+- Reseller: daftar/tambah/edit/hapus rental dalam organisasi yang diizinkan.
+- Remote Play client: login/refresh/logout, dashboard, request session, stream-connected, heartbeat, end-session dan pairing.
+- Remote Play host: enroll, heartbeat, command queue, acknowledgement dan pairing.
+- Remote Play Admin: izin host/rental, credential client, enrollment host, sesi dan dashboard.
 
-### Reseller
-List/create/edit/delete global rental, status rental, refresh token dan session API memakai token yang dibatasi ke organisasi reseller. Reseller tidak memiliki akses tabel langsung dan tidak dapat mengirim Windows/PC command.
+## Keamanan
 
-### Health
-- `GET /health`
+- Jangan memasukkan password PostgreSQL, runtime secret, bootstrap token atau API secret ke APK/EXE.
+- Kredensial server hanya berada di .env lokal dengan izin file terbatas.
+- Admin, Billing Control, Reseller, PC client, Remote Play client dan Host memakai keluarga token berbeda.
+- Token disimpan sebagai hash; token refresh Android disimpan menggunakan Android Keystore.
+- Tabel remote_play tidak dibuka untuk akses langsung client; RPC allowlist menjadi satu-satunya jalur.
+- Fungsi Admin harus memvalidasi session token, role, organisasi dan kepemilikan data.
+- Log tidak boleh menyimpan password, token, bootstrap secret atau body request.
 
-API tidak menyediakan akses tabel PostgREST langsung. Hanya fungsi yang ada di allowlist yang dapat dipanggil oleh role runtime.
+## Catatan billing Remote Play
 
-## Batas keamanan
-- Jangan pernah memasukkan password PostgreSQL, service-role key, bootstrap token atau API secret ke APK/EXE.
-- Simpan kredensial runtime hanya pada `.env` lokal dengan izin file terbatas.
-- Admin, Billing Control, Reseller dan PC Device memakai keluarga token terpisah; token disimpan sebagai hash di database.
-- Refresh token Admin/Billing/Reseller di Android menggunakan Android Keystore-backed storage.
-- Binding default hanya loopback. Jangan membuka `0.0.0.0` atau menggunakan HTTP melalui LAN.
-- Sebelum PC Windows/HP lain dihubungkan, siapkan HTTPS tunnel/reverse proxy dan CORS/origin yang tepat. PC Billing menolak URL non-HTTPS selain loopback.
-- Log tidak boleh merekam password, token, bootstrap secret atau body request.
-- Blynk/WoL relay tidak dikelola oleh API database ini.
+Migrations 013–019 menyediakan control-plane Remote Play. Namun settlement bawaan 019 masih memotong public.rental_accounts.remaining_seconds. Itu hanya untuk mode rental-time.
 
-## Verifikasi dan batas hasil
-CI berjalan pada PostgreSQL disposable dengan data sintetis. CI sukses membuktikan skema, API dan installer staging lulus pengujian otomatis; tidak membuktikan Redmi telah diperbarui, akses HTTPS antar-perangkat tersedia, APK sudah diuji pada perangkat nyata, atau PC sudah dipairing ke Redmi.
+Sistem koin belum boleh diaktifkan sebelum:
+- sesi memiliki billing mode eksplisit;
+- settlement koin tidak mengubah remaining_seconds, expiry_at atau status rental lama;
+- heartbeat, stream-connected, end-session, watchdog dan Admin revoke dispatch ke settlement sesuai billing mode;
+- transaksi FIFO lot, expired, wallet balance dan ledger terbukti idempotent;
+- tes mode rental-time lama tetap lulus.
 
-Tidak ada data Supabase yang dipindahkan dan belum ada cutover produksi.
+Rancangan tabel dan API coin wallet ada di:
+- docs/REMOTE-COIN-ANDROID-DB-DESIGN.md
+- drafts/remote_coin_wallet_v1_NOT_APPLIED.sql
+
+File SQL di drafts adalah blueprint, bukan migrasi. Jangan memindahkannya ke schema sebelum implementasi dan pengujian lengkap.
+
+## Batas hasil audit
+
+CI pada PostgreSQL disposable membuktikan skema dan fungsi yang diuji pada source lulus; CI tidak membuktikan service Redmi sedang online, port/API aktif, HTTPS gateway siap, host StarDesk telah dipasangkan, atau APK telah diuji pada perangkat fisik. Pemeriksaan runtime Android harus dilakukan terpisah sebelum deployment.
 
 ## Rollback
-- Pekerjaan ada di `backend/db-android-core-v1`; master/Supabase tetap tidak berubah.
-- Sebelum instalasi staging di Redmi, buat dan verifikasi backup PostgreSQL.
-- Hentikan hanya proses Node staging jika perlu rollback. Jangan hentikan PostgreSQL atau relay Blynk/WoL.
-- Jangan drop database lokal untuk rollback. Ekspor data staging sebelum tindakan yang menghapus.
-\n\n## Izin PAUSE / STOP Billing\n\nPengaturan `billing_stop_pause_enabled` disimpan pada `private.admin_feature_settings` dan berlaku global untuk semua PC pada DB Android yang sama. Default OFF. Owner dapat membukanya dari Admin; PC membaca status ke server ketika penyewa menekan PAUSE/STOP atau tombol X. Koneksi gagal atau status tidak valid berarti aksi penyewa ditolak (fail-closed). Timer habis otomatis dan perintah kontrol jarak jauh dari Admin tidak memakai gate ini. Untuk database DB Android yang sudah ada, hentikan sementara server API, jalankan `schema/012_billing_stop_pause_policy.sql` sekali dengan akun PostgreSQL pemilik database, lalu jalankan kembali server terbaru. Migrasi ini hanya menambah pengaturan/fungsi/izin API; tidak mengubah sesi, rental, token, pairing, atau service WoL.\n
 
-## Remote Play (Moonlight / Sunshine)
-Remote Play menambah tabel dan RPC pada DB Android yang sama agar rental account dan device yang sudah ada dapat dipakai bersama. Migrasi 013–017 mencakup sesi Remote Play, host enrollment, tantangan pairing Sunshine, izin Admin per PC/per rental, alamat Cloudflare Mesh, dan status cooldown 10 menit. Fungsi Remote Play dipisahkan dari fungsi PC Billing, Admin dan Reseller yang sudah ada. Untuk database staging kosong, server/migrate-local.sh menerapkan urutan lengkap 000 dan 002–017. Jangan menjalankan installer database kosong pada DB aktif yang sudah berisi tabel; untuk DB aktif gunakan migrasi terpisah setelah backup dan review.
+- Pertahankan backup PostgreSQL yang bisa direstore dan backup source sebelum migrasi aktif.
+- Hentikan hanya proses Node API yang memang akan diperbarui; jangan hentikan PostgreSQL atau relay Blynk/WoL untuk update UI.
+- Jangan drop database aktif untuk rollback.
+- APK SAFE TEST memakai application ID berbeda agar dapat dipasang berdampingan dengan versi stabil.
