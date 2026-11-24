@@ -221,3 +221,13 @@
 - Current user-provided status remains: PostgreSQL 5432, API 8788 and local relay agent were ONLINE, while Worker health was HTTP 503 with `agent_connected=true` and `api/database=unknown`. Cloudflare Observability read-only logs showed repeated relay DO `POST /proxy` responses 503; the exact underlying local/DO application error is not yet identified.
 - No Redmi installation, active process change, PostgreSQL/PGDATA/.env/schema modification, APK/EXE change or Worker deployment was performed. Package is a candidate pending on-device install and acceptance.
 - Safety boundary: OFF stops PG only if API 8787 is not active and `pg_stat_activity` reports no other client sessions. If another service/session uses shared PGDATA, desired state remains STOPPED and the stage API/agent are stopped, but PostgreSQL stays ON to avoid breaking that other service. Android force-stop, device power/battery, storage failure, ISP/network loss and Cloudflare outage cannot be prevented by an unprivileged Termux controller.
+
+
+## Redmi DB Android — Always-On Control 1.1.0 (2026-11-24)
+- User requirement: after menu ON, keep the complete local DB Android stack active without menu/session exit stopping it; only explicit menu OFF can request shutdown.
+- Built a separate candidate package with persisted desired state, Termux runit service/watchdog, Termux:Boot helper, health separation, bounded API/agent recovery, and guarded PostgreSQL stop.
+- Local recovery order is existing PostgreSQL PGDATA → API 8788 → WSS agent. Remote Worker 503 is recorded separately and never used as a trigger to stop/restart local PostgreSQL/API.
+- OFF is accepted only from interactive menu after typing `MATIKAN DB`. PostgreSQL shutdown requires verified local process/port/session checks; if uncertain or other DB clients remain, PostgreSQL stays ON rather than risking shared services.
+- Package SHA-256 `01c5f25ca2f4774d5209f39b9083e39bf75b74502af9f89d56265c73f75257ac`; isolated fixture regression 11/11 PASS; shell syntax/checksums/ZIP integrity PASS.
+- Redmi physical installation and tests are NOT YET DONE. Android can still force-stop processes, lose power or network; no absolute uptime guarantee is claimed. Worker 503 remains open.
+- No database files/rows/schema/migrations, `.env`, secrets, port 8787, Supabase, Worker deployment or Blynk/WoL settings were changed.
