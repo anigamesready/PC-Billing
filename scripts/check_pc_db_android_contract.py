@@ -27,6 +27,7 @@ routines = {
  "/device/disconnect": ("api.device_disconnect",),
  "/device/alert": ("api.device_emit_admin_alert",),
  "/device/test-policy": ("api.device_free_test_policy",),
+ "/device/session-control-policy": ("api.device_session_control_policy", "private.is_billing_stop_pause_enabled"),
  "/device/rental/lookup": ("api.device_rental_lookup",),
  "/device/session/start": ("api.device_start_rental_session",),
  "/device/session/end": ("api.device_end_rental_session",),
@@ -57,6 +58,13 @@ if f"DEFAULT_API_BASE_URL='{url}'" not in cloud:
     raise SystemExit("DEFAULT_REDMi_WORKER_URL_MISSING")
 if "request('/device/disconnect'" not in cloud:
     raise SystemExit("PC_SERVER_DISCONNECT_MISSING")
+if "admin_get_billing_stop_pause_policy:" not in server or "admin_set_billing_stop_pause_policy:" not in server:
+    raise SystemExit("ADMIN_STOP_PAUSE_RPC_NOT_ALLOWED_BY_REDMi_API")
+for routine in ("api.admin_get_billing_stop_pause_policy", "api.admin_set_billing_stop_pause_policy"):
+    if not re.search(r"CREATE\s+OR\s+REPLACE\s+FUNCTION\s+" + re.escape(routine) + r"\s*\(", schema, re.I):
+        raise SystemExit("ADMIN_STOP_PAUSE_SQL_ROUTINE_MISSING:" + routine)
+if "billing_stop_pause_enabled" not in schema:
+    raise SystemExit("ADMIN_STOP_PAUSE_SETTING_MISSING")
 if '<script src="v11-cloud.js"></script>' not in index or 'v11-Server DB Android.js' in index:
     raise SystemExit("PC_BILLING_SYNC_SCRIPT_NOT_LOADED")
 for key in ("billing_v11_cloud_config", "billing_v11_outbox", "billing_v11_session_outbox"):
@@ -71,4 +79,5 @@ for required in ("main.js", "preload.js", "renderer.js", "index.html", "v11-clou
     if not (project / required).is_file():
         raise SystemExit("RUNTIME_ENTRY_MISSING:" + required)
 print("PASS: PC routes, Redmi API handlers, SQL routines and WSS Worker contract match.")
+print("PASS: PC Stop/Pause device gate and Admin Owner-only policy RPCs are present in server + SQL.")
 print("PASS: single Redmi DB Android target; no active DB1/DB2 router; local state/outbox keys preserved.")
